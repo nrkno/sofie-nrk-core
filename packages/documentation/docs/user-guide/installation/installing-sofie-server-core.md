@@ -60,21 +60,7 @@ services:
     image: sofietv/tv-automation-playout-gateway:release53
     restart: always
     environment:
-      DEVICE_ID: playoutGateway
-      CORE_HOST: core
-      CORE_PORT: '3000'
-    networks:
-      - sofie
-    depends_on:
-      - core
-
-  live-status-gateway:
-    image: sofietv/tv-automation-live-status-gateway:release53
-    restart: always
-    ports:
-      - '8080:8080'
-    environment:
-      DEVICE_ID: liveStatusGateway
+      DEVICE_ID: playoutGateway0
       CORE_HOST: core
       CORE_PORT: '3000'
     networks:
