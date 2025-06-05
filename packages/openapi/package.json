@@ -1,10 +1,10 @@
 {
 	"name": "@sofie-automation/openapi",
-	"version": "1.52.0-in-testing.0",
+	"version": "1.52.0-in-testing.1",
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/nrkno/sofie-core.git",
+		"url": "git+https://github.com/Sofie-Automation/sofie-core.git",
 		"directory": "packages/openapi"
 	},
 	"main": "dist/index.js",

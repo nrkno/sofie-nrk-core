@@ -8,7 +8,7 @@ sidebar_position: 2
 
 ### **Prerequisites**
 
-**\(Linux\)** Install [Docker](https://docs.docker.com/install/linux/docker-ce/ubuntu/) and [docker-compose](https://www.digitalocean.com/community/tutorials/how-to-install-docker-compose-on-ubuntu-18-04).  
+**\(Linux\)** Install [Docker](https://docs.docker.com/install/linux/docker-ce/ubuntu/) and [docker-compose](https://www.digitalocean.com/community/tutorials/how-to-install-docker-compose-on-ubuntu-18-04).
 **\(Windows\)** Install [Docker for Windows](https://hub.docker.com/editions/community/docker-ce-desktop-windows).
 
 ### Installation
@@ -137,7 +137,7 @@ There are some things not covered in this guide needed to run _Sofie_ in a produ
 
 Installation instructions for installing Sofie-Core or the various gateways are available in the README file in their respective github repos.
 
-Common prerequisites are [Node.js](https://nodejs.org/) and [Yarn](https://yarnpkg.com/).  
+Common prerequisites are [Node.js](https://nodejs.org/) and [Yarn](https://yarnpkg.com/).
 Links to the repos are listed at [Applications & Libraries](../../for-developers/libraries.md).
 
-[_Sofie&nbsp;Core_ GitHub Page for Developers](https://github.com/nrkno/sofie-core)
+[_Sofie&nbsp;Core_ GitHub Page for Developers](https://github.com/Sofie-Automation/sofie-core)

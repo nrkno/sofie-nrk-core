@@ -64,7 +64,7 @@ Implementation of changes to this package should be done inside of [/meteor/serv
 
 ### Breaking changes
 
-This package contains API definitions that are intended to be **STABLE**. When making changes to these, you should take extra care to try to avoid any breaking changes. Where breaking changes are necessary, [please open an issue](https://github.com/nrkno/sofie-core/issues) to announce the breaking change.
+This package contains API definitions that are intended to be **STABLE**. When making changes to these, you should take extra care to try to avoid any breaking changes. Where breaking changes are necessary, [please open an issue](https://github.com/Sofie-Automation/sofie-core/issues) to announce the breaking change.
 
 Any breaking changes should result in a major version bump in [/packages/openapi/api/actions.yaml](api/actions.yaml). The API version will also need to be updated in [/index.ts](/index.ts), as the version string is not exported by the OpenAPI code generator.
 
