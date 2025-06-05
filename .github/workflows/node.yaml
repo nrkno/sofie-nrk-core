@@ -480,7 +480,7 @@ jobs:
           CI: true
 
   test-packages:
-    name: Test Package
+    name: Test Package (main)
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
