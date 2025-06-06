@@ -9,7 +9,7 @@ jobs:
   prune-container-images:
     if: ${{ github.repository_owner == 'nrkno' }}
     
-    uses: nrkno/sofie-github-workflows/.github/workflows/prune-container-images.yml@main
+    uses: nrkno/sofie-nrk-github-workflows/.github/workflows/prune-container-images.yml@main
     strategy:
       max-parallel: 1
       matrix:
