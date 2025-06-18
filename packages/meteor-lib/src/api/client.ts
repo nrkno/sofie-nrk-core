@@ -48,12 +48,18 @@ export namespace ClientAPI {
 		/** On error, provide a human-readable error message */
 		error: UserError
 	}
+
 	/**
-	 * Used to reply to the user that the action didn't succeed (but it's not bad enough to log it as an error)
-	 * @param errorMessage
+	 * Returns a `ClientResponseError` object from a given `UserError`.
+	 *
+	 * If no `errorCode` is provided, it defaults to `error.errorCode` which is 500 when not specified. 
+	 *
+	 * @param error - The `UserError` instance containing error details.
+	 * @param errorCode - An optional error code to override the default `error.errorCode`.
+	 * @returns A `ClientResponseError` object containing the error and the resolved error code.
 	 */
 	export function responseError(error: UserError, errorCode?: number): ClientResponseError {
-		return { error, errorCode: errorCode ?? 500 }
+		return { error, errorCode: errorCode ?? error.errorCode }
 	}
 	export interface ClientResponseSuccess<Result> {
 		/** On success, return success code (by default, use 200) */
