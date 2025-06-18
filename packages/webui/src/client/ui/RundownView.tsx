@@ -1092,7 +1092,7 @@ const RundownViewContent = translateWithTracker<IPropsWithReady & ITrackedProps,
 				case SegmentViewMode.Storyboard:
 					return <SegmentStoryboardContainer {...resolvedSegmentProps} />
 				case SegmentViewMode.List:
-					return <SegmentListContainer {...resolvedSegmentProps} />
+					return <SegmentListContainer {...resolvedSegmentProps} hideRundownHeader={this.props.hideRundownHeader} />
 				case SegmentViewMode.Timeline:
 				default:
 					return <SegmentTimelineContainer {...resolvedSegmentProps} />
