@@ -60,7 +60,13 @@ function extractErrorCode(e: unknown): number {
 	}
 }
 
-function extractErrorMessage(e: unknown): string {
+function validateUserError(e: unknown): UserError | undefined {
+	if (UserError.isUserError(e)) {
+		return e as UserError
+	}
+}
+
+function extractErrorUserMessage(e: unknown): string {
 	if (ClientAPI.isClientResponseError(e)) {
 		return translateMessage(e.error.userMessage, interpollateTranslation)
 	} else if (UserError.isUserError(e)) {
@@ -119,7 +125,7 @@ interface APIRequestError {
 function sofieAPIRequest<API, Params, Body, Response>(
 	method: 'get' | 'post' | 'put' | 'delete',
 	route: string,
-	errMsgs: Map<number, UserErrorMessage[]>,
+	errMsgFallbacks: Map<number, UserErrorMessage[]>,
 	serverAPIFactory: APIFactory<API>,
 	handler: (
 		serverAPI: API,
@@ -140,21 +146,35 @@ function sofieAPIRequest<API, Params, Body, Response>(
 				ctx.params as unknown as Params,
 				ctx.request.body as unknown as Body
 			)
-			if (ClientAPI.isClientResponseError(response)) throw response.error
+			if (ClientAPI.isClientResponseError(response)) {
+				// We wrap our error in another error so the status code override is not lost
+				throw UserError.from(response.error.rawError, response.error.key, undefined, response.errorCode)
+			}
 			ctx.body = JSON.stringify({ status: response.success, result: response.result })
 			ctx.status = response.success
 		} catch (e) {
-			const errCode = extractErrorCode(e)
-			let errMsg = extractErrorMessage(e)
-			const msgs = errMsgs.get(errCode)
-			if (msgs) {
+			const userError = validateUserError(e)
+			const errCode = extractErrorCode(userError)
+			let errMsg = extractErrorUserMessage(userError)
+			// Get the fallback messages of the endpoint
+			const fallbackMsgs = errMsgFallbacks.get(errCode)
+
+			if (userError?.rawError.message) {
+				// If we have a detailed arbitrary error message then return that together with the standard error message.
+				const translatableMessage = {
+					key: `${errMsg} - ${userError?.rawError.message}`,
+				}
+				errMsg = translateMessage(translatableMessage, interpollateTranslation)
+			} else if (fallbackMsgs) {
+				// If no detailed error message is provided then return the fallback error messages.
 				const msgConcat = {
-					key: msgs
+					key: fallbackMsgs
 						.map((msg) => UserError.create(msg, undefined, errCode).userMessage.key)
-						.reduce((acc, msg) => acc + (acc.length ? ' or ' : '') + msg, ''),
+						.reduce((acc, msg) => acc + (acc.length ? ' or ' : '') + msg, errMsg),
 				}
 				errMsg = translateMessage(msgConcat, interpollateTranslation)
 			} else {
+				// Log unknown error codes
 				logger.error(
 					`${method.toUpperCase()} for route ${route} returned unexpected error code ${errCode} - ${errMsg}`
 				)
