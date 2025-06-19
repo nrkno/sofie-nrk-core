@@ -161,10 +161,12 @@ function sofieAPIRequest<API, Params, Body, Response>(
 
 			if (userError?.rawError.message) {
 				// If we have a detailed arbitrary error message then return that together with the standard error message.
-				const translatableMessage = {
-					key: `${errMsg} - ${userError?.rawError.message}`,
-				}
-				errMsg = translateMessage(translatableMessage, interpollateTranslation)
+				errMsg = `${translateMessage(
+					{
+						key: errMsg,
+					},
+					interpollateTranslation
+				)} - ${userError?.rawError.message}`
 			} else if (fallbackMsgs) {
 				// If no detailed error message is provided then return the fallback error messages.
 				const msgConcat = {
