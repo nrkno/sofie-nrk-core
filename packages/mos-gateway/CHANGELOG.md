@@ -32,6 +32,13 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 
 
+## [1.51.8](https://github.com/nrkno/sofie-core/compare/v1.51.7...v1.51.8) (2025-06-24)
+
+**Note:** Version bump only for package mos-gateway
+
+
+
+
 
 ## [1.51.7](https://github.com/nrkno/sofie-core/compare/v1.51.6...v1.51.7) (2025-05-06)
 
