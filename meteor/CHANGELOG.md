@@ -2,6 +2,8 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.52.0-in-testing.3](///compare/v1.52.0-in-testing.2...v1.52.0-in-testing.3) (2025-06-24)
+
 ## [1.52.0-in-testing.2](///compare/v1.51.8...v1.52.0-in-testing.2) (2025-06-24)
 
 
