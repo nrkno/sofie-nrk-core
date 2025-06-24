@@ -149,7 +149,7 @@ jobs:
           cd meteor
           yarn inject-git-hash
       - name: Prepare webui for meteor build
-        if: steps.check-build-and-push.outputs.enable == 'true'
+        if: steps.ghcr-tag.outputs.tags != 0
         run: |
           rm -Rf meteor/public
           cp -R packages/webui/dist meteor/public
