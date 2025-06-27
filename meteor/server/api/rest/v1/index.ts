@@ -153,6 +153,7 @@ function sofieAPIRequest<API, Params, Body, Response>(
 			ctx.body = JSON.stringify({ status: response.success, result: response.result })
 			ctx.status = response.success
 		} catch (e) {
+			console.log('LOOK HERE', e)
 			const userError = validateUserError(e)
 			const errCode = extractErrorCode(userError)
 			let errMsg = extractErrorUserMessage(userError)

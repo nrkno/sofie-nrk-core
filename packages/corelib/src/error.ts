@@ -1,6 +1,6 @@
 import { ITranslatableMessage } from '@sofie-automation/blueprints-integration'
 import { stringifyError } from '@sofie-automation/shared-lib/dist/lib/stringifyError'
-import { interpollateTranslation, translateMessage } from './TranslatableMessage.js'
+import { interpollateTranslation, isTranslatableMessage, translateMessage } from './TranslatableMessage.js'
 
 // Mock 't' function for i18next to find the keys
 function t(key: string): string {
@@ -137,6 +137,12 @@ export interface UserErrorObj {
 	readonly userMessage: ITranslatableMessage
 }
 
+export interface StringifiedUserErrorObject extends Omit<UserErrorObj, 'rawError'> {
+	rawError: Pick<Error, 'name' | 'message' | 'stack'>
+}
+
+export type StringifiedErrorObject = Omit<Error, 'cause'>
+
 export class UserError extends Error implements UserErrorObj {
 	public readonly errorCode: number
 
@@ -165,9 +171,9 @@ export class UserError extends Error implements UserErrorObj {
 	/** Create a UserError from an unknown possibly error input */
 	static fromUnknown(err: unknown, errorCode?: number): UserError {
 		if (err instanceof UserError) return err
-		if (this.isUserError(err))
-			return new UserError(new Error(err.rawError.toString()), err.key, err.userMessage, err.errorCode)
-
+		if (this.isUserError(err)) {
+			return new UserError(err.rawError, err.key, err.userMessage, err.errorCode)
+		}
 		const err2 = err instanceof Error ? err : new Error(stringifyError(err))
 		return new UserError(
 			err2,
@@ -184,9 +190,11 @@ export class UserError extends Error implements UserErrorObj {
 
 	static tryFromJSON(str: string): UserError | undefined {
 		try {
-			const p = JSON.parse(str)
-			if (UserError.isUserError(p)) {
-				return new UserError(new Error(p.rawError.toString()), p.key, p.userMessage, p.errorCode)
+			const p = UserError.fromJSON(str)
+			if (p) {
+				const newError = p.rawError as Error
+				const newUserError = new UserError(newError, p.key, p.userMessage, p.errorCode)
+				return newUserError
 			} else {
 				return undefined
 			}
@@ -196,12 +204,22 @@ export class UserError extends Error implements UserErrorObj {
 	}
 
 	static toJSON(e: UserErrorObj): string {
-		return JSON.stringify({
-			rawError: stringifyError(e.rawError),
+		const o: StringifiedUserErrorObject = {
+			rawError: {
+				name: e.rawError.name,
+				message: e.rawError.message,
+				stack: e.rawError.stack,
+			},
 			userMessage: e.userMessage,
 			key: e.key,
 			errorCode: e.errorCode,
-		})
+		}
+		return JSON.stringify(o)
+	}
+	static fromJSON(str: string): StringifiedUserErrorObject | undefined {
+		const o = JSON.parse(str)
+		if (isStringifiedUserErrorObject(o)) return o
+		return undefined
 	}
 
 	static isUserError(e: unknown): e is UserErrorObj {
@@ -211,4 +229,23 @@ export class UserError extends Error implements UserErrorObj {
 	toErrorString(): string {
 		return `${translateMessage(this.userMessage, interpollateTranslation)}\n${stringifyError(this.rawError)}`
 	}
+}
+
+function isStringifiedUserErrorObject(o: any): o is StringifiedUserErrorObject {
+	return (
+		o &&
+		typeof o === 'object' &&
+		'rawError' in o &&
+		o.rawError &&
+		isStringifiedErrorObject(o.rawError) &&
+		isTranslatableMessage(o.userMessage) &&
+		typeof o.errorCode === 'number' &&
+		typeof o.key === 'number' &&
+		o.key >= 0 &&
+		o.key < Object.keys(UserErrorMessage).length / 2
+	)
+}
+
+function isStringifiedErrorObject(o: any): o is StringifiedErrorObject {
+	return o && typeof o === 'object' && 'name' in o && 'message' in o && 'stack' in o
 }
