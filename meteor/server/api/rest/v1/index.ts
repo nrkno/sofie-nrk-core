@@ -50,8 +50,8 @@ koaRouter.use(bodyParser())
 
 function extractErrorCode(e: unknown): number {
 	if (ClientAPI.isClientResponseError(e)) {
-		return e.errorCode
-	} else if (UserError.isUserError(e)) {
+		return e.error.errorCode
+	} else if (UserError.isStringifiedUserErrorObject(e) || e instanceof UserError) {
 		return e.errorCode
 	} else if ((e as Meteor.Error).error && typeof (e as Meteor.Error).error === 'number') {
 		return (e as Meteor.Error).error as number
@@ -61,15 +61,17 @@ function extractErrorCode(e: unknown): number {
 }
 
 function validateUserError(e: unknown): UserError | undefined {
-	if (UserError.isUserError(e)) {
-		return e as UserError
+	if (e instanceof UserError) {
+		return e
+	} else if (UserError.isStringifiedUserErrorObject(e)) {
+		return UserError.fromUnknown(e)
 	}
 }
 
 function extractErrorUserMessage(e: unknown): string {
 	if (ClientAPI.isClientResponseError(e)) {
 		return translateMessage(e.error.userMessage, interpollateTranslation)
-	} else if (UserError.isUserError(e)) {
+	} else if (UserError.isStringifiedUserErrorObject(e) || e instanceof UserError) {
 		return translateMessage(e.userMessage, interpollateTranslation)
 	} else if ((e as Meteor.Error).reason && typeof (e as Meteor.Error).reason === 'string') {
 		return (e as Meteor.Error).reason as string
@@ -147,27 +149,27 @@ function sofieAPIRequest<API, Params, Body, Response>(
 				ctx.request.body as unknown as Body
 			)
 			if (ClientAPI.isClientResponseError(response)) {
-				// We wrap our error in another error so the status code override is not lost
-				throw UserError.from(response.error.rawError, response.error.key, undefined, response.errorCode)
+				throw UserError.fromSerialized(response.error)
 			}
 			ctx.body = JSON.stringify({ status: response.success, result: response.result })
 			ctx.status = response.success
 		} catch (e) {
 			console.log('LOOK HERE', e)
+
 			const userError = validateUserError(e)
 			const errCode = extractErrorCode(userError)
 			let errMsg = extractErrorUserMessage(userError)
 			// Get the fallback messages of the endpoint
 			const fallbackMsgs = errMsgFallbacks.get(errCode)
 
-			if (userError?.rawError.message) {
+			if (userError?.message) {
 				// If we have a detailed arbitrary error message then return that together with the standard error message.
 				errMsg = `${translateMessage(
 					{
 						key: errMsg,
 					},
 					interpollateTranslation
-				)} - ${userError?.rawError.message}`
+				)} - ${userError?.message}`
 			} else if (fallbackMsgs) {
 				// If no detailed error message is provided then return the fallback error messages.
 				const msgConcat = {
