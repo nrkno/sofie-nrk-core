@@ -108,7 +108,7 @@ const SIMULATION_INVALIDATION = 3000
  * @param {boolean} nextPartIsAfterCurrentPart
  * @param {(PartInstance | undefined)} currentPartInstance
  * @param {(PieceInstance[] | undefined)} currentPartInstancePieceInstances
- * @param {boolean} allowInfiniteAdlibToPersist Studio config parameter to allow infinite adlibs from adlib testing to persist in the rundown
+ * @param {boolean} allowTestingAdlibsToPersist Studio config parameter to allow infinite adlibs from adlib testing to persist in the rundown
  * @param {FindOptions<PieceInstance>} [options]
  * @param {boolean} [pieceInstanceSimulation] If there are no PieceInstances in the PartInstance, create temporary
  * 		PieceInstances based on the Pieces collection and register a reactive dependancy to recalculate the current
@@ -129,7 +129,7 @@ export function getPieceInstancesForPartInstance(
 	currentPartInstance: PartInstance | undefined,
 	currentSegment: Pick<DBSegment, '_id' | 'orphaned'> | undefined,
 	currentPartInstancePieceInstances: PieceInstance[] | undefined,
-	allowInfiniteAdlibToPersist: boolean,
+	allowTestingAdlibsToPersist: boolean,
 	/** Map of Pieces on Parts, passed through for performance */
 	allPiecesCache?: Map<PartId, Piece[]>,
 	options?: FindOptions<PieceInstance>,
@@ -165,7 +165,7 @@ export function getPieceInstancesForPartInstance(
 			partInstance._id,
 			nextPartIsAfterCurrentPart,
 			partInstance.isTemporary,
-			allowInfiniteAdlibToPersist
+			allowTestingAdlibsToPersist
 		)
 	} else {
 		const results =
@@ -213,7 +213,7 @@ export function getPieceInstancesForPartInstance(
 				partInstance._id,
 				nextPartIsAfterCurrentPart,
 				true,
-				allowInfiniteAdlibToPersist
+				allowTestingAdlibsToPersist
 			)
 		} else {
 			// otherwise, return results as they are

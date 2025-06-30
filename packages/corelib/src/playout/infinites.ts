@@ -104,10 +104,10 @@ export function getPlayheadTrackingInfinitesForPart(
 	newInstanceId: PartInstanceId,
 	nextPartIsAfterCurrentPart: boolean,
 	isTemporary: boolean,
-	allowInfiniteAdlibToPersist: boolean
+	allowTestingAdlibsToPersist: boolean
 ): PieceInstance[] {
 	if (
-		!allowInfiniteAdlibToPersist &&
+		!allowTestingAdlibsToPersist &&
 		intoSegment._id !== playingSegment._id &&
 		(intoSegment.orphaned === SegmentOrphanedReason.ADLIB_TESTING ||
 			playingSegment.orphaned === SegmentOrphanedReason.ADLIB_TESTING)
@@ -214,7 +214,7 @@ export function getPlayheadTrackingInfinitesForPart(
 								(segmentsToReceiveOnRundownEndFromSet.has(currentPartInstance.segmentId) ||
 									currentPartInstance.segmentId === intoPart.segmentId ||
 									// If infinites are allowed to persist, then the infinite is allowed to continue
-									(allowInfiniteAdlibToPersist &&
+									(allowTestingAdlibsToPersist &&
 										intoSegment.orphaned === SegmentOrphanedReason.ADLIB_TESTING))
 							break
 						case PieceLifespan.OutOnShowStyleEnd:
@@ -386,7 +386,7 @@ export function getPieceInstancesForPart(
 	newInstanceId: PartInstanceId,
 	nextPartIsAfterCurrentPart: boolean,
 	isTemporary: boolean,
-	allowInfiniteAdlibToPersist: boolean
+	allowTestingAdlibsToPersist: boolean
 ): PieceInstance[] {
 	const doesPieceAStartBeforePieceB = (
 		pieceA: ReadonlyDeep<PieceInstancePiece>,
@@ -465,7 +465,7 @@ export function getPieceInstancesForPart(
 					newInstanceId,
 					nextPartIsAfterCurrentPart,
 					isTemporary,
-					allowInfiniteAdlibToPersist
+					allowTestingAdlibsToPersist
 				)
 			: []
 

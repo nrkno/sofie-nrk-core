@@ -323,7 +323,7 @@ function StudioSettings({ studio }: { studio: DBStudio }): JSX.Element {
 			<LabelAndOverridesForCheckbox
 				label={t('Allow infinite adlibs to persist')}
 				item={wrappedItem}
-				itemKey={'allowInfiniteAdlibToPersist'}
+				itemKey={'allowTestingAdlibsToPersist'}
 				overrideHelper={overrideHelper}
 			>
 				{(value, handleUpdate) => <CheckboxControl value={!!value} handleUpdate={handleUpdate} />}

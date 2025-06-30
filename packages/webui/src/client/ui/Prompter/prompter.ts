@@ -63,7 +63,7 @@ export namespace PrompterAPI {
 	// TODO: discuss: move this implementation to server-side?
 	export function getPrompterData(
 		playlistId: RundownPlaylistId,
-		allowInfiniteAdlibToPersist: boolean
+		allowTestingAdlibsToPersist: boolean
 	): PrompterData | null {
 		if (typeof playlistId !== 'string') throw new Error('Expected `playlistId` to be a string')
 
@@ -235,7 +235,7 @@ export namespace PrompterAPI {
 					currentPartInstance,
 					currentSegment,
 					currentPartInstancePieceInstances,
-					allowInfiniteAdlibToPersist,
+					allowTestingAdlibsToPersist,
 					allPiecesCache,
 					pieceInstanceFieldOptions,
 					true

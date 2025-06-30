@@ -44,7 +44,7 @@ export interface IStudioSettings {
 	preserveOrphanedSegmentPositionInRundown?: boolean
 
 	/** Allow inifite adlibs from adlib testing mode to persist in the rundown */
-	allowInfiniteAdlibToPersist?: boolean
+	allowTestingAdlibsToPersist?: boolean
 
 	/**
 	 * The minimum amount of time, in milliseconds, that must pass after a take before another take may be performed.

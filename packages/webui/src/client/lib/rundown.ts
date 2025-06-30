@@ -497,7 +497,7 @@ export namespace RundownUtils {
 								pieceInstanceFieldOptions
 							).fetch()
 						: undefined,
-					studio?.settings.allowInfiniteAdlibToPersist ?? false,
+					studio?.settings.allowTestingAdlibsToPersist ?? false,
 					undefined,
 					pieceInstanceFieldOptions,
 					pieceInstanceSimulation

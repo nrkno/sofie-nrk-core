@@ -547,7 +547,7 @@ export class PrompterViewContent extends React.Component<Translated<IProps & ITr
 							<Prompter
 								rundownPlaylistId={this.props.rundownPlaylist._id}
 								config={this.configOptions}
-								allowInfiniteAdlibToPersist={this.props.studio?.settings.allowInfiniteAdlibToPersist ?? false}
+								allowTestingAdlibsToPersist={this.props.studio?.settings.allowTestingAdlibsToPersist ?? false}
 							>
 								{this.configOptions.showOverUnder && (
 									<OverUnderTimer rundownPlaylist={this.props.rundownPlaylist} style={overUnderStyle} />
@@ -637,7 +637,7 @@ export function PrompterView(props: Readonly<IProps>): JSX.Element {
 interface IPrompterProps {
 	rundownPlaylistId: RundownPlaylistId
 	config: PrompterConfig
-	allowInfiniteAdlibToPersist: boolean
+	allowTestingAdlibsToPersist: boolean
 }
 interface IPrompterTrackedProps {
 	prompterData: PrompterData | null
@@ -690,7 +690,7 @@ function Prompter(props: Readonly<PropsWithChildren<IPrompterProps>>): JSX.Eleme
 	)
 
 	const nextTrackedProps = useTracker(
-		() => PrompterAPI.getPrompterData(props.rundownPlaylistId, props.allowInfiniteAdlibToPersist),
+		() => PrompterAPI.getPrompterData(props.rundownPlaylistId, props.allowTestingAdlibsToPersist),
 		[props.rundownPlaylistId],
 		null
 	)

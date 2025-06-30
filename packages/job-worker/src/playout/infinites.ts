@@ -279,7 +279,7 @@ export async function syncPlayheadInfinitesForNextPartInstance(
 			toPartInstance.partInstance._id,
 			nextPartIsAfterCurrentPart,
 			false,
-			context.studio.settings.allowInfiniteAdlibToPersist ?? false
+			context.studio.settings.allowTestingAdlibsToPersist ?? false
 		)
 
 		toPartInstance.replaceInfinitesFromPreviousPlayhead(infinites)
@@ -380,7 +380,7 @@ export function getPieceInstancesForPart(
 		newInstanceId,
 		nextPartIsAfterCurrentPart,
 		false,
-		context.studio.settings.allowInfiniteAdlibToPersist ?? false
+		context.studio.settings.allowTestingAdlibsToPersist ?? false
 	)
 	if (span) span.end()
 	return res
