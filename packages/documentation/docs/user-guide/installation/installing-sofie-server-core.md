@@ -121,7 +121,7 @@ services:
   #     - core
 
   # mos-gateway:
-  #   image: sofietv/tv-automation-mos-gateway:release51
+  #   image: sofietv/tv-automation-mos-gateway:release52
   #   restart: always
   #   ports:
   #     - "10540:10540" # MOS Lower port
