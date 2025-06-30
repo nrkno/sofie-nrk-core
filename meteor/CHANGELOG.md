@@ -2,158 +2,16 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
-## [1.52.0-in-testing.3](///compare/v1.52.0-in-testing.2...v1.52.0-in-testing.3) (2025-06-24)
-
-## [1.52.0-in-testing.2](///compare/v1.51.8...v1.52.0-in-testing.2) (2025-06-24)
+## [1.52.0](///compare/v1.52.0-in-testing.1...v1.52.0) (2025-06-30)
 
 
 ### Bug Fixes
 
-* add `getCurrentTime` to `SyncIngestUpdateToPartInstanceContext` bb35893
 * blueprint fetch method missing a9491d3
-* Bring back onExit callback check 8c5dd70
-* change owner of application files, run as non-root user, linting 2de99a2
-* **Dialog:** resolve issue with dialog sizing 70a6059
-* **EAV-513:** prevent queued Part from hijacking infinite Pieces from the following Part(s) f222545
-* **EAV-514:** omit privateData in bucket adlib pieces and actions publications 7c45ad8
-* **EAV-524:** stringify error in executeAction b2d584e
-* **EAV-534:** duration of pieces with 'now' start time 031b96e
-* **EAV-555:** make prompter animations compatible with bootstrap 02b3559, closes #1429
-* **EAV-555:** make prompter scroll a6805ae, closes #1400
-* lost errors in some publications 04b3998
-* **migrations:** migrations migrate options as overrides instead of defaults dbc3bca
+* eventlistener on segmentBlock wasn't cleaned up 823e9c2
+* Memoryleak fixed in @jstarpl/react-contextmenu 2.15.1 ea0c4d4
 * missing fetch for blueprints, and minor logging changes ([#1471](undefined/undefined/undefined/issues/1471)) 4cec82b
-* **OverlayScreenSaver:** resolve issue with animation 15ba776
-* reimplement `removePartInstance` flow for `syncChangesToPartInstances` ab2023c
-* remove `velocity-animate` uses e13433e
-* remove deprecated `velocity-react` and `velocity-animate` f071414
-* resolve typing issue in syncChangesToPartInstance.test.ts 17106c7
-* **Segment Storyboard:** source layers aren't sorted accoring to rank d9d4d4c
-* some snapshots not restoring correctly due to id generation order c7d4a4d
 * system evaluations form message not saving SOFIE-4010 d89b35e
-* take into account a situation when .duration is 0. resolves [#1414](undefined/undefined/undefined/issues/1414) 32e12f6
-* take Part preroll into account when stopping a Piece with another Piece. 014a7b4
-* update TSR dependency, to update the timeline library to 9.0.3 to resolve [#1395](undefined/undefined/undefined/issues/1395) a757a66
-
-## [1.52.0-in-testing.0](///compare/v1.51.6...v1.52.0-in-testing.0) (2025-02-04)
-
-
-### ⚠ BREAKING CHANGES
-
-* remove showstyle and studio blueprint migrations
-
-### Features
-
-* add `notes` to `RundownPlaylist` and pipe notes from blueprints from `getRundownPlaylistInfo` and `getShowStyleId` c5b833d
-* add ignoreQuickLoop as an optional attr in the openAPI cf72b49
-* add in-out words to the VT type 7bec461
-* add RemoteSpeak source layer type a9b98e7
-* add segment timing countdownType 9aaa2dd
-* add snapshot creation to Stable API 806b0db
-* allow ab sessions to declare themselves as 'globally unique' 02be272
-* allow adlib-actions to remove pieces from the current partInstance 33514b1
-* allow adlib-actions to remove pieces from the current partInstance 902e7ff
-* allow drag from mos-plugin to part d51ba2f
-* always add `dnt=gateway` header for gateway connections c7bdfe6
-* clearer message on deactive on-air 8087506
-* config package manager from blueprints 685364d
-* configure Core system/studio settings via blueprints ef14c8f
-* configure peripheral device settings from blueprints 878214b
-* consistent rundown activation f14f212
-* convert action-triggers computation to async c2a6522
-* css UI align hover preview b17ec63
-* customizable package status messages 2ac7cb1
-* discardAsPrimary option in ModalDialog f259d95
-* dummy VT preview on ON AIR playhead when arg ignore_piece_content_status=1 6d7bdeb
-* **EAV-297:** add Shuttle WebHID prompter controller support 4f40cea
-* **EAV-323:** allow Take from Shuttle connected to Prompter View cc230ca
-* Evaluation form is optional in studio settings, with default turned on. e9f21fb
-* exclude pieces from part keepalive 74bea6c
-* hack add in out work in floating inspector for testing without styling 8c2eabd
-* list routesets from blueprints adlib action c228251
-* meteor 2.16 91e6a40
-* meteor 3.0.4 8670727
-* modify datastore in `onRundownActivate` SOFIE-3310 ([#1240](undefined/undefined/undefined/issues/1240)) 8a0759f
-* move next part should respect quickloop bounds 8f0153e
-* option to disable HOLD & direct play ([#32](undefined/undefined/undefined/issues/32)) b0daf75
-* option to disable/enable buckets ([#36](undefined/undefined/undefined/issues/36)) ea2cae1
-* options for reset/no reset on air in oneMinuteBeforeAction d2b30f0
-* processIngestData & userEditOperations e69a4fc
-* quickloop improvements f1f77fa
-* reimplement model `switchRouteSet` to perform operation on `context` to simplify persistence and future access of studio 4a1c882
-* remove broken accounts and auth in ui SOFIE-3326 ([#1241](undefined/undefined/undefined/issues/1241)) 3339dbd
-* remove showstyle and studio blueprint migrations 5a58f71
-* rework user permissions in the ui to use a react context 81bf9cb
-* routeset config defined in blueprints e839b97
-* routeset controlled ab player assignment 5120882
-* Server-side notifications [#1193](undefined/undefined/undefined/issues/1193) d9fafe0
-* Sofie Core Groups with Trusted header SOFIE-95 c4b8da5
-* support for http header in packagemanager 1e5bbc6
-* update meteor to 3.1 and node to 22 61b6854
-* vite deduplicate meteor lib SOFIE-3360 ([#1235](undefined/undefined/undefined/issues/1235)) caa2a38
-* vite reduce reliance on copied Meteor code ([#1239](undefined/undefined/undefined/issues/1239)) 3bbeb56
-* vt - inout add text in preview window d234a78
-
-
-### Bug Fixes
-
-* `queuedSegmentId` ignored when taking last part of the rundown d7a216d
-* action triggers editor not showing previews 005a0e5
-* **AdLibPanel:** support hidden on AdLibPieces 175b5ff
-* asyncapi-generator-react-sdk patch 43e0564
-* avoid excessive applyAndValidateOverrides 5ef7c34
-* consistent active onair e1a95bd
-* **Cronjob:** don't restart CasparCG using the nightly cronjob if there's a Rundown active in the Studio eb35f0e
-* css VT hover align in and out words c3f0761
-* dis-/en-able heartbeat when openMediaHotStandby e2fe446
-* **EAV-297:** prompter imports 587ad1a
-* **EAV-491:** remove leftover publication names 21de23c
-* ensure ab sessions get reordered when adlibbing a fixed duration piece f4e61fa
-* ensure pieces don't claim to have durations when their end has not yet been decided 250b5d7
-* ensure timeline is regenerated after switching routeset affecting ab players 99533aa
-* fixed width on inspector c77b6a5
-* go to renderDataMissing() is rundown is not found - and revert previous implentation 92b9e85
-* handle durations of onRundownChange infinites correctly when spanning into another part bb4c22b
-* implement editor ui 954a05a
-* In kiosk mode, rundown page gets stalled if rundown is removed while on the page. 298c0fd
-* in out words on VT should always be white 4346290
-* koa not serving app for non-root url c7c1d10
-* make openMediaHotStandby option pr subdevice, and rename from hotStandby to openMediaHotStandby ce68543
-* make reset and activate primary button 7274b8c
-* missing font once packaged with vite 88fc61d
-* missing roboto font after scss cleanup ddab6df
-* MosGateway hotstandby - send message for both servers if both connections are offline 72c765f
-* no quickloop autotake on parts that were running for a long time e8826c1
-* **NotificationPopUp:** buttons have no margins d60dfc4
-* package-manager publications forcing arguments 44b475e
-* patch `timecode` dependency to work once packaged with vite 7438176
-* prefer field_order from package info stream over deepscan 3b4cdda
-* prompter skipped pieces df0dc95
-* publications not becoming ready when returning null c593560
-* quickloop rundown reset 6950fea
-* re-implement setReady to false in useSubscriptionIfEnabled() 7c4f1ae
-* remove Meteor.absoluteUrl and proxy ddp through vite. 8292d96
-* remove unused `rundownIds` parameter from `MeteorPubSub.uiPartInstances` publication c9e739d
-* remove unused meteor ui packages ed82e6b
-* removing parts/segments with quickloop markers f94db28
-* reset segments when added to an active loop 52ede26
-* restore test 474e0d3
-* review comments 752a30a
-* rework versionExtended flow to be done via meteor runtime_config 8e16b94
-* rundown reset resets quickloop markers 5c78889
-* sofie logo not showing in dev 8704ff8
-* **SOFIE-69:** wrong defaults in calls to selectNextPart 5fbea60
-* some styling bugs 5dc59ed
-* the scss structure was reimporting colors and variable multiple places. This is now replaced to be only in main.scss 8b926ac
-* track segmentStartedPlayback against `SegmentPlayoutId` instead of `SegmentId` 22b4a3c
-* type mismatch and confusing ui for enabling/disabling ab players 082b1d8
-* **ui:** timing in quickloop 425d229
-* Unable to clear infinites a9daca2
-* unable to remove peripheralDevice 3d559f1
-* update mos-connection dependency (SOFIE-3006) ([#1251](undefined/undefined/undefined/issues/1251)) d5c2cad
-* update mos-connection dependency: fixes an issue where ExternalMetadata.MosPayload was not passed through if content is a string d499893
-* use segment budget duration for segment duration counter ([#15](undefined/undefined/undefined/issues/15)) a498d90
-* webui eslint failure 339f8cb
 
 ## [1.52.0-in-testing.1](https://github.com/nrkno/sofie-core/compare/v1.51.7...v1.52.0-in-testing.1) (2025-06-05)
 
