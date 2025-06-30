@@ -166,7 +166,12 @@ export class UserError extends Error {
 	}
 	/** Create a UserError duplicating the same error for the log */
 	static create(key: UserErrorMessage, args?: { [k: string]: any }, errorCode?: number): UserError {
-		return UserError.from(new Error(UserErrorMessagesTranslations[key]), key, args, errorCode)
+		return UserError.from(
+			new Error(translateMessage({ key: UserErrorMessagesTranslations[key], args }, interpollateTranslation)),
+			key,
+			args,
+			errorCode
+		)
 	}
 	static fromSerialized(o: SerializedUserError): UserError {
 		return new UserError(o.rawError, o.key, o.userMessage, o.errorCode)

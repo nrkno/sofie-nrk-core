@@ -154,23 +154,13 @@ function sofieAPIRequest<API, Params, Body, Response>(
 			ctx.body = JSON.stringify({ status: response.success, result: response.result })
 			ctx.status = response.success
 		} catch (e) {
-			console.log('LOOK HERE', e)
-
 			const userError = validateUserError(e)
-			const errCode = extractErrorCode(userError)
-			let errMsg = extractErrorUserMessage(userError)
+			const errCode = extractErrorCode(e)
+			let errMsg = extractErrorUserMessage(e)
 			// Get the fallback messages of the endpoint
 			const fallbackMsgs = errMsgFallbacks.get(errCode)
 
-			if (userError?.message) {
-				// If we have a detailed arbitrary error message then return that together with the standard error message.
-				errMsg = `${translateMessage(
-					{
-						key: errMsg,
-					},
-					interpollateTranslation
-				)} - ${userError?.message}`
-			} else if (fallbackMsgs) {
+			if (fallbackMsgs && (userError?.message === errMsg || userError?.message === '')) {
 				// If no detailed error message is provided then return the fallback error messages.
 				const msgConcat = {
 					key: fallbackMsgs
@@ -178,14 +168,16 @@ function sofieAPIRequest<API, Params, Body, Response>(
 						.reduce((acc, msg) => acc + (acc.length ? ' or ' : '') + msg, errMsg),
 				}
 				errMsg = translateMessage(msgConcat, interpollateTranslation)
-			} else {
-				// Log unknown error codes
-				logger.error(
-					`${method.toUpperCase()} for route ${route} returned unexpected error code ${errCode} - ${errMsg}`
-				)
+			} else if (userError?.message) {
+				// If we have a detailed arbitrary error message then return that together with the standard error message.
+				errMsg = `${errMsg}${userError.message !== errMsg && userError.message !== '' ? ` - ${userError?.message}` : ''}`
 			}
 
-			logger.error(`${method.toUpperCase()} failed for route ${route}: ${errCode} - ${errMsg}`)
+			// Log unknown error codes
+			logger.error(
+				`${method.toUpperCase()} failed for route ${route}:${!fallbackMsgs ? ' returned unexpected error code' : ''} ${errCode} - ${errMsg}`
+			)
+
 			ctx.type = 'application/json'
 			const bodyObj: APIRequestError = { status: errCode, message: errMsg }
 			const details = extractErrorDetails(e)
