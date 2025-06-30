@@ -108,35 +108,33 @@ services:
   # If using the Rundown Editor, then none of the below images are needed.
   # The Rundown Editor can be found here: https://github.com/SuperFlyTV/sofie-automation-rundown-editor
 
-  spreadsheet-gateway:
-    image: superflytv/sofie-spreadsheet-gateway:latest
-    restart: always
-    environment:
-      DEVICE_ID: spreadsheetGateway
-      CORE_HOST: core
-      CORE_PORT: '3000'
-    networks:
-      - sofie
-    depends_on:
-      - core
-    profiles: [spreadsheet-gateway]
+  # spreadsheet-gateway:
+  #   image: superflytv/sofie-spreadsheet-gateway:latest
+  #   restart: always
+  #   environment:
+  #     DEVICE_ID: spreadsheetGateway0
+  #     CORE_HOST: core
+  #     CORE_PORT: '3000'
+  #   networks:
+  #     - sofie
+  #   depends_on:
+  #     - core
 
-  mos-gateway:
-    image: sofietv/tv-automation-mos-gateway:release53
-    restart: always
-    ports:
-      - '10540:10540' # MOS Lower port
-      - '10541:10541' # MOS Upper port
-      # - '10542:10542' # MOS query port - not used
-    environment:
-      DEVICE_ID: mosGateway
-      CORE_HOST: core
-      CORE_PORT: '3000'
-    networks:
-      - sofie
-    depends_on:
-      - core
-    profiles: [mos-gateway]
+  # mos-gateway:
+  #   image: sofietv/tv-automation-mos-gateway:release51
+  #   restart: always
+  #   ports:
+  #     - "10540:10540" # MOS Lower port
+  #     - "10541:10541" # MOS Upper port
+  #     # - "10542:10542" # MOS query port - not used
+  #   environment:
+  #     DEVICE_ID: mosGateway0
+  #     CORE_HOST: core
+  #     CORE_PORT: '3000'
+  #   networks:
+  #     - sofie
+  #   depends_on:
+  #     - core
 
   inews-gateway:
     image: tv2media/inews-ftp-gateway:1.37.0-in-testing.20
