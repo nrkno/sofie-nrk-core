@@ -15,7 +15,7 @@ import { TranslationsBundleId } from '@sofie-automation/corelib/dist/dataModel/I
 import { TranslationsBundles } from '../collections/index.js'
 import { catchError } from '../lib/lib.js'
 import { relativeToSiteRootUrl } from '../url.js'
-import { UserError } from '@sofie-automation/corelib/dist/error.js'
+import { UserError } from '@sofie-automation/corelib/dist/error'
 
 const i18nOptions = {
 	fallbackLng: {
