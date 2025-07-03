@@ -68,7 +68,8 @@ expect.extend({
 			received = received.error
 		}
 
-		if (received instanceof UserError) {
+		if (UserError.isSerializedUserErrorObject(received)) {
+			received = UserError.fromUnknown(received)
 			const pass = !!received.toString().match(regexp)
 			return {
 				message: () => `expected ${stringifyError(received)} to match ${regexp}`,
