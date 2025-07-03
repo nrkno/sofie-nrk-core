@@ -51,7 +51,7 @@ koaRouter.use(bodyParser())
 function extractErrorCode(e: unknown): number {
 	if (ClientAPI.isClientResponseError(e)) {
 		return e.error.errorCode
-	} else if (UserError.isStringifiedUserErrorObject(e) || e instanceof UserError) {
+	} else if (UserError.isSerializedUserErrorObject(e) || e instanceof UserError) {
 		return e.errorCode
 	} else if ((e as Meteor.Error).error && typeof (e as Meteor.Error).error === 'number') {
 		return (e as Meteor.Error).error as number
@@ -63,7 +63,7 @@ function extractErrorCode(e: unknown): number {
 function validateUserError(e: unknown): UserError | undefined {
 	if (e instanceof UserError) {
 		return e
-	} else if (UserError.isStringifiedUserErrorObject(e)) {
+	} else if (UserError.isSerializedUserErrorObject(e)) {
 		return UserError.fromUnknown(e)
 	}
 }
@@ -71,7 +71,7 @@ function validateUserError(e: unknown): UserError | undefined {
 function extractErrorUserMessage(e: unknown): string {
 	if (ClientAPI.isClientResponseError(e)) {
 		return translateMessage(e.error.userMessage, interpollateTranslation)
-	} else if (UserError.isStringifiedUserErrorObject(e) || e instanceof UserError) {
+	} else if (UserError.isSerializedUserErrorObject(e) || e instanceof UserError) {
 		return translateMessage(e.userMessage, interpollateTranslation)
 	} else if ((e as Meteor.Error).reason && typeof (e as Meteor.Error).reason === 'string') {
 		return (e as Meteor.Error).reason as string

@@ -180,7 +180,7 @@ export class UserError extends Error {
 	static fromUnknown(err: unknown, errorCode?: number): UserError {
 		if (err instanceof UserError) return err
 
-		if (this.isStringifiedUserErrorObject(err)) {
+		if (this.isSerializedUserErrorObject(err)) {
 			return new UserError(err.rawError, err.key, err.userMessage, err.errorCode)
 		}
 		const err2 = err instanceof Error ? err : new Error(stringifyError(err))
@@ -202,7 +202,7 @@ export class UserError extends Error {
 			return undefined
 		}
 
-		if (this.isStringifiedUserErrorObject(p)) {
+		if (this.isSerializedUserErrorObject(p)) {
 			return new UserError(p.rawError, p.key, p.userMessage, p.errorCode)
 		} else {
 			return undefined
@@ -227,10 +227,10 @@ export class UserError extends Error {
 	}
 	static fromJSON(str: string): SerializedUserError | undefined {
 		const o = JSON.parse(str)
-		if (this.isStringifiedUserErrorObject(o)) return o
+		if (this.isSerializedUserErrorObject(o)) return o
 		return undefined
 	}
-	static isStringifiedUserErrorObject(o: unknown): o is SerializedUserError {
+	static isSerializedUserErrorObject(o: unknown): o is SerializedUserError {
 		if (!o || typeof o !== 'object') return false
 		const errorObject = o as SerializedUserError
 

@@ -80,7 +80,7 @@ export namespace ClientAPI {
 	export function isClientResponseError(res: unknown): res is ClientResponseError {
 		const res0 = res as ClientResponseError
 		return (
-			!!res0 && typeof res0 === 'object' && 'error' in res0 && UserError.isStringifiedUserErrorObject(res0.error)
+			!!res0 && typeof res0 === 'object' && 'error' in res0 && UserError.isSerializedUserErrorObject(res0.error)
 		)
 	}
 	export function isClientResponseSuccess(res: unknown): res is ClientResponseSuccess<any> {
