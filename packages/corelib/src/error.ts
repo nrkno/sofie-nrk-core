@@ -182,6 +182,11 @@ export class UserError extends Error {
 
 		if (this.isSerializedUserErrorObject(err)) {
 			return new UserError(err.rawError, err.key, err.userMessage, err.errorCode)
+		} else if (typeof err === 'string') {
+			const errorFromJson = this.tryFromJSON(err)
+			if (errorFromJson) {
+				return errorFromJson
+			}
 		}
 		const err2 = err instanceof Error ? err : new Error(stringifyError(err))
 		return new UserError(
@@ -248,5 +253,9 @@ export class UserError extends Error {
 
 	toErrorString(): string {
 		return `${translateMessage(this.userMessage, interpollateTranslation)}\n${stringifyError(this)}`
+	}
+
+	toString(): string {
+		return UserError.toJSON(this)
 	}
 }
