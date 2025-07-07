@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.52.1](///compare/v1.52.0+nrk...v1.52.1) (2025-07-07)
+
+
+### Bug Fixes
+
+* **Presenter Screen:** Diff is showing incorrect values edb9645
+
 ## [1.52.0](///compare/v1.52.0-in-testing.1...v1.52.0) (2025-06-30)
 
 
