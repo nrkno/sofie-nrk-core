@@ -211,7 +211,7 @@ describe('PropertiesPanel', () => {
 				label: { key: 'TEST_LABEL', namespaces: ['blueprint_main-showstyle'] },
 				type: UserEditingType.ACTION,
 				isActive: false,
-				svgIcon: '<svg></svg>',
+				icon: 'test-op-operation1.svg',
 			},
 		],
 		userEditProperties: {
@@ -221,7 +221,7 @@ describe('PropertiesPanel', () => {
 					label: { key: 'TEST_LABEL', namespaces: ['blueprint_main-showstyle'] },
 					type: UserEditingType.ACTION,
 					isActive: false,
-					svgIcon: '<svg></svg>',
+					icon: 'test-prop-operation1.svg',
 				},
 			],
 			translationNamespaces: ['blueprint_main-showstyle'],
