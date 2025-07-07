@@ -57,6 +57,7 @@ import { logger } from '../../lib/logging'
 import * as RundownResolver from '../../lib/RundownResolver'
 import { DBSegment } from '@sofie-automation/corelib/dist/dataModel/Segment'
 import { SelectedElementsContext } from '../RundownView/SelectedElementsContext'
+import { BlueprintAssetIcon } from '../../lib/Components/BlueprintAssetIcon'
 
 interface IProps {
 	id: string
@@ -1265,16 +1266,14 @@ function HeaderEditStates({ userEditOperations }: HeaderEditStatesProps) {
 		<div className="segment-timeline__title__user-edit-states">
 			{userEditOperations &&
 				userEditOperations.map((operation) => {
-					if (operation.type !== UserEditingType.ACTION || !operation.svgIcon || !operation.isActive) return null
+					if (operation.type !== UserEditingType.ACTION || !operation.icon || !operation.isActive) return null
 
 					return (
-						<div
+						<BlueprintAssetIcon
 							key={operation.id}
+							src={operation.icon}
 							className="segment-timeline__title__user-edit-state"
-							dangerouslySetInnerHTML={{
-								__html: operation.svgIcon,
-							}}
-						></div>
+						/>
 					)
 				})}
 		</div>

@@ -22,9 +22,9 @@ export interface UserEditingDefinitionAction {
 	/** Label to show to the user for this operation */
 	label: ITranslatableMessage
 	/** Icon to show when this action is 'active' */
-	svgIcon?: string
+	icon?: string
 	/** Icon to show when this action is 'disabled' */
-	svgIconInactive?: string
+	iconInactive?: string
 	/** Whether this action should be indicated as being active */
 	isActive?: boolean
 }
