@@ -174,27 +174,12 @@ export default function ShelfContextMenu(props: Readonly<ShelfContextMenuProps>)
 				)}
 				{(context?.type === ContextType.BUCKET_ADLIB || context?.type === ContextType.ADLIB) && (
 					<>
-						{(startExecuteMenuItems !== null ||
-							props.shelfDisplayOptions.enableInspector ||
-							context.type === ContextType.BUCKET_ADLIB) && (
+						{(startExecuteMenuItems !== null || context.type === ContextType.BUCKET_ADLIB) && (
 							<>
 								<div className="react-contextmenu-label">{context.details.adLib.name}</div>
 								{startExecuteMenuItems}
 								<hr />
 							</>
-						)}
-						{props.shelfDisplayOptions.enableInspector && (
-							<MenuItem
-								onClick={(e) => {
-									e.persist()
-									RundownViewEventBus.emit(RundownViewEvents.SELECT_PIECE, {
-										piece: context.details.adLib,
-										context: e,
-									})
-								}}
-							>
-								{t('Inspect this AdLib')}
-							</MenuItem>
 						)}
 					</>
 				)}
