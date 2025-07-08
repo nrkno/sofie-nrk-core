@@ -55,5 +55,13 @@ nav.react-contextmenu {
 		&.react-contextmenu-item--disabled {
 			opacity: 0.5;
 		}
+
+		> svg, > .svg {
+			width: 17px;
+			height: 17px;
+			object-fit: contain;
+			margin-left: -10px;
+			margin-right: 10px;
+		}
 	}
 }
