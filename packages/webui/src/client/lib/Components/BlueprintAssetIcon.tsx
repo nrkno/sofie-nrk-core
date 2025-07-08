@@ -4,7 +4,9 @@ import { createPrivateApiPath } from '../../url'
 const GLOBAL_BLUEPRINT_ASSET_CACHE: Record<string, string> = {}
 
 export function BlueprintAssetIcon({ src, className }: { src: string; className?: string }): JSX.Element | null {
-	const url = useMemo(() => new URL(createPrivateApiPath(src)), [src])
+	const url = useMemo(() => {
+		return new URL(createPrivateApiPath('/blueprints/assets/' + src), location.href)
+	}, [src])
 	const [svgAsset, setSvgAsset] = useState<string | null>(GLOBAL_BLUEPRINT_ASSET_CACHE[url.href] ?? null)
 
 	useEffect(() => {
@@ -19,7 +21,10 @@ export function BlueprintAssetIcon({ src, className }: { src: string; className?
 			signal: abort.signal,
 		})
 			.then((res) => {
-				if (res.status !== 200) throw new Error(`Invalid response code: ${res.status} ${res.statusText}`)
+				if (res.status !== 200) throw new Error(`Invalid response code: ${url} ${res.status} ${res.statusText}`)
+				if (!res.headers.get('content-type')?.startsWith('image/svg'))
+					throw new Error(`Asset is not an SVG image: ${url}`)
+
 				return res.text()
 			})
 			.then((body) => {
