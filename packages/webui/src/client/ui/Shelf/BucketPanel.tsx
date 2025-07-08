@@ -12,8 +12,6 @@ import {
 	DropTargetMonitor,
 	ConnectDragPreview,
 } from 'react-dnd'
-import { faBars } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { OutputLayers, SourceLayers } from '@sofie-automation/corelib/dist/dataModel/ShowStyleBase'
 import {
 	ISourceLayer,
@@ -75,6 +73,7 @@ import { CorelibPubSub } from '@sofie-automation/corelib/dist/pubsub'
 import { withTranslation } from 'react-i18next'
 import { useRundownAndShowStyleIdsForPlaylist } from '../util/useRundownAndShowStyleIdsForPlaylist'
 import _ from 'underscore'
+import { BucketHandle } from '../../lib/ui/icons/shelf.js'
 
 interface IBucketPanelDragObject {
 	id: BucketId
@@ -859,7 +858,7 @@ const BucketPanelContent = withTranslation()(
 										<h4 className="dashboard-panel__header">
 											{connectDragSource(
 												<span className="dashboard-panel__handle">
-													<FontAwesomeIcon icon={faBars} />
+													<BucketHandle />
 												</span>
 											)}
 											&nbsp;
