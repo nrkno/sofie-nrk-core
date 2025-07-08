@@ -12,7 +12,10 @@ export function BlueprintAssetIcon({ src, className }: { src: string; className?
 
 	useEffect(() => {
 		if (svgAsset) return
-		if (url.origin !== window.origin) return
+		if (url.origin !== window.origin && url.origin !== null) {
+			console.error(`Invalid origin for BlueprintAssetIcon: ${url}`)
+			return
+		}
 
 		const abort = new AbortController()
 
