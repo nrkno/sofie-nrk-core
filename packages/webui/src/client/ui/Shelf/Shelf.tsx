@@ -481,7 +481,6 @@ export class ShelfBase extends React.Component<Translated<IShelfProps>, IState> 
 								fullViewport={
 									!!this.props.fullViewport &&
 									this.props.shelfDisplayOptions.enableBuckets === true &&
-									this.props.shelfDisplayOptions.enableInspector === false &&
 									this.props.shelfDisplayOptions.enableLayout === false
 								}
 								displayBuckets={this.props.bucketDisplayFilter}

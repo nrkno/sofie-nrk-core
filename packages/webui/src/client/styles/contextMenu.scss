@@ -16,6 +16,7 @@ nav.react-contextmenu {
 
 	hr {
 		margin: 0;
+		border-color: var(--bs-border-color);
 	}
 
 	.react-contextmenu-item,
@@ -59,9 +60,16 @@ nav.react-contextmenu {
 		> svg, > .svg {
 			width: 17px;
 			height: 17px;
+			display: inline-block;
 			object-fit: contain;
 			margin-left: -10px;
 			margin-right: 10px;
+		}
+
+		> .svg > svg {
+			width: inherit;
+			height: inherit;
+			object-fit: contain;
 		}
 	}
 }
