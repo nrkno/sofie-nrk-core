@@ -18,9 +18,13 @@ export interface CoreUserEditingDefinitionAction {
 	id: string
 	/** Label to show to the user for this operation */
 	label: ITranslatableMessage
-	/** Icon to show when this action is 'active' */
+	/** Icon to show when this action is 'active'.
+	 *
+	 * This can either be a relative URL to an image in the Blueprints assets or a `data:` URL */
 	icon?: string
-	/** Icon to show when this action is 'disabled' */
+	/** Icon to show when this action is 'disabled'.
+	 *
+	 * This can either be a relative URL to an image in the Blueprints assets or a `data:` URL */
 	iconInactive?: string
 	/** Whether this action should be indicated as being active */
 	isActive?: boolean
