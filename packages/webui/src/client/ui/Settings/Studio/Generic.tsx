@@ -321,7 +321,7 @@ function StudioSettings({ studio }: { studio: DBStudio }): JSX.Element {
 			</LabelAndOverridesForCheckbox>
 
 			<LabelAndOverridesForCheckbox
-				label={t('Allow infinite adlibs to persist')}
+				label={t('Allow infinites from AdLib testing to persist')}
 				item={wrappedItem}
 				itemKey={'allowTestingAdlibsToPersist'}
 				overrideHelper={overrideHelper}
