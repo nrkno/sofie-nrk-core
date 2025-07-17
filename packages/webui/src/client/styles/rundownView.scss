@@ -2952,7 +2952,8 @@ svg.icon {
 	&.segment-timeline__mini-inspector--sub-inspector {
 		transform: none;
 		bottom: 100%;
-		width: 26em;
+		width: 100%;
+		max-width: 480px;
 	}
 
 	&.segment-timeline__mini-inspector--sub-inspector.segment-timeline__mini-inspector--sub-inspector-flipped {
@@ -3161,6 +3162,7 @@ svg.icon {
 		border: 1px solid #1f1f1f;
 		border-radius: 0px;
 		transform: translate(-100%, -100%);
+		width: 480px;
 
 		&::before {
 			content: none;
@@ -3171,8 +3173,8 @@ svg.icon {
 		> .video-preview,
 		> .thumbnail {
 			display: block;
-			width: 414px;
-			height: 233px; 
+			width: 480px;
+			height: 270px; 
 			background: #000;
 		}
 
@@ -3318,7 +3320,6 @@ svg.icon {
 	}
 	.mini-inspector__full-text {
 		font-weight: 300;
-		max-width: 400px;
 		display: inline-block;
 		white-space: normal;
 		width: auto;
