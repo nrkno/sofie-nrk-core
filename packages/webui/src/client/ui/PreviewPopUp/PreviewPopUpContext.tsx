@@ -165,7 +165,7 @@ export function convertSourceLayerItemToPreview(
 				})) || []),
 			]) as PreviewContent[],
 			options: {
-				size: 'large',
+				size: contentStatus?.previewUrl ? 'large' : undefined,
 			},
 		}
 	} else if (
