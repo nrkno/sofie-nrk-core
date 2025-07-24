@@ -177,7 +177,7 @@ async function setNextPartAndCheckForPendingMoveNextPart(
 
 		playoutModel.setPartInstanceAsNext(newPartInstance, setManually, consumesQueuedSegmentId, nextTimeOffset)
 
-		return executeOnSetAsNextCallback(playoutModel, newPartInstance, context)
+		return executeOnSetAsNextCallback(playoutModel, newPartInstance, context, setManually)
 	} else {
 		// Set to null
 
@@ -189,7 +189,8 @@ async function setNextPartAndCheckForPendingMoveNextPart(
 async function executeOnSetAsNextCallback(
 	playoutModel: PlayoutModel,
 	newPartInstance: PlayoutPartInstanceModel,
-	context: JobContext
+	context: JobContext,
+	setManually: boolean
 ) {
 	const NOTIFICATION_CATEGORY = 'onSetAsNext'
 
@@ -219,7 +220,8 @@ async function executeOnSetAsNextCallback(
 		playoutModel,
 		showStyle,
 		watchedPackagesHelper,
-		new PartAndPieceInstanceActionService(context, playoutModel, showStyle, rundownOfNextPart)
+		new PartAndPieceInstanceActionService(context, playoutModel, showStyle, rundownOfNextPart),
+		setManually
 	)
 
 	// Clear any existing notifications for this partInstance. This will clear any from the previous setAsNext
