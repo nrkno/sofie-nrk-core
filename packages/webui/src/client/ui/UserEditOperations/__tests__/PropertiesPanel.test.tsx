@@ -141,6 +141,15 @@ jest.mock('react-i18next', () => ({
 	},
 }))
 
+global.fetch = jest.fn(() =>
+	Promise.resolve({
+		ok: true,
+		status: 200,
+		headers: new Map([['content-type', 'image/svg']]),
+		text: () => Promise.resolve('<svg></svg>'),
+	})
+) as jest.Mock
+
 const mockSegmentsCollection = MongoMock.getInnerMockCollection(Segments)
 const mockPartsCollection = MongoMock.getInnerMockCollection(UIParts)
 
