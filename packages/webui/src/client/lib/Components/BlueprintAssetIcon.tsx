@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { createPrivateApiPath } from '../../url'
+import { createPrivateApiPath } from '../../url.js'
 
 const GLOBAL_BLUEPRINT_ASSET_CACHE: Record<string, string> = {}
 
