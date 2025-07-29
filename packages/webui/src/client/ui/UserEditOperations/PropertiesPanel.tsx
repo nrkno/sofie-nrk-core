@@ -21,7 +21,7 @@ import * as CoreIcon from '@nrk/core-icons/jsx'
 import { useCallback, useMemo, useState } from 'react'
 import { SchemaFormWithState } from '../../lib/forms/SchemaFormWithState'
 import { translateMessage } from '@sofie-automation/corelib/dist/TranslatableMessage'
-import { BlueprintAssetIcon } from '../../lib/Components/BlueprintAssetIcon.js'
+import { BlueprintAssetIcon } from '../../lib/Components/BlueprintAssetIcon'
 
 type PendingChange = DefaultUserOperationEditProperties['payload']
 
