@@ -557,6 +557,6 @@ export class CoreTSRDeviceHandler {
 		this._coreParentHandler.logger.info(`Exec ${actionId} on ${this._deviceId}`)
 		const device = this._device.device
 
-		return device.executeAction(actionId, payload)
+		return device.executeAction(actionId, payload || {})
 	}
 }
