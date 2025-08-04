@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.52.2-nrk](///compare/v1.52.1+nrk...v1.52.2-nrk) (2025-08-04)
+
+
+### Bug Fixes
+
+* **AfterBroadcastForm:** shouldDeactivateRundown should be true when loop is _not_ running ad816c3
+
 ### [1.52.1](///compare/v1.52.0+nrk...v1.52.1) (2025-07-07)
 
 

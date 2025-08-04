@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.52.2-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.1+nrk...v1.52.2-nrk) (2025-08-04)
+
+**Note:** Version bump only for package @sofie-automation/blueprints-integration
+
+
+
+
+
 ## [1.52.1](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.0+nrk...v1.52.1) (2025-07-07)
 
 **Note:** Version bump only for package @sofie-automation/blueprints-integration
