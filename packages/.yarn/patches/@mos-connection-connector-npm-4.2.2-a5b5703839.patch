@@ -1,0 +1,32 @@
+diff --git a/dist/MosDevice.js b/dist/MosDevice.js
+index bc9e53da33ab7a7201f34693c9f8e31f48de6931..0b30cad32fbd8e181b527f967ebceb8323fb0d43 100644
+--- a/dist/MosDevice.js
++++ b/dist/MosDevice.js
+@@ -1227,7 +1227,9 @@ class MosDevice {
+                 return this._ensureReply(reply);
+             }
+             catch (e) {
+-                this.debugTrace('errored', e);
++                // eslint-disable-next-line no-console
++				console.log(`this error is happening: ${e}`) // TODO - hack
++				this.debugTrace('errored', e);
+                 if (this._primaryConnection && this._secondaryConnection && !resend) {
+                     return this.switchConnectionsAndExecuteCommand(message);
+                 }
+diff --git a/dist/connection/mosMessageParser.js b/dist/connection/mosMessageParser.js
+index ba3a6185695051402dc7f13dfcabe2b5614a8508..bfc9d0ce60dfaa45f368c78138ca201bd2dbb923 100644
+--- a/dist/connection/mosMessageParser.js
++++ b/dist/connection/mosMessageParser.js
+@@ -110,9 +110,9 @@ class MosMessageParser extends eventemitter3_1.EventEmitter {
+         }
+         catch (err) {
+             // eslint-disable-next-line no-console
+-            console.log('dataChunks-------------\n', this.dataChunks);
+-            // eslint-disable-next-line no-console
+-            console.log('messageString---------\n', messageString);
++			console.log('dataChunks-------------\n' + this.dataChunks)
++			// eslint-disable-next-line no-console
++			console.log('messageString---------\n' + messageString)
+             // this.emit('error', e)
+             throw err;
+         }
