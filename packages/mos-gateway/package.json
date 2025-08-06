@@ -65,7 +65,7 @@
 		"production"
 	],
 	"dependencies": {
-		"@mos-connection/connector": "patch:@mos-connection/connector@npm%3A4.2.2#~/.yarn/patches/@mos-connection-connector-npm-4.2.2-a5b5703839.patch",
+		"@mos-connection/connector": "4.2.3",
 		"@sofie-automation/server-core-integration": "1.52.2-nrk",
 		"@sofie-automation/shared-lib": "1.52.2-nrk",
 		"tslib": "^2.8.1",
