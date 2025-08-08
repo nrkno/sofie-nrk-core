@@ -12,8 +12,6 @@ import { isActionItem } from './Inspector/ItemRenderers/ActionItemRenderer'
 import { AdLibPieceUi, ShelfDisplayOptions } from '../../lib/shelf'
 import { IBlueprintActionTriggerMode } from '@sofie-automation/blueprints-integration'
 import { translateMessage } from '@sofie-automation/corelib/dist/TranslatableMessage'
-import { BlueprintAssetIcon } from '../../lib/Components/BlueprintAssetIcon.js'
-import { CreateNewBucket, Delete, EmptyBucket, Rename } from '../../lib/ui/icons/shelf.js'
 
 export enum ContextType {
 	BUCKET = 'bucket',
@@ -112,7 +110,6 @@ export default function ShelfContextMenu(props: Readonly<ShelfContextMenuProps>)
 						}}
 						disabled={item.disabled}
 					>
-						{mode.display.icon ? <BlueprintAssetIcon src={mode.display.icon} className="svg" /> : null}
 						{translateMessage(mode.display.label, t)}
 					</MenuItem>
 				))
@@ -169,21 +166,36 @@ export default function ShelfContextMenu(props: Readonly<ShelfContextMenuProps>)
 	return (
 		<Escape to="viewport">
 			<ContextMenu id="shelf-context-menu" onHide={clearContext}>
-				{context?.type === ContextType.BUCKET && (
+				{context && context.type === ContextType.BUCKET && (
 					<div className="react-contextmenu-label">{context.details.bucket.name}</div>
 				)}
-				{(context?.type === ContextType.BUCKET_ADLIB || context?.type === ContextType.ADLIB) && (
+				{context && (context.type === ContextType.BUCKET_ADLIB || context.type === ContextType.ADLIB) && (
 					<>
-						{(startExecuteMenuItems !== null || context.type === ContextType.BUCKET_ADLIB) && (
+						{(startExecuteMenuItems !== null ||
+							props.shelfDisplayOptions.enableInspector ||
+							context.type === ContextType.BUCKET_ADLIB) && (
 							<>
 								<div className="react-contextmenu-label">{context.details.adLib.name}</div>
 								{startExecuteMenuItems}
 								<hr />
 							</>
 						)}
+						{props.shelfDisplayOptions.enableInspector && (
+							<MenuItem
+								onClick={(e) => {
+									e.persist()
+									RundownViewEventBus.emit(RundownViewEvents.SELECT_PIECE, {
+										piece: context.details.adLib,
+										context: e,
+									})
+								}}
+							>
+								{t('Inspect this AdLib')}
+							</MenuItem>
+						)}
 					</>
 				)}
-				{context?.type === ContextType.BUCKET_ADLIB && (
+				{context && context.type === ContextType.BUCKET_ADLIB && (
 					<>
 						<MenuItem
 							onClick={(e) => {
@@ -195,7 +207,6 @@ export default function ShelfContextMenu(props: Readonly<ShelfContextMenuProps>)
 								})
 							}}
 						>
-							<Rename className="svg" />
 							{t('Rename this AdLib')}
 						</MenuItem>
 						<MenuItem
@@ -208,13 +219,12 @@ export default function ShelfContextMenu(props: Readonly<ShelfContextMenuProps>)
 								})
 							}}
 						>
-							<Delete className="svg" />
 							{t('Delete this AdLib')}
 						</MenuItem>
 						<hr />
 					</>
 				)}
-				{context?.type === ContextType.BUCKET && (
+				{context && (context.type === ContextType.BUCKET || context.type === ContextType.BUCKET_ADLIB) && (
 					<>
 						<MenuItem
 							onClick={(e) => {
@@ -225,7 +235,6 @@ export default function ShelfContextMenu(props: Readonly<ShelfContextMenuProps>)
 								})
 							}}
 						>
-							<EmptyBucket className="svg" />
 							{t('Empty this Bucket')}
 						</MenuItem>
 						<MenuItem
@@ -237,7 +246,6 @@ export default function ShelfContextMenu(props: Readonly<ShelfContextMenuProps>)
 								})
 							}}
 						>
-							<Rename className="svg" />
 							{t('Rename this Bucket')}
 						</MenuItem>
 						<MenuItem
@@ -249,13 +257,12 @@ export default function ShelfContextMenu(props: Readonly<ShelfContextMenuProps>)
 								})
 							}}
 						>
-							<Delete className="svg" />
 							{t('Delete this Bucket')}
 						</MenuItem>
 						<hr />
 					</>
 				)}
-				{props.shelfDisplayOptions.enableBuckets && context?.type !== ContextType.BUCKET_ADLIB && (
+				{props.shelfDisplayOptions.enableBuckets && (
 					<MenuItem
 						onClick={(e) => {
 							e.persist()
@@ -264,7 +271,6 @@ export default function ShelfContextMenu(props: Readonly<ShelfContextMenuProps>)
 							})
 						}}
 					>
-						<CreateNewBucket className="svg" />
 						{t('Create new Bucket')}
 					</MenuItem>
 				)}

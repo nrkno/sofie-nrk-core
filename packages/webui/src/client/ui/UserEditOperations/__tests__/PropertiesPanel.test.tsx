@@ -142,15 +142,6 @@ jest.mock('react-i18next', () => ({
 	},
 }))
 
-global.fetch = jest.fn(() =>
-	Promise.resolve({
-		ok: true,
-		status: 200,
-		headers: new Map([['content-type', 'image/svg']]),
-		text: () => Promise.resolve('<svg></svg>'),
-	})
-) as jest.Mock
-
 const mockSegmentsCollection = MongoMock.getInnerMockCollection(Segments)
 const mockPartsCollection = MongoMock.getInnerMockCollection(UIParts)
 
@@ -220,7 +211,7 @@ describe('PropertiesPanel', () => {
 				label: { key: 'TEST_LABEL', namespaces: ['blueprint_main-showstyle'] },
 				type: UserEditingType.ACTION,
 				isActive: false,
-				icon: 'test-op-operation1.svg',
+				svgIcon: '<svg></svg>',
 			},
 		],
 		userEditProperties: {
@@ -230,7 +221,7 @@ describe('PropertiesPanel', () => {
 					label: { key: 'TEST_LABEL', namespaces: ['blueprint_main-showstyle'] },
 					type: UserEditingType.ACTION,
 					isActive: false,
-					icon: 'test-prop-operation1.svg',
+					svgIcon: '<svg></svg>',
 				},
 			],
 			translationNamespaces: ['blueprint_main-showstyle'],

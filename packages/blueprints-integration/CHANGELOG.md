@@ -3,18 +3,6 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
-## [1.52.3-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.2-nrk...v1.52.3-nrk) (2025-08-07)
-
-
-### Features
-
-* add BlueprintAssetIcon component ([07aa194](https://github.com/Sofie-Automation/sofie-core/commit/07aa1949a819a3290a2c3560ab8935ec1bc2f9b2))
-* implement Bucket Panel Icon ([49d559c](https://github.com/Sofie-Automation/sofie-core/commit/49d559c8d743ed260095456a79919896256b71f7))
-
-
-
-
-
 ## [1.52.2-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.1+nrk...v1.52.2-nrk) (2025-08-04)
 
 **Note:** Version bump only for package @sofie-automation/blueprints-integration

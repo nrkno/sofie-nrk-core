@@ -21,7 +21,6 @@ import * as CoreIcon from '@nrk/core-icons/jsx'
 import { useCallback, useMemo, useState } from 'react'
 import { SchemaFormWithState } from '../../lib/forms/SchemaFormWithState'
 import { translateMessage } from '@sofie-automation/corelib/dist/TranslatableMessage'
-import { BlueprintAssetIcon } from '../../lib/Components/BlueprintAssetIcon'
 
 type PendingChange = DefaultUserOperationEditProperties['payload']
 
@@ -144,8 +143,16 @@ export function PropertiesPanel(): JSX.Element {
 				<div className="propertiespanel-pop-up__header">
 					{userEditOperations &&
 						userEditOperations.map((operation) => {
-							if (operation.type !== UserEditingType.ACTION || !operation.icon || !operation.isActive) return null
-							return <BlueprintAssetIcon key={operation.id} src={operation.icon} className="svg" />
+							if (operation.type !== UserEditingType.ACTION || !operation.svgIcon || !operation.isActive) return null
+							return (
+								<div
+									key={operation.id}
+									className="svg"
+									dangerouslySetInnerHTML={{
+										__html: operation.svgIcon,
+									}}
+								></div>
+							)
 						})}
 					<div className="title">{title}</div>
 					<span className="properties">{t('Properties')}</span>
@@ -365,7 +372,14 @@ function ActionList({
 					onClick={(e) => executeAction(e, action.id)}
 					key={action.id}
 				>
-					{action.icon && <BlueprintAssetIcon src={action.icon} className="svg" />}
+					{action.svgIcon && (
+						<span
+							className="svg"
+							dangerouslySetInnerHTML={{
+								__html: action.svgIcon,
+							}}
+						></span>
+					)}
 					<span className="propertiespanel-pop-up__label">{translateMessage(action.label, t)}</span>
 				</button>
 			))}

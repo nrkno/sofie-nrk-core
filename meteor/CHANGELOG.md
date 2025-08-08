@@ -2,23 +2,6 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
-### [1.52.3-nrk](///compare/v1.52.2-nrk...v1.52.3-nrk) (2025-08-07)
-
-
-### Features
-
-* add BlueprintAssetIcon component 07aa194
-* **BlueprintAssetIcon:** support data urls 8063f54
-* clean up dead code 082eb89
-* **FloatingInspector:** make video previews as large as graphics previews 38cab1d
-* implement Bucket Panel Icon 49d559c
-
-
-### Bug Fixes
-
-* **BlueprintAssetIcon:** data URLs  have null origin 16449d7
-* **ContextMenu:** separators in context menu are wrong color e6999ff
-
 ### [1.52.2-nrk](///compare/v1.52.1+nrk...v1.52.2-nrk) (2025-08-04)
 
 
