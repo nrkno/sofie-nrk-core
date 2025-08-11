@@ -47,6 +47,10 @@ nav.react-contextmenu {
 		padding-right: 25px;
 		cursor: pointer;
 
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+
 		&.react-contextmenu-item--selected:not(.react-contextmenu-item--disabled) {
 			background: #313334;
 			color: #ffffff;
@@ -57,13 +61,15 @@ nav.react-contextmenu {
 			opacity: 0.5;
 		}
 
-		> svg, > .svg {
+		> svg,
+		> .svg {
 			width: 17px;
 			height: 17px;
 			display: inline-block;
 			object-fit: contain;
 			margin-left: -10px;
 			margin-right: 10px;
+			margin-bottom: 3px;
 		}
 
 		> .svg > svg {
