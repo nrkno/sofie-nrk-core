@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.52.4-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.3-nrk...v1.52.4-nrk) (2025-08-11)
+
+
+### Bug Fixes
+
+* update mos-connection for missing mosID bug fix ([#9](https://github.com/Sofie-Automation/sofie-core/issues/9)) ([e55cb5e](https://github.com/Sofie-Automation/sofie-core/commit/e55cb5e8ebf9c66c46bce78cbae55f5731cda244))
+
+
+
+
+
 ## [1.52.3-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.2-nrk...v1.52.3-nrk) (2025-08-07)
 
 **Note:** Version bump only for package mos-gateway

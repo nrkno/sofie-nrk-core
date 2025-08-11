@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.52.4-nrk](///compare/v1.52.3-nrk...v1.52.4-nrk) (2025-08-11)
+
+
+### Bug Fixes
+
+* update mos-connection for missing mosID bug fix ([#9](undefined/undefined/undefined/issues/9)) e55cb5e
+
 ### [1.52.3-nrk](///compare/v1.52.2-nrk...v1.52.3-nrk) (2025-08-07)
 
 
