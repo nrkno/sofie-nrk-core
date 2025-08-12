@@ -5,109 +5,534 @@ msgstr ""
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1)\n"
-"POT-Creation-Date: 2023-02-09T08:18:53.604Z\n"
-"PO-Revision-Date: 2023-02-09T08:18:53.604Z\n"
+"POT-Creation-Date: 2025-08-12T08:29:42.148Z\n"
+"PO-Revision-Date: 2025-08-12T08:29:42.148Z\n"
 
-msgid "Account Page"
+msgid "An internal error occured!"
 msgstr ""
 
-msgid "Name:"
+msgid "Rundown must be active!"
 msgstr ""
 
-msgid "Email:"
+msgid "Can not be used during a hold!"
 msgstr ""
 
-msgid "Old Password"
+msgid "Rundown must be playing!"
 msgstr ""
 
-msgid "New Password"
+msgid "Rundown must be playing or have a next!"
 msgstr ""
 
-msgid "Save Changes"
+msgid "AdLibs can be only placed in a currently playing part!"
 msgstr ""
 
-msgid "Edit Account"
+msgid "AdLib could not be found!"
 msgstr ""
 
-msgid "Organization"
+msgid "Cannot take unplayable AdLib"
 msgstr ""
 
-msgid "User roles in organization"
+msgid "Piece to take was not found!"
 msgstr ""
 
-msgid "Studio"
+msgid "Piece to take is not directly playable!"
 msgstr ""
 
-msgid "Configurator"
+msgid "Piece to take is already live!"
 msgstr ""
 
-msgid "Developer"
+msgid "Layer does not allow sticky pieces!"
 msgstr ""
 
-msgid "Admin"
+msgid "Nothing was found on layer!"
 msgstr ""
 
-msgid "Remove Self"
+msgid "Bucket AdLib is not compatible with this Rundown!"
 msgstr ""
 
-msgid "Email Address"
+msgid "Cannot take during a transition"
 msgstr ""
 
-msgid "Password"
+msgid "Cannot take close to an AUTO"
 msgstr ""
 
-msgid "Sign in"
+msgid "Cannot cancel HOLD once it has been taken"
 msgstr ""
 
-msgid "Create New Account"
+msgid "Cannot activate HOLD before a part has been taken!"
 msgstr ""
 
-msgid "Lost password?"
+msgid "Rundown is already doing a HOLD!"
 msgstr ""
 
-msgid "Send reset email"
+msgid "Cannot activate HOLD between the current and next parts"
 msgstr ""
 
-msgid "Go back"
+msgid "Cannot activate HOLD once an adlib has been used"
 msgstr ""
 
-msgid "Password must be atleast 5 characters long"
+msgid ""
+"Rundown Playlist is active, please deactivate before preparing it for "
+"broadcast"
 msgstr ""
 
-msgid "Enter your new password"
+msgid ""
+"Only one rundown can be active at the same time. Currently active rundowns: "
+"{{names}}"
 msgstr ""
 
-msgid "Set new password"
+msgid ""
+"RundownPlaylist is active but not in rehearsal, please deactivate it or set "
+"in in rehearsal to be able to reset it."
 msgstr ""
 
-msgid "Your Account"
+msgid "Rundown Playlist is active, please deactivate it before regenerating it."
 msgstr ""
 
-msgid "About Your Organization"
+msgid "The selected part does not exist"
 msgstr ""
 
-msgid "We are mainly"
+msgid "The selected part cannot be played"
 msgstr ""
 
-msgid "Areas"
+msgid "AdLib Actions are not supported in the current Rundown"
 msgstr ""
 
-msgid "Invite User"
+msgid "No Next point found, please set a part as Next before doing a TAKE."
 msgstr ""
 
-msgid "New User's Email"
+msgid "Ignoring TAKES that are too quick after eachother ({{duration}} ms)"
 msgstr ""
 
-msgid "New User's Name"
+msgid "Found no future pieces"
 msgstr ""
 
-msgid "Create New User & Send Enrollment Email"
+msgid "Cannot perform take for {{duration}}ms"
 msgstr ""
 
-msgid "Users in organization"
+msgid "Ignoring take as playing part has changed since TAKE was requested."
 msgstr ""
 
-msgid "Return to list"
+msgid "Cannot remove the rundown \"{{name}}\" while it is on-air."
+msgstr ""
+
+msgid "Rundown Playlist not found!"
+msgstr ""
+
+msgid "Peripheral Device not found!"
+msgstr ""
+
+msgid "Blueprint not found!"
+msgstr ""
+
+msgid "Studio not found!"
+msgstr ""
+
+msgid "Device is already attached to another studio."
+msgstr ""
+
+msgid "ShowStyleBase not found!"
+msgstr ""
+
+msgid "No migrations to apply"
+msgstr ""
+
+msgid "Validation failed!"
+msgstr ""
+
+msgid "Rehearsal mode is not allowed"
+msgstr ""
+
+msgid "Rehearsal mode is already active"
+msgstr ""
+
+msgid "Bucket not found!"
+msgstr ""
+
+msgid "Adlib rundowns are not supported for this ShowStyle!"
+msgstr ""
+
+msgid "Failed to generate adlib rundown! {{message}}"
+msgstr ""
+
+msgid "Idempotency-Key is missing"
+msgstr ""
+
+msgid "Idempotency-Key is already used"
+msgstr ""
+
+msgid "Rate limit exceeded"
+msgstr ""
+
+msgid ""
+"The Rundown was attempted to be moved out of the Playlist when it was on "
+"Air. Move it back and try again later."
+msgstr ""
+
+msgid "test"
+msgstr ""
+
+msgid "test2"
+msgstr ""
+
+msgid "test playlist"
+msgstr ""
+
+msgid "test rundown"
+msgstr ""
+
+msgid "test partInstance"
+msgstr ""
+
+msgid "test pieceInstance"
+msgstr ""
+
+msgid "Failed to assign players for {{count}} sessions"
+msgstr ""
+
+msgid "Failed to assign players for {{count}} non-critical sessions"
+msgstr ""
+
+msgid "An error while setting the next Part, playout may be impacted"
+msgstr ""
+
+msgid "An error while performing the take, playout may be impacted"
+msgstr ""
+
+msgid "Internal Error generating RundownPlaylist"
+msgstr ""
+
+msgid "Saving Evaluation"
+msgstr ""
+
+msgid "Deactivating Rundown Playlist"
+msgstr ""
+
+msgid "Creating Snapshot for debugging"
+msgstr ""
+
+msgid "Removing Rundown Playlist"
+msgstr ""
+
+msgid "Re-Syncing Rundown Playlist"
+msgstr ""
+
+msgid "Re-Syncing Rundown"
+msgstr ""
+
+msgid "Disabling next Piece"
+msgstr ""
+
+msgid "Take"
+msgstr ""
+
+msgid "Moving Next"
+msgstr ""
+
+msgid "Activating Hold"
+msgstr ""
+
+msgid "Deactivating other Rundown Playlist, and activating this one"
+msgstr ""
+
+msgid "Activating Rundown Playlist"
+msgstr ""
+
+msgid "Resetting and activating Rundown Playlist"
+msgstr ""
+
+msgid "Preparing for broadcast"
+msgstr ""
+
+msgid "Resetting Rundown Playlist"
+msgstr ""
+
+msgid "Reloading Rundown Playlist Data"
+msgstr ""
+
+msgid "Setting Next"
+msgstr ""
+
+msgid "Setting Next Segment"
+msgstr ""
+
+msgid "Queueing next Segment"
+msgstr ""
+
+msgid "Taking Piece"
+msgstr ""
+
+msgid "Unsyncing Rundown"
+msgstr ""
+
+msgid "Removing Rundown"
+msgstr ""
+
+msgid "Set In & Out points"
+msgstr ""
+
+msgid "Starting AdLib"
+msgstr ""
+
+msgid "Starting Global AdLib"
+msgstr ""
+
+msgid "Starting Sticky Piece"
+msgstr ""
+
+msgid "Clearing SourceLayer"
+msgstr ""
+
+msgid "Restarting Media Workflow"
+msgstr ""
+
+msgid "Aborting Media Workflow"
+msgstr ""
+
+msgid "Prioritizing Media Workflow"
+msgstr ""
+
+msgid "Aborting all Media Workflows"
+msgstr ""
+
+msgid "Package Manager: Restart work"
+msgstr ""
+
+msgid "Package Manager: Restart Package Container"
+msgstr ""
+
+msgid "Generating restart token"
+msgstr ""
+
+msgid "Restarting Sofie Core"
+msgstr ""
+
+msgid "Method ${method}"
+msgstr ""
+
+msgid "Creating a new Bucket"
+msgstr ""
+
+msgid "Emptying Bucket"
+msgstr ""
+
+msgid "Importing an AdLib to the Bucket"
+msgstr ""
+
+msgid "Modifying Bucket"
+msgstr ""
+
+msgid "Modifying Bucket AdLib"
+msgstr ""
+
+msgid "Removing Bucket"
+msgstr ""
+
+msgid "Removing Bucket AdLib"
+msgstr ""
+
+msgid "Starting Bucket AdLib"
+msgstr ""
+
+msgid "Switching routing"
+msgstr ""
+
+msgid "Saving AdLib to Bucket"
+msgstr ""
+
+msgid "Unknown action"
+msgstr ""
+
+msgid "Reording Rundowns in Playlist"
+msgstr ""
+
+msgid "Resetting Playlist to default order"
+msgstr ""
+
+msgid "Refreshing debug states"
+msgstr ""
+
+msgid "Execute User Operation"
+msgstr ""
+
+msgid "AdLib Testing"
+msgstr ""
+
+msgid "Creating Adlib Testing Rundown"
+msgstr ""
+
+msgid "Setting as QuickLoop Start"
+msgstr ""
+
+msgid "Setting as QuickLoop End"
+msgstr ""
+
+msgid "Clear QuickLoop"
+msgstr ""
+
+msgid "Waiting for action: {{actionName}}..."
+msgstr ""
+
+msgid "Action {{actionName}} failed: {{error}}"
+msgstr ""
+
+msgid "Action {{actionName}} done!"
+msgstr ""
+
+msgid "{{actionName}} failed! More information can be found in the system log."
+msgstr ""
+
+msgid "Select image"
+msgstr ""
+
+msgid "Clear value"
+msgstr ""
+
+msgid "Default"
+msgstr ""
+
+msgid "Reset"
+msgstr ""
+
+msgid "Sofie Automation Server"
+msgstr ""
+
+msgid "Connecting to the {{platformName}}"
+msgstr ""
+
+msgid "Cannot connect to the {{platformName}}: {{reason}}"
+msgstr ""
+
+msgid "Reconnecting to the {{platformName}}"
+msgstr ""
+
+msgid "Your machine is offline and cannot connect to the {{platformName}}."
+msgstr ""
+
+msgid "Connected to the {{platformName}}."
+msgstr ""
+
+msgid "Reconnect now"
+msgstr ""
+
+msgid "From"
+msgstr ""
+
+msgid "Until"
+msgstr ""
+
+msgid "Sofie"
+msgstr ""
+
+msgid "Remove this item?"
+msgstr ""
+
+msgid "Cancel"
+msgstr ""
+
+msgid "Remove"
+msgstr ""
+
+msgid "Are you sure you want to remove {{type}} \"{{deviceId}}\"?"
+msgstr ""
+
+msgid "Please note: This action is irreversible!"
+msgstr ""
+
+msgid "Reset this item?"
+msgstr ""
+
+msgid "Are you sure you want to reset all overrides for the selected row?"
+msgstr ""
+
+msgid "Table is not allowed to have `properties` defined"
+msgstr ""
+
+msgid "Table is only allowed the wildcard `patternProperties`"
+msgstr ""
+
+msgid "Import file?"
+msgstr ""
+
+msgid "Replace rows"
+msgstr ""
+
+msgid "Are you sure you want to import the contents of the file \"{{fileName}}\"?"
+msgstr ""
+
+msgid "Append rows"
+msgstr ""
+
+msgid "Import"
+msgstr ""
+
+msgid "Export"
+msgstr ""
+
+msgid "Tables are not supported here"
+msgstr ""
+
+msgid "Unsupported field type \"{{ type }}\""
+msgstr ""
+
+msgid "Unsupported array type \"{{ type }}\""
+msgstr ""
+
+msgid "None"
+msgstr ""
+
+msgid "Row cannot be reset as it has no default values"
+msgstr ""
+
+msgid "Reset row to default values"
+msgstr ""
+
+msgid "Search..."
+msgstr ""
+
+msgid "{{prevStatements}} or {{finalStatement}}"
+msgstr ""
+
+msgid "{{prevStatements}} and {{finalStatement}}"
+msgstr ""
+
+msgid "Dismiss"
+msgstr ""
+
+msgid "Yes"
+msgstr ""
+
+msgid "No"
+msgstr ""
+
+msgid "Order 66?"
+msgstr ""
+
+msgid "Do you want to do this?"
+msgstr ""
+
+msgid "No notifications"
+msgstr ""
+
+msgid "Dismiss all notifications"
+msgstr ""
+
+msgid "{{count}} items"
+msgstr ""
+
+msgid "Rundown View Layouts"
+msgstr ""
+
+msgid "Shelf Layouts"
+msgstr ""
+
+msgid "Mini Shelf Layouts"
+msgstr ""
+
+msgid "Rundown Header Layouts"
+msgstr ""
+
+msgid "Presenter View Layouts"
 msgstr ""
 
 msgid "There is no rundown active in this studio."
@@ -119,32 +544,41 @@ msgstr ""
 msgid "There are no active rundowns."
 msgstr ""
 
-msgid "Evaluation"
-msgstr ""
-
-msgid "Please take a minute to fill in this form."
+msgid "Return to list"
 msgstr ""
 
 msgid ""
-"Be aware that while filling out the form keyboard and streamdeck commands "
-"will not be executed!"
+"Could not create a snapshot for the evaluation, because the previous one "
+"was created just moments ago. If you want another snapshot, try again in a "
+"couple of seconds."
+msgstr ""
+
+msgid "How did the show go?"
+msgstr ""
+
+msgid ""
+"Keyboard shortcuts and Stream Deck buttons will not work while filling out "
+"the form!"
 msgstr ""
 
 msgid "Did you have any problems with the broadcast?"
 msgstr ""
 
+msgid "Please explain the problems you experienced"
+msgstr ""
+
 msgid ""
-"Please explain the problems you experienced (what happened and when, what "
-"should have happened, what could have triggered the problems, etcetera...)"
+"(what happened and when, what should have happened, what could have "
+"triggered the problems, etcetera...)"
 msgstr ""
 
 msgid "Your name"
 msgstr ""
 
-msgid "Save message"
+msgid "Send message"
 msgstr ""
 
-msgid "Save message and Deactivate Rundown"
+msgid "Send message and Deactivate Rundown"
 msgstr ""
 
 msgid "No problems"
@@ -180,9 +614,6 @@ msgid "Trim \"{{name}}\""
 msgstr ""
 
 msgid "OK"
-msgstr ""
-
-msgid "Cancel"
 msgstr ""
 
 msgid "Remove in-trimming"
@@ -221,13 +652,22 @@ msgstr ""
 msgid "Until next rundown"
 msgstr ""
 
+msgid "Until end of rundown"
+msgstr ""
+
 msgid "Until end of showstyle"
 msgstr ""
 
 msgid "Script is empty"
 msgstr ""
 
-msgid "Clip:"
+msgid "Critical Problems"
+msgstr ""
+
+msgid "Warnings"
+msgstr ""
+
+msgid "Notes"
 msgstr ""
 
 msgid "Home"
@@ -245,12 +685,6 @@ msgstr ""
 msgid "Settings"
 msgstr ""
 
-msgid "Account"
-msgstr ""
-
-msgid "Logout"
-msgstr ""
-
 msgid "My name is {{name}}"
 msgstr ""
 
@@ -263,10 +697,10 @@ msgstr ""
 msgid "Prompter"
 msgstr ""
 
-msgid "End of script"
+msgid "Connect to {{deviceName}}"
 msgstr ""
 
-msgid "Could not get system status. Please consult system administrator."
+msgid "End of script"
 msgstr ""
 
 msgid "There are no rundowns ingested into Sofie."
@@ -294,6 +728,9 @@ msgid "Last updated"
 msgstr ""
 
 msgid "View Layout"
+msgstr ""
+
+msgid "Create Adlib Testing Rundown"
 msgstr ""
 
 msgid "Today"
@@ -346,6 +783,9 @@ msgstr ""
 msgid "Drop Rundown here to move it out of its current Playlist"
 msgstr ""
 
+msgid "Could not get system status. Please consult system administrator."
+msgstr ""
+
 msgid "Sofie Automation"
 msgstr ""
 
@@ -391,16 +831,10 @@ msgstr ""
 msgid "Rundown & Shelf"
 msgstr ""
 
-msgid "Default"
-msgstr ""
-
 msgid "Delete rundown?"
 msgstr ""
 
 msgid "Are you sure you want to delete the \"{{name}}\" rundown?"
-msgstr ""
-
-msgid "Please note: This action is irreversible!"
 msgstr ""
 
 msgid "Re-Sync rundown?"
@@ -415,15 +849,15 @@ msgstr ""
 msgid "Start time is close"
 msgstr ""
 
-msgid "Yes"
+msgid "Reset and Activate \"On Air\""
 msgstr ""
 
-msgid "No"
+msgid "Activate \"On Air\""
 msgstr ""
 
 msgid ""
 "You are in rehearsal mode, the broadcast starts in less than 1 minute. Do "
-"you want to reset the rundown and go into On-Air mode?"
+"you want to go into On-Air mode?"
 msgstr ""
 
 msgid "Hold"
@@ -440,10 +874,7 @@ msgid ""
 "to activate this rundown?"
 msgstr ""
 
-msgid "Activate (Rehearsal)"
-msgstr ""
-
-msgid "Activate (On-Air)"
+msgid "Activate \"Rehearsal\""
 msgstr ""
 
 msgid "Failed to activate"
@@ -458,16 +889,10 @@ msgid "Another Rundown is Already Active!"
 msgstr ""
 
 msgid ""
-"The rundown \"{{rundownName}}\" will need to be deactivated in order to "
+"The rundown: \"{{rundownName}}\" will need to be deactivated in order to "
 "activate this one.\n"
 "\n"
 "Are you sure you want to activate this one anyway?"
-msgstr ""
-
-msgid "Activate Anyway (Rehearsal)"
-msgstr ""
-
-msgid "Activate Anyway (On-Air)"
 msgstr ""
 
 msgid "Do you want to activate this Rundown?"
@@ -482,8 +907,11 @@ msgid "Are you sure you want to activate Rehearsal Mode?"
 msgstr ""
 
 msgid ""
-"Are you sure you want to deactivate this Rundown?\n"
-"(This will clear the outputs)"
+"Are you sure you want to deactivate this rundown?\n"
+"(This will clear the outputs.)"
+msgstr ""
+
+msgid "Deactivate \"On Air\""
 msgstr ""
 
 msgid "The rundown can not be reset while it is active"
@@ -497,10 +925,13 @@ msgstr ""
 msgid "Prepare Studio and Activate (Rehearsal)"
 msgstr ""
 
-msgid "Deactivate"
+msgid "Activate (Rehearsal)"
 msgstr ""
 
-msgid "Take"
+msgid "Activate (On-Air)"
+msgstr ""
+
+msgid "Deactivate"
 msgstr ""
 
 msgid "Reset Rundown"
@@ -568,10 +999,18 @@ msgstr ""
 msgid "Do you want to restart CasparCG Server \"{{device}}\"?"
 msgstr ""
 
+msgid "Unknown error"
+msgstr ""
+
 msgid "CasparCG on device \"{{deviceName}}\" restarting..."
 msgstr ""
 
 msgid "Failed to restart CasparCG on device: \"{{deviceName}}\": {{errorMessage}}"
+msgstr ""
+
+msgid ""
+"Something went wrong when creating the snapshot. Please contact the system "
+"administrator if the problem persists."
 msgstr ""
 
 msgid "Cancel currently pressed hotkey"
@@ -610,9 +1049,6 @@ msgstr ""
 msgid "Error: The ShowStyle of this Rundown was not found."
 msgstr ""
 
-msgid "Unknown error"
-msgstr ""
-
 msgid ""
 "Rundown {{rundownName}} in Playlist {{playlistName}} is missing in the data "
 "from {{nrcsName}}. You can either leave it in Sofie and mark it as Unsynced "
@@ -628,15 +1064,32 @@ msgstr ""
 msgid "Leave Unsynced"
 msgstr ""
 
-msgid "Remove"
-msgstr ""
-
 msgid "Remove rundown"
 msgstr ""
 
 msgid ""
 "Do you really want to remove just the rundown \"{{rundownName}}\" in the "
-"playlist {{playlistName}} from Sofie? This cannot be undone!"
+"playlist {{playlistName}} from Sofie? \n"
+"\n"
+"This cannot be undone!"
+msgstr ""
+
+msgid "Media Status"
+msgstr ""
+
+msgid "No Media matches this filter"
+msgstr ""
+
+msgid "No Media required for this Rundown"
+msgstr ""
+
+msgid "On Air In"
+msgstr ""
+
+msgid "Filter..."
+msgstr ""
+
+msgid "Clear filter"
 msgstr ""
 
 msgid "Loop Start"
@@ -711,28 +1164,7 @@ msgstr ""
 msgid "Unable to check the system configuration for changes"
 msgstr ""
 
-msgid "The Studio configuration is missing some required fields:"
-msgstr ""
-
-msgid "The Show Style configuration \"{{name}}\" could not be validated"
-msgstr ""
-
-msgid "The ShowStyle \"{{name}}\" configuration is missing some required fields:"
-msgstr ""
-
-msgid "Unable to validate the system configuration"
-msgstr ""
-
 msgid "Device {{deviceName}} is disconnected"
-msgstr ""
-
-msgid "Critical Problems"
-msgstr ""
-
-msgid "Warnings"
-msgstr ""
-
-msgid "Notifications"
 msgstr ""
 
 msgid "Rewind all Segments"
@@ -744,7 +1176,7 @@ msgstr ""
 msgid "Switch Segment View Mode"
 msgstr ""
 
-msgid "Toggle Switchboard Panel"
+msgid "Switchboard Panel"
 msgstr ""
 
 msgid "Toggle Support Panel"
@@ -837,6 +1269,18 @@ msgstr ""
 msgid "Off"
 msgstr ""
 
+msgid "segment"
+msgstr ""
+
+msgid "Adlib Testing"
+msgstr ""
+
+msgid "Critical problems"
+msgstr ""
+
+msgid "Sources"
+msgstr ""
+
 msgid "Switch to Timeline View"
 msgstr ""
 
@@ -852,22 +1296,7 @@ msgstr ""
 msgid "On Air At"
 msgstr ""
 
-msgid "On Air In"
-msgstr ""
-
-msgid "Unsynced"
-msgstr ""
-
-msgid "Critical problems"
-msgstr ""
-
-msgid "segment"
-msgstr ""
-
-msgid "Sources"
-msgstr ""
-
-msgid "Loops to top"
+msgid "Loops to Start"
 msgstr ""
 
 msgid "Show End"
@@ -891,6 +1320,9 @@ msgstr ""
 msgid "Clear queued segment"
 msgstr ""
 
+msgid "Edit Segment Properties"
+msgstr ""
+
 msgid "Set this part as <strong>Next</strong>"
 msgstr ""
 
@@ -898,6 +1330,24 @@ msgid "Set <strong>Next</strong> Here"
 msgstr ""
 
 msgid "Play from Here"
+msgstr ""
+
+msgid "Clear QuickLoop Start"
+msgstr ""
+
+msgid "Set as QuickLoop Start"
+msgstr ""
+
+msgid "Clear QuickLoop End"
+msgstr ""
+
+msgid "Set as QuickLoop End"
+msgstr ""
+
+msgid "Edit Part Properties"
+msgstr ""
+
+msgid "Edit Piece Properties"
 msgstr ""
 
 msgid "Zoom Out"
@@ -912,52 +1362,13 @@ msgstr ""
 msgid "Parts Duration"
 msgstr ""
 
-msgid "System Settings"
+msgid "Other"
 msgstr ""
 
-msgid "Add config item"
+msgid "Edit"
 msgstr ""
 
-msgid "Add"
-msgstr ""
-
-msgid "Item"
-msgstr ""
-
-msgid "Value"
-msgstr ""
-
-msgid "true"
-msgstr ""
-
-msgid "false"
-msgstr ""
-
-msgid "{{count}} rows"
-msgstr ""
-
-msgid "Failed to update config: {{errorMessage}}"
-msgstr ""
-
-msgid "Export"
-msgstr ""
-
-msgid "Import"
-msgstr ""
-
-msgid "Reset this item?"
-msgstr ""
-
-msgid "Reset"
-msgstr ""
-
-msgid "Are you sure you want to reset this config item \"{{configId}}\"?"
-msgstr ""
-
-msgid "Blueprint Configuration"
-msgstr ""
-
-msgid "More settings specific to this studio can be found here"
+msgid "This blueprint has not provided a valid config schema"
 msgstr ""
 
 msgid "Update Blueprints?"
@@ -1034,15 +1445,6 @@ msgid "Disable version check"
 msgstr ""
 
 msgid "Upload Blueprints"
-msgstr ""
-
-msgid "Unknown table type"
-msgstr ""
-
-msgid "Unknown type"
-msgstr ""
-
-msgid "Defaults to '{{defaultVal}}' if left empty"
 msgstr ""
 
 msgid "OAuth credentials succesfully uploaded."
@@ -1159,6 +1561,9 @@ msgid ""
 msgstr ""
 
 msgid "URL"
+msgstr ""
+
+msgid "Dropzone URL"
 msgstr ""
 
 msgid "Display Rank"
@@ -1281,19 +1686,15 @@ msgstr ""
 msgid "Custom Classes"
 msgstr ""
 
-msgid "Device ID"
-msgstr ""
-
-msgid "Device Type"
-msgstr ""
-
-msgid "Remove this item?"
-msgstr ""
-
-msgid "Are you sure you want to remove {{type}} \"{{deviceId}}\"?"
+msgid ""
+"Configuration for this Gateway has moved to the Studio Peripheral Device "
+"settings"
 msgstr ""
 
 msgid "Attached Subdevices"
+msgstr ""
+
+msgid "There are no sub-devices for this gateway"
 msgstr ""
 
 msgid "Expected End text"
@@ -1415,6 +1816,18 @@ msgstr ""
 msgid "Trigger Mode"
 msgstr ""
 
+msgid "Route Set"
+msgstr ""
+
+msgid "State"
+msgstr ""
+
+msgid "Enabled"
+msgstr ""
+
+msgid "Toggle"
+msgstr ""
+
 msgid "Force"
 msgstr ""
 
@@ -1433,10 +1846,13 @@ msgstr ""
 msgid "Parts: {{delta}}"
 msgstr ""
 
-msgid "Open"
+msgid "Ignore QuickLoop"
 msgstr ""
 
-msgid "Toggle"
+msgid "State \"{{state}}\""
+msgstr ""
+
+msgid "Open"
 msgstr ""
 
 msgid "On"
@@ -1466,6 +1882,9 @@ msgstr ""
 msgid "Resync with NRCS"
 msgstr ""
 
+msgid "Switch Route Set"
+msgstr ""
+
 msgid "Shelf"
 msgstr ""
 
@@ -1479,6 +1898,9 @@ msgid "Show entire On Air Segment"
 msgstr ""
 
 msgid "Queue AdLib from Minishelf"
+msgstr ""
+
+msgid "Modify Shift register"
 msgstr ""
 
 msgid "Force (deactivate others)"
@@ -1496,10 +1918,31 @@ msgstr ""
 msgid "By Parts"
 msgstr ""
 
-msgid "State"
+msgid "Forward"
 msgstr ""
 
-msgid "Forward"
+msgid "Register ID"
+msgstr ""
+
+msgid "Operation"
+msgstr ""
+
+msgid "Set"
+msgstr ""
+
+msgid "Add"
+msgstr ""
+
+msgid "Subtract"
+msgstr ""
+
+msgid "Value"
+msgstr ""
+
+msgid "Minimum register limit"
+msgstr ""
+
+msgid "Maximum register limit"
 msgstr ""
 
 msgid "Action"
@@ -1553,6 +1996,9 @@ msgstr ""
 msgid "Now active rundown"
 msgstr ""
 
+msgid "Studio"
+msgstr ""
+
 msgid "View"
 msgstr ""
 
@@ -1594,6 +2040,12 @@ msgstr ""
 msgid "Optional description of the action"
 msgstr ""
 
+msgid "Style class names"
+msgstr ""
+
+msgid "Space separated list of style class names to use when displaying the action"
+msgstr ""
+
 msgid "Triggered Actions uploaded successfully."
 msgstr ""
 
@@ -1626,16 +2078,19 @@ msgstr ""
 msgid "System-wide"
 msgstr ""
 
+msgid "Add Action Trigger"
+msgstr ""
+
 msgid "Upload stored Action Triggers"
 msgstr ""
 
 msgid "Download Action Triggers"
 msgstr ""
 
-msgid "On release"
+msgid "Empty"
 msgstr ""
 
-msgid "Empty"
+msgid "On release"
 msgstr ""
 
 msgid "Hotkey"
@@ -1721,6 +2176,9 @@ msgid "Restart Device"
 msgstr ""
 
 msgid "Troubleshoot"
+msgstr ""
+
+msgid "NRCS Name"
 msgstr ""
 
 msgid "Reset Database Version"
@@ -1862,18 +2320,6 @@ msgstr ""
 msgid "Failed to upload shelf layout: {{errorMessage}}"
 msgstr ""
 
-msgid "Studios"
-msgstr ""
-
-msgid "Show Styles"
-msgstr ""
-
-msgid "Blueprints"
-msgstr ""
-
-msgid "Devices"
-msgstr ""
-
 msgid "Tools"
 msgstr ""
 
@@ -1886,13 +2332,28 @@ msgstr ""
 msgid "Manage Snapshots"
 msgstr ""
 
+msgid "Studios"
+msgstr ""
+
+msgid "Show Styles"
+msgstr ""
+
+msgid "Blueprints"
+msgstr ""
+
+msgid "Devices"
+msgstr ""
+
 msgid "Delete this Studio?"
 msgstr ""
 
 msgid "Are you sure you want to delete the studio \"{{studioId}}\"?"
 msgstr ""
 
-msgid "Attached Devices"
+msgid "Peripheral Devices"
+msgstr ""
+
+msgid "Blueprint Configuration"
 msgstr ""
 
 msgid "Layer Mappings"
@@ -1963,7 +2424,16 @@ msgstr ""
 msgid "Fatal"
 msgstr ""
 
-msgid "Show Style Base Name"
+msgid "Loading..."
+msgstr ""
+
+msgid "Upgrade Status"
+msgstr ""
+
+msgid "Loading"
+msgstr ""
+
+msgid "Config Fix Up must be run or ignored before the configuration can be edited"
 msgstr ""
 
 msgid "Blueprint"
@@ -1981,25 +2451,19 @@ msgstr ""
 msgid "Blueprint config preset is missing"
 msgstr ""
 
+msgid "Show Style Base Name"
+msgstr ""
+
 msgid "Compatible Studios:"
 msgstr ""
 
 msgid "This Show Style is not compatible with any Studio"
 msgstr ""
 
+msgid "Failed to update config: {{errorMessage}}"
+msgstr ""
+
 msgid "Key"
-msgstr ""
-
-msgid "Host Key"
-msgstr ""
-
-msgid "Source Layer type"
-msgstr ""
-
-msgid "Key color"
-msgstr ""
-
-msgid "AHK"
 msgstr ""
 
 msgid "New Output"
@@ -2021,6 +2485,23 @@ msgid "Delete this output?"
 msgstr ""
 
 msgid "Are you sure you want to delete output layer \"{{outputId}}\"?"
+msgstr ""
+
+msgid ""
+"Are you sure you want to reset all overrides for the output layer "
+"\"{{outputLayerId}}\"?"
+msgstr ""
+
+msgid "Source layer cannot be reset as it has no default values"
+msgstr ""
+
+msgid "Reset source layer to default values"
+msgstr ""
+
+msgid "Edit output layer"
+msgstr ""
+
+msgid "Delete output layer"
 msgstr ""
 
 msgid "Channel Name"
@@ -2053,6 +2534,9 @@ msgstr ""
 msgid "Studio Microphone"
 msgstr ""
 
+msgid "Remote Speak"
+msgstr ""
+
 msgid "Remote Source"
 msgstr ""
 
@@ -2071,6 +2555,9 @@ msgstr ""
 msgid "Audio Mixing"
 msgstr ""
 
+msgid "Lighting"
+msgstr ""
+
 msgid "Transition"
 msgstr ""
 
@@ -2078,6 +2565,9 @@ msgid "Lights"
 msgstr ""
 
 msgid "Local"
+msgstr ""
+
+msgid "Studio Screen Graphics"
 msgstr ""
 
 msgid "New Source"
@@ -2093,6 +2583,17 @@ msgid "Delete this item?"
 msgstr ""
 
 msgid "Are you sure you want to delete source layer \"{{sourceLayerId}}\"?"
+msgstr ""
+
+msgid ""
+"Are you sure you want to reset all overrides for the source layer "
+"\"{{sourceLayerId}}\"?"
+msgstr ""
+
+msgid "Edit source layer"
+msgstr ""
+
+msgid "Delete source layer"
 msgstr ""
 
 msgid "Source Name"
@@ -2111,6 +2612,9 @@ msgid "Is a Guest Input"
 msgstr ""
 
 msgid "Is hidden"
+msgstr ""
+
+msgid "Treat as Main content"
 msgstr ""
 
 msgid "Display in a column in List View"
@@ -2138,6 +2642,23 @@ msgid "Exclusivity group"
 msgstr ""
 
 msgid "Unnamed variant"
+msgstr ""
+
+msgid "Can Generate Adlib Testing Rundown"
+msgstr ""
+
+msgid ""
+"This requires the blueprints to implement the "
+"`generateAdlibTestingIngestRundown` method"
+msgstr ""
+
+msgid "Config preset"
+msgstr ""
+
+msgid "Config preset not set"
+msgstr ""
+
+msgid "Config preset is missing"
 msgstr ""
 
 msgid ""
@@ -2218,6 +2739,23 @@ msgstr ""
 msgid "Upload Snapshot"
 msgstr ""
 
+msgid "Upload a snapshot file"
+msgstr ""
+
+msgid "Upload Snapshot (for debugging)"
+msgstr ""
+
+msgid ""
+"Upload a snapshot file (restores additional info not directly related to a "
+"Playlist / Rundown, such as Packages, PackageWorkStatuses etc"
+msgstr ""
+
+msgid "Ingest from Snapshot"
+msgstr ""
+
+msgid "Reads the ingest (NRCS) data, and pipes it throught the blueprints"
+msgstr ""
+
 msgid "Restore from Stored Snapshots"
 msgstr ""
 
@@ -2239,19 +2777,61 @@ msgstr ""
 msgid "Remove this device?"
 msgstr ""
 
-msgid "Are you sure you want to remove device \"{{deviceId}}\"?"
+msgid "Parent"
 msgstr ""
 
-msgid "Devices are needed to control your studio hardware"
+msgid "Peripheral Device ID"
 msgstr ""
 
-msgid "No devices connected"
+msgid "Device ID"
 msgstr ""
 
-msgid "Playout gateway not connected"
+msgid "This must be assigned to a device to be able to edit the settings"
 msgstr ""
 
-msgid "None"
+msgid "Parent device is missing"
+msgstr ""
+
+msgid "Device Type"
+msgstr ""
+
+msgid "Device is of unknown type"
+msgstr ""
+
+msgid "Ingest devices are needed to create rundowns"
+msgstr ""
+
+msgid "Ingest Devices"
+msgstr ""
+
+msgid "Input devices allow you to trigger Sofie actions remotely"
+msgstr ""
+
+msgid "Input Devices"
+msgstr ""
+
+msgid "No gateways are configured"
+msgstr ""
+
+msgid "Parent Devices"
+msgstr ""
+
+msgid "Gateway"
+msgstr ""
+
+msgid "Last Seen"
+msgstr ""
+
+msgid "A device must be assigned to the config to edit the settings"
+msgstr ""
+
+msgid "Device is missing configuration schema"
+msgstr ""
+
+msgid "Playout devices are needed to control your studio hardware"
+msgstr ""
+
+msgid "Playout Devices"
 msgstr ""
 
 msgid "Studio Name"
@@ -2260,13 +2840,22 @@ msgstr ""
 msgid "Select Compatible Show Styles"
 msgstr ""
 
-msgid "Show style not set"
-msgstr ""
-
 msgid "Click to show available Show Styles"
 msgstr ""
 
+msgid "Show style not set"
+msgstr ""
+
+msgid "Enabled, but skipping parts with undefined or 0 duration"
+msgstr ""
+
+msgid "Enabled on all Parts, applying QuickLoop Fallback Part Duration if needed"
+msgstr ""
+
 msgid "Frame Rate"
+msgstr ""
+
+msgid "Minimum Take Span"
 msgstr ""
 
 msgid "Enable \"Play from Anywhere\""
@@ -2290,15 +2879,56 @@ msgstr ""
 msgid "Multi-gateway-mode delay time"
 msgstr ""
 
-msgid "Preserve contents of playing segment when unsynced"
-msgstr ""
-
 msgid "Allow Rundowns to be reset while on-air"
 msgstr ""
 
+msgid "Preserve position of segments when unsynced relative to other segments"
+msgstr ""
+
+msgid "This has only been tested for the iNews gateway"
+msgstr ""
+
+msgid "Enable AdLib Testing, for testing AdLibs before taking the first Part"
+msgstr ""
+
+msgid "Enable Buckets"
+msgstr ""
+
+msgid "This enables or disables buckets in the UI - enabled is the default behavior"
+msgstr ""
+
+msgid "Enable User Editing"
+msgstr ""
+
+msgid "This feature enables the use of the Properties Panel and the Edit Mode"
+msgstr ""
+
+msgid "Enable Evaluation Form"
+msgstr ""
+
 msgid ""
-"Preserve position of segments when unsynced relative to other segments. "
-"Note: this has only been tested for the iNews gateway"
+"This enables or disables the evaluationform in the UI - enabled is the "
+"default behavior"
+msgstr ""
+
+msgid "Enable QuickLoop"
+msgstr ""
+
+msgid "QuickLoop Fallback Part Duration"
+msgstr ""
+
+msgid "Allow HOLD mode"
+msgstr ""
+
+msgid "When disabled, any HOLD operations will be silently ignored"
+msgstr ""
+
+msgid "Allow direct playing pieces"
+msgstr ""
+
+msgid ""
+"When enabled, double clicking on certain pieces in the GUI will play them "
+"as adlibs"
 msgstr ""
 
 msgid "Add a playout device to the studio in order to edit the layer mappings"
@@ -2311,6 +2941,26 @@ msgid "Remove this mapping?"
 msgstr ""
 
 msgid "Are you sure you want to remove mapping for layer \"{{mappingId}}\"?"
+msgstr ""
+
+msgid "Reset this mapping?"
+msgstr ""
+
+msgid ""
+"Are you sure you want to reset all overrides for the mapping for layer "
+"\"{{mappingId}}\"?"
+msgstr ""
+
+msgid "Mapping cannot be reset as it has no default values"
+msgstr ""
+
+msgid "Reset mapping to default values"
+msgstr ""
+
+msgid "Edit mapping"
+msgstr ""
+
+msgid "Delete mapping"
 msgstr ""
 
 msgid "Layer ID"
@@ -2342,31 +2992,16 @@ msgstr ""
 msgid "Lookahead Maximum Search Distance (Undefined = {{limit}})"
 msgstr ""
 
-msgid "Remove this Package Container?"
+msgid "Mapping Type"
 msgstr ""
 
-msgid "Are you sure you want to remove the Package Container \"{{containerId}}\"?"
+msgid "The type of mapping to use"
 msgstr ""
 
-msgid "There are no Package Containers set up."
+msgid "No schema has been provided for this mapping"
 msgstr ""
 
-msgid "Package Container ID"
-msgstr ""
-
-msgid "Display name/label of the Package Container"
-msgstr ""
-
-msgid "Playout devices which uses this package container"
-msgstr ""
-
-msgid "Select playout devices"
-msgstr ""
-
-msgid "Select which playout devices are using this package container"
-msgstr ""
-
-msgid "Accessors"
+msgid "There are no Accessors set up."
 msgstr ""
 
 msgid "Remove this Package Container Accessor?"
@@ -2375,9 +3010,6 @@ msgstr ""
 msgid ""
 "Are you sure you want to remove the Package Container Accessor "
 "\"{{accessorId}}\"?"
-msgstr ""
-
-msgid "There are no Accessors set up."
 msgstr ""
 
 msgid "Accessor ID"
@@ -2395,7 +3027,7 @@ msgstr ""
 msgid "File path to the folder of the local folder"
 msgstr ""
 
-msgid "Resource Id"
+msgid "Resourse Id"
 msgstr ""
 
 msgid ""
@@ -2409,6 +3041,21 @@ msgstr ""
 msgid "Base url to the resource (example: http://myserver/folder)"
 msgstr ""
 
+msgid "Is Immutable"
+msgstr ""
+
+msgid "When set, resources are considered immutable, ie they will not change"
+msgstr ""
+
+msgid "Does NOT support HEAD requests"
+msgstr ""
+
+msgid ""
+"If set, Package Manager assumes that the source doesn't support HEAD "
+"requests and will use GET instead. If false, HEAD requests will be sent to "
+"check availability."
+msgstr ""
+
 msgid "Network Id"
 msgstr ""
 
@@ -2420,10 +3067,13 @@ msgstr ""
 msgid "Folder path to shared folder"
 msgstr ""
 
-msgid "UserName"
+msgid "User Name"
 msgstr ""
 
-msgid "Username for athuentication"
+msgid "Username for authentication"
+msgstr ""
+
+msgid "Password"
 msgstr ""
 
 msgid "Password for authentication"
@@ -2444,10 +3094,10 @@ msgstr ""
 msgid "URLs to the ISAs, in order of importance (comma separated)"
 msgstr ""
 
-msgid "Zone ID"
+msgid "Quantel Zone ID"
 msgstr ""
 
-msgid "Zone ID (default value: \"default\")"
+msgid "Zone ID"
 msgstr ""
 
 msgid "Server ID"
@@ -2486,6 +3136,9 @@ msgstr ""
 msgid "Studio Settings"
 msgstr ""
 
+msgid "Package Containers"
+msgstr ""
+
 msgid "Package Containers to use for previews"
 msgstr ""
 
@@ -2495,7 +3148,36 @@ msgstr ""
 msgid "Package Containers to use for thumbnails"
 msgstr ""
 
-msgid "Package Containers"
+msgid "Remove this Package Container?"
+msgstr ""
+
+msgid "Are you sure you want to remove the Package Container \"{{containerId}}\"?"
+msgstr ""
+
+msgid "Reset this Package Container?"
+msgstr ""
+
+msgid ""
+"Are you sure you want to reset all overrides for Packing Container "
+"\"{{id}}\"?"
+msgstr ""
+
+msgid "Reset Package Container to default values"
+msgstr ""
+
+msgid "Package Container ID"
+msgstr ""
+
+msgid "Playout devices which uses this package container"
+msgstr ""
+
+msgid "Select which playout devices are using this package container"
+msgstr ""
+
+msgid "Accessors"
+msgstr ""
+
+msgid "There are no exclusivity groups set up."
 msgstr ""
 
 msgid "Remove this Exclusivity Group?"
@@ -2506,18 +3188,91 @@ msgid ""
 "Route Sets assigned to this group will be reset to no group."
 msgstr ""
 
-msgid "Remove this Route from this Route Set?"
+msgid "Exclusivity Group ID"
+msgstr ""
+
+msgid "Exclusivity Group Name"
+msgstr ""
+
+msgid "Add a playout device to the studio in order to configure the route sets"
 msgstr ""
 
 msgid ""
-"Are you sure you want to remove the Route from \"{{sourceLayerId}}\" to "
-"\"{{newLayerId}}\"?"
+"Controls for exposed Route Sets will be displayed to the producer within "
+"the Rundown View in the Switchboard."
+msgstr ""
+
+msgid "Exclusivity Groups"
+msgstr ""
+
+msgid "Remove this AB PLayers from this Route Set?"
+msgstr ""
+
+msgid "Are you sure you want to remove the AB Player \"{{playerId}}\"?"
+msgstr ""
+
+msgid "AB Playout devices"
+msgstr ""
+
+msgid ""
+"Any AB Playout devices here will only be active when this or another "
+"RouteSet that includes them is active"
+msgstr ""
+
+msgid "There are no AB Playout devices set up yet"
+msgstr ""
+
+msgid "Pool name"
+msgstr ""
+
+msgid "Pool PlayerId"
+msgstr ""
+
+msgid "There are no Route Sets set up."
 msgstr ""
 
 msgid "Remove this Route Set?"
 msgstr ""
 
 msgid "Are you sure you want to remove the Route Set \"{{routeId}}\"?"
+msgstr ""
+
+msgid "Active"
+msgstr ""
+
+msgid "Not Active"
+msgstr ""
+
+msgid "Not defined"
+msgstr ""
+
+msgid "Route Set ID"
+msgstr ""
+
+msgid "Default State"
+msgstr ""
+
+msgid "he default state of this Route Set"
+msgstr ""
+
+msgid "Route Set Name"
+msgstr ""
+
+msgid "If set, only one Route Set will be active per exclusivity group"
+msgstr ""
+
+msgid "Behavior"
+msgstr ""
+
+msgid "The way this Route Set should behave towards the user"
+msgstr ""
+
+msgid "Remove this Route from this Route Set?"
+msgstr ""
+
+msgid ""
+"Are you sure you want to remove the Route from \"{{sourceLayerId}}\" to "
+"\"{{newLayerId}}\"?"
 msgstr ""
 
 msgid "Routes"
@@ -2535,84 +3290,22 @@ msgstr ""
 msgid "Route Type"
 msgstr ""
 
-msgid "Source Layer not found"
+msgid "Original Layer not found"
 msgstr ""
 
-msgid "There are no exclusivity groups set up."
-msgstr ""
-
-msgid "Exclusivity Group ID"
-msgstr ""
-
-msgid "Exclusivity Group Name"
-msgstr ""
-
-msgid "Display name of the Exclusivity Group"
-msgstr ""
-
-msgid "Active"
-msgstr ""
-
-msgid "Not Active"
-msgstr ""
-
-msgid "Not defined"
-msgstr ""
-
-msgid "There are no Route Sets set up."
-msgstr ""
-
-msgid "Route Set ID"
-msgstr ""
-
-msgid "Is this Route Set currently active"
-msgstr ""
-
-msgid "Default State"
-msgstr ""
-
-msgid "The default state of this Route Set"
-msgstr ""
-
-msgid "Route Set Name"
-msgstr ""
-
-msgid "Display name of the Route Set"
-msgstr ""
-
-msgid "If set, only one Route Set will be active per exclusivity group"
-msgstr ""
-
-msgid "Behavior"
-msgstr ""
-
-msgid "The way this Route Set should behave towards the user"
-msgstr ""
-
-msgid "Add a playout device to the studio in order to configure the route sets"
-msgstr ""
-
-msgid ""
-"Controls for exposed Route Sets will be displayed to the producer within "
-"the Rundown View in the Switchboard."
-msgstr ""
-
-msgid "Exclusivity Groups"
-msgstr ""
-
-msgid "Remove indexes"
-msgstr ""
-
-msgid "This will remove {{indexCount}} old indexes, do you want to continue?"
-msgstr ""
-
-msgid "{{indexCount}} indexes was removed."
+msgid "General"
 msgstr ""
 
 msgid "Installation name"
 msgstr ""
 
 msgid "This name will be shown in the title bar of the window"
+msgstr ""
+
+msgid "Logo"
+msgstr ""
+
+msgid "Sofie logo to be displayed in the header. Requires a page refresh."
 msgstr ""
 
 msgid "Logging level"
@@ -2627,13 +3320,22 @@ msgstr ""
 msgid "Message"
 msgstr ""
 
-msgid "Enabled"
+msgid "Support Panel"
 msgstr ""
 
 msgid "Edit Support Panel"
 msgstr ""
 
 msgid "HTML that will be shown in the Support Panel"
+msgstr ""
+
+msgid "Evaluations"
+msgstr ""
+
+msgid "Heading"
+msgstr ""
+
+msgid "Message shown to users in the Evaluations form"
 msgstr ""
 
 msgid "Application Performance Monitoring"
@@ -2656,9 +3358,6 @@ msgstr ""
 msgid "Monitor blocked thread"
 msgstr ""
 
-msgid "Enable"
-msgstr ""
-
 msgid ""
 "Enables internal monitoring of blocked main thread. Logs when there is an "
 "issue, but (unverified) might cause issues in itself."
@@ -2670,6 +3369,26 @@ msgstr ""
 msgid "Enable CasparCG restart job"
 msgstr ""
 
+msgid "Enable automatic storage of Rundown Playlist snapshots periodically"
+msgstr ""
+
+msgid "Rundown Playlist names to store"
+msgstr ""
+
+msgid ""
+"(Comma separated list. Empty - will store snapshots of all Rundown "
+"Playlists)"
+msgstr ""
+
+msgid "Remove indexes"
+msgstr ""
+
+msgid "This will remove {{indexCount}} old indexes, do you want to continue?"
+msgstr ""
+
+msgid "{{indexCount}} indexes was removed."
+msgstr ""
+
 msgid "Cleanup"
 msgstr ""
 
@@ -2677,20 +3396,6 @@ msgid "Cleanup old database indexes"
 msgstr ""
 
 msgid "Cleanup old data"
-msgstr ""
-
-msgid "Disable CasparCG restart job"
-msgstr ""
-
-msgid "Enable automatic storage of Rundown Playlist snapshots periodically"
-msgstr ""
-
-msgid "Filter: If set, only store snapshots for certain rundowns"
-msgstr ""
-
-msgid ""
-"(Comma separated list. Empty - will store snapshots of all Rundown "
-"Playlists)"
 msgstr ""
 
 msgid "Error when checking for cleaning up"
@@ -2714,10 +3419,33 @@ msgstr ""
 msgid "The old data was removed."
 msgstr ""
 
-msgid "Failed to check status."
+msgid "Nothing to cleanup!"
 msgstr ""
 
-msgid "Apply blueprint upgrades"
+msgid "Memory troubleshooting"
+msgstr ""
+
+msgid "Preparing, please wait..."
+msgstr ""
+
+msgid ""
+"Are you sure? This will cause the whole Sofie system to be unresponsive "
+"several seconds!"
+msgstr ""
+
+msgid "Yes, Take and Download Memory Heap Snapshot"
+msgstr ""
+
+msgid "Take and Download Memory Heap Snapshot"
+msgstr ""
+
+msgid "To inspect the memory heap snapshot, use Chrome DevTools"
+msgstr ""
+
+msgid "Unable to upgrade"
+msgstr ""
+
+msgid "Upgrade required"
 msgstr ""
 
 msgid "Upgrade config for {{name}}"
@@ -2744,28 +3472,52 @@ msgstr ""
 msgid "No changes"
 msgstr ""
 
-msgid "Dismiss"
+msgid "Are you sure you want to skip the fix up config step for {{name}}"
 msgstr ""
 
-msgid "Unable to upgrade"
+msgid "This could leave the configuration in a broken state"
 msgstr ""
 
-msgid "Upgrade required"
+msgid "Confirm"
+msgstr ""
+
+msgid "for {{name}} fix skipped successfully"
+msgstr ""
+
+msgid "Config for {{name}} fix failed"
+msgstr ""
+
+msgid "Completed with warnings"
+msgstr ""
+
+msgid "Config for {{name}} fixed successfully"
+msgstr ""
+
+msgid "Fix Up Config"
+msgstr ""
+
+msgid "Skip Fix Up Step"
 msgstr ""
 
 msgid "Show config changes"
 msgstr ""
 
-msgid "Validate Config"
+msgid "Validate and Apply Config"
+msgstr ""
+
+msgid "Apply Config"
+msgstr ""
+
+msgid "Apply blueprint upgrades"
+msgstr ""
+
+msgid "System"
 msgstr ""
 
 msgid "Last {{layerName}}"
 msgstr ""
 
 msgid "Clear {{layerName}}"
-msgstr ""
-
-msgid "Search..."
 msgstr ""
 
 msgid ""
@@ -2780,9 +3532,6 @@ msgid "End Words"
 msgstr ""
 
 msgid "Global AdLib"
-msgstr ""
-
-msgid "AdLib does not provide any options"
 msgstr ""
 
 msgid "Execute"
@@ -2807,9 +3556,6 @@ msgid "Part Count Down"
 msgstr ""
 
 msgid "Part Count Up"
-msgstr ""
-
-msgid "Until end of rundown"
 msgstr ""
 
 msgid "New Bucket"
@@ -2842,9 +3588,6 @@ msgstr ""
 msgid "Queue this AdLib"
 msgstr ""
 
-msgid "Inspect this AdLib"
-msgstr ""
-
 msgid "Rename this AdLib"
 msgstr ""
 
@@ -2875,9 +3618,6 @@ msgstr ""
 msgid "Local Time"
 msgstr ""
 
-msgid "System"
-msgstr ""
-
 msgid "Media"
 msgstr ""
 
@@ -2890,16 +3630,10 @@ msgstr ""
 msgid "User Log"
 msgstr ""
 
-msgid "Evaluations"
-msgstr ""
-
 msgid "Debug State"
 msgstr ""
 
 msgid "Timestamp"
-msgstr ""
-
-msgid "User Name"
 msgstr ""
 
 msgid "Answers"
@@ -2912,6 +3646,9 @@ msgid "Queued Messages"
 msgstr ""
 
 msgid "Sent Messages"
+msgstr ""
+
+msgid "No Media required by this system"
 msgstr ""
 
 msgid "File Copy"
@@ -2998,19 +3735,28 @@ msgstr ""
 msgid "Package Status"
 msgstr ""
 
-msgid "Package container status"
+msgid "Container Status"
 msgstr ""
 
 msgid "Id"
 msgstr ""
 
-msgid "Work status"
+msgid "Job Status"
 msgstr ""
 
-msgid "Restart All jobs"
+msgid "Restart All Jobs"
 msgstr ""
 
 msgid "Created"
+msgstr ""
+
+msgid "Device not found"
+msgstr ""
+
+msgid "Package Manager is offline"
+msgstr ""
+
+msgid "Restart Container"
 msgstr ""
 
 msgid "Ready"
@@ -3028,6 +3774,9 @@ msgstr ""
 msgid "Work description"
 msgstr ""
 
+msgid "Work status"
+msgstr ""
+
 msgid "Work status reason"
 msgstr ""
 
@@ -3043,16 +3792,30 @@ msgstr ""
 msgid "Not Connected"
 msgstr ""
 
-msgid "MOS Gateway"
+msgid "Sofie Automation Server Core: {{name}}"
 msgstr ""
 
-msgid "Play-out Gateway"
+msgid "Restart this system?"
 msgstr ""
 
-msgid "Media Manager"
+msgid ""
+"Are you sure you want to restart this Sofie Automation Server Core: "
+"{{name}}?"
 msgstr ""
 
-msgid "Unknown Device"
+msgid "Could not restart core: {{err}}"
+msgstr ""
+
+msgid "Sofie Automation Server Core will restart in {{time}}s..."
+msgstr ""
+
+msgid "Last seen"
+msgstr ""
+
+msgid "Connect some devices to the playout gateway"
+msgstr ""
+
+msgid "Are you sure you want to delete this device: \"{{deviceId}}\"?"
 msgstr ""
 
 msgid "Executed {{actionName}} on device \"{{deviceName}}\": {{response}}"
@@ -3067,35 +3830,6 @@ msgid ""
 msgstr ""
 
 msgid "Do you want to execute {{actionName}}? This may the disrupt the output"
-msgstr ""
-
-msgid "Last seen"
-msgstr ""
-
-msgid "Connect some devices to the playout gateway"
-msgstr ""
-
-msgid "Are you sure you want to delete this device: \"{{deviceId}}\"?"
-msgstr ""
-
-msgid "Sofie Automation Server Core: {{name}}"
-msgstr ""
-
-msgid "Restart this system?"
-msgstr ""
-
-msgid ""
-"Are you sure you want to restart this Sofie Automation Server Core: "
-"{{name}}?"
-msgstr ""
-
-msgid "Could not generate restart token!"
-msgstr ""
-
-msgid "Could not generate restart core: {{err}}"
-msgstr ""
-
-msgid "Sofie Automation Server Core will restart in {{time}}s..."
 msgstr ""
 
 msgid "Execution times"
@@ -3128,10 +3862,13 @@ msgstr ""
 msgid "Worker"
 msgstr ""
 
-msgid "Gateway"
+msgid "TSR"
 msgstr ""
 
-msgid "TSR"
+msgid "Amount of entries exceeds the limt of 10 000 items."
+msgstr ""
+
+msgid "Export visible"
 msgstr ""
 
 msgid "User Activity Log"
@@ -3191,63 +3928,28 @@ msgstr ""
 msgid "Routed Mappings"
 msgstr ""
 
-msgid "{{sourceLayer}} is missing a file path"
+msgid "Properties"
 msgstr ""
 
-msgid "{{sourceLayer}} is not yet ready on the playout system"
+msgid "Close Properties Panel"
 msgstr ""
 
-msgid "{{sourceLayer}} is being ingested"
+msgid "Restore Segment from NRCS"
 msgstr ""
 
-msgid "Source is missing"
+msgid "Restore Part from NRCS"
 msgstr ""
 
-msgid "Clip can't be played because it doesn't exist on the playout system"
+msgid "Save"
 msgstr ""
 
-msgid "{{sourceLayer}} is transferring to the playout system"
+msgid "Save Changes"
 msgstr ""
 
-msgid ""
-"{{sourceLayer}} is transferring to the playout system and cannot be "
-"played yet"
+msgid "Test Info message"
 msgstr ""
 
-msgid "{{sourceLayer}} is in an unknown state"
-msgstr ""
-
-msgid "{{sourceLayer}} doesn't have both audio & video"
-msgstr ""
-
-msgid "{{sourceLayer}} has the wrong format: {{format}}"
-msgstr ""
-
-msgid "{{sourceLayer}} has {{audioStreams}} audio streams"
-msgstr ""
-
-msgid "Clip starts with {{frames}} black frames"
-msgstr ""
-
-msgid "This clip ends with black frames after {{seconds}} seconds"
-msgstr ""
-
-msgid "{{frames}} black frames detected within the clip"
-msgstr ""
-
-msgid "{{frames}} black frames detected in the clip"
-msgstr ""
-
-msgid "Clip starts with {{frames}} freeze frames"
-msgstr ""
-
-msgid "This clip ends with freeze frames after {{seconds}} seconds"
-msgstr ""
-
-msgid "{{frames}} freeze frames detected within the clip"
-msgstr ""
-
-msgid "{{frames}} freeze frames detected in the clip"
+msgid "Test ERROR message"
 msgstr ""
 
 msgid "Toggle Shelf"
@@ -3285,6 +3987,9 @@ msgid ""
 "({{blueprintId}})"
 msgstr ""
 
+msgid "Config requires fixing up before it can be validated"
+msgstr ""
+
 msgid "Config has not been applied before"
 msgstr ""
 
@@ -3302,10 +4007,7 @@ msgstr ""
 msgid "Blueprint config has changed"
 msgstr ""
 
-msgid "Test Info message"
-msgstr ""
-
-msgid "Test ERROR message"
+msgid "Failed to compare config changes"
 msgstr ""
 
 msgid ""
@@ -3313,8 +4015,127 @@ msgid ""
 "newValue }}\""
 msgstr ""
 
+msgid "Part duration is 0."
+msgstr ""
+
+msgid "{{sourceLayer}} is missing a file path"
+msgstr ""
+
+msgid "{{sourceLayer}} is not yet ready on the playout system"
+msgstr ""
+
+msgid "{{sourceLayer}} is being ingested"
+msgstr ""
+
+msgid "{{sourceLayer}} is missing"
+msgstr ""
+
+msgid "{{sourceLayer}} can't be found on the playout system"
+msgstr ""
+
+msgid ""
+"{{reason}} {{sourceLayer}} exists, but is not yet ready on the playout "
+"system"
+msgstr ""
+
+msgid ""
+"{{sourceLayer}} is in a placeholder state for an unknown workflow-defined "
+"reason"
+msgstr ""
+
+msgid "{{sourceLayer}} is transferring to the playout system"
+msgstr ""
+
+msgid ""
+"{{sourceLayer}} is transferring to the playout system but cannot be played "
+"yet"
+msgstr ""
+
+msgid "{{sourceLayer}} is in an unknown state: \"{{status}}\""
+msgstr ""
+
+msgid "{{sourceLayer}} doesn't have both audio & video"
+msgstr ""
+
+msgid "{{sourceLayer}} has the wrong format: {{format}}"
+msgstr ""
+
+msgid "{{sourceLayer}} has {{audioStreams}} audio streams"
+msgstr ""
+
+msgid "Clip starts with {{frames}} black frames"
+msgstr ""
+
+msgid "This clip ends with black frames after {{seconds}} seconds"
+msgstr ""
+
+msgid "{{frames}} black frames detected within the clip"
+msgstr ""
+
+msgid "{{frames}} black frames detected in the clip"
+msgstr ""
+
+msgid "Clip starts with {{frames}} freeze frames"
+msgstr ""
+
+msgid "This clip ends with freeze frames after {{seconds}} seconds"
+msgstr ""
+
+msgid "{{frames}} freeze frames detected within the clip"
+msgstr ""
+
+msgid "{{frames}} freeze frames detected in the clip"
+msgstr ""
+
+msgid "Segment no longer exists in {{nrcs}}"
+msgstr ""
+
+msgid "Segment was hidden in {{nrcs}}"
+msgstr ""
+
+msgid "some message"
+msgstr ""
+
+msgid "a second"
+msgstr ""
+
+msgid "The following parts no longer exist in {{nrcs}}: {{partNames}}"
+msgstr ""
+
+msgid "some reason"
+msgstr ""
+
+msgid "something changed"
+msgstr ""
+
+msgid "some invalid reason"
+msgstr ""
+
+msgid "{{studioName}}: Active Rundown"
+msgstr ""
+
+msgid "Active Rundown"
+msgstr ""
+
+msgid "{{studioName}}: Prompter"
+msgstr ""
+
+msgid "{{studioName}}: Presenter screen"
+msgstr ""
+
+msgid "Presenter screen"
+msgstr ""
+
 msgctxt "°°°°°°plural"
-msgid "{{count}} rows°°°°°°"
+msgid "Failed to assign players for {{count}} sessions°°°°°°"
+msgstr ""
+
+msgctxt "°°°°°°plural"
+msgid "Failed to assign players for {{count}} non-critical sessions°°°°°°"
+msgstr ""
+
+msgctxt "°°°°°°plural"
+msgid "{{count}} items°°°°°°"
 msgstr ""
 
 msgctxt "°°°°°°plural"
