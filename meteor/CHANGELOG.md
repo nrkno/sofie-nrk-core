@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.52.5-nrk](///compare/v1.52.4-nrk...v1.52.5-nrk) (2025-08-13)
+
+
+### Features
+
+* Translations for R52 (SOFIE-3786) f4821e7
+
+
+### Bug Fixes
+
+* vertical alignment of context menu icons 84bfc3c
+
 ### [1.52.4-nrk](///compare/v1.52.3-nrk...v1.52.4-nrk) (2025-08-11)
 
 
