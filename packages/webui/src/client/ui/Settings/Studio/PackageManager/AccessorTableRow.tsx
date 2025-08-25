@@ -307,7 +307,21 @@ export function AccessorTableRow({
 										itemKey={`container.accessors.${accessorId}.ISAUrls`}
 										overrideHelper={overrideHelper}
 									>
-										{(value, handleUpdate) => <TextInputControl value={value} handleUpdate={handleUpdate} />}
+										{(value, handleUpdate) => {
+											// Convert array of strings into comma-separated string for the input:
+											const strValue = Array.isArray(value) ? value.join(', ') : value
+											return (
+												<TextInputControl
+													modifiedClassName="bghl"
+													classNames="input text-input input-l"
+													value={strValue}
+													handleUpdate={(value: string) => {
+														// Convert comma-separated string into array of strings
+														handleUpdate(value.split(',').map((s) => s.trim()))
+													}}
+												/>
+											)
+										}}
 									</LabelAndOverrides>
 									<LabelAndOverrides
 										label={t('Quantel Zone ID')}
