@@ -17,6 +17,7 @@ import { TextInputControl } from '../../../../lib/Components/TextInput.js'
 import { DropdownInputControl, getDropdownInputOptions } from '../../../../lib/Components/DropdownInput.js'
 import { OverrideOpHelper, WrappedOverridableItemNormal } from '../../util/OverrideOpHelper.js'
 import { CheckboxControl } from '../../../../lib/Components/Checkbox.js'
+import { IntInputControl } from '../../../../lib/Components/IntInput.js'
 import Button from 'react-bootstrap/Button'
 
 interface AccessorTableRowProps {
@@ -343,7 +344,14 @@ export function AccessorTableRow({
 										itemKey={`container.accessors.${accessorId}.serverId`}
 										overrideHelper={overrideHelper}
 									>
-										{(value, handleUpdate) => <TextInputControl value={value} handleUpdate={handleUpdate} />}
+										{(value, handleUpdate) => (
+											<IntInputControl
+												modifiedClassName="bghl"
+												classNames="input text-input input-l"
+												value={value}
+												handleUpdate={handleUpdate}
+											/>
+										)}
 									</LabelAndOverrides>
 									<LabelAndOverrides
 										label={t('Quantel transformer URL')}
