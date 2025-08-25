@@ -384,6 +384,98 @@ export function AccessorTableRow({
 										{(value, handleUpdate) => <TextInputControl value={value} handleUpdate={handleUpdate} />}
 									</LabelAndOverrides>
 								</>
+							) : accessor.type === Accessor.AccessType.ATEM_MEDIA_STORE ? (
+								<>
+									<LabelAndOverrides
+										label={t('Resource Id')}
+										hint={t('(Optional) This could be the name of the compute')}
+										item={packageContainer}
+										//@ts-expect-error can't be 4 levels deep
+										itemKey={`container.accessors.${accessorId}.resourceId`}
+										overrideHelper={overrideHelper}
+									>
+										{(value, handleUpdate) => (
+											<TextInputControl
+												modifiedClassName="bghl"
+												classNames="input text-input input-l"
+												value={value}
+												handleUpdate={handleUpdate}
+											/>
+										)}
+									</LabelAndOverrides>
+									<LabelAndOverrides
+										label={t('Network Id')}
+										hint={t('(Optional) A name/identifier of the local network where the Atem is located')}
+										item={packageContainer}
+										//@ts-expect-error can't be 4 levels deep
+										itemKey={`container.accessors.${accessorId}.networkId`}
+										overrideHelper={overrideHelper}
+									>
+										{(value, handleUpdate) => (
+											<TextInputControl
+												modifiedClassName="bghl"
+												classNames="input text-input input-l"
+												value={value}
+												handleUpdate={handleUpdate}
+											/>
+										)}
+									</LabelAndOverrides>
+
+									<LabelAndOverrides
+										label={t('Network address')}
+										hint={t('Hostname or IP address of the Atem')}
+										item={packageContainer}
+										//@ts-expect-error can't be 4 levels deep
+										itemKey={`container.accessors.${accessorId}.atemHost`}
+										overrideHelper={overrideHelper}
+									>
+										{(value, handleUpdate) => (
+											<TextInputControl
+												modifiedClassName="bghl"
+												classNames="input text-input input-l"
+												value={value}
+												handleUpdate={handleUpdate}
+											/>
+										)}
+									</LabelAndOverrides>
+									<LabelAndOverrides
+										label={t('Bank Index')}
+										hint={t(' The index of the Atem media/clip banks')}
+										item={packageContainer}
+										//@ts-expect-error can't be 4 levels deep
+										itemKey={`container.accessors.${accessorId}.bankIndex`}
+										overrideHelper={overrideHelper}
+									>
+										{(value, handleUpdate) => (
+											<IntInputControl
+												modifiedClassName="bghl"
+												classNames="input text-input input-l"
+												value={value}
+												handleUpdate={handleUpdate}
+											/>
+										)}
+									</LabelAndOverrides>
+									<LabelAndOverridesForDropdown
+										label={t('Media Type')}
+										hint={t('What type of bank')}
+										item={packageContainer}
+										//@ts-expect-error can't be 4 levels deep
+										itemKey={`container.accessors.${accessorId}.mediaType`}
+										overrideHelper={overrideHelper}
+										options={getDropdownInputOptions(['clip', 'still'])}
+									>
+										{(value, handleUpdate, options) => {
+											return (
+												<DropdownInputControl
+													classNames="input text-input input-l"
+													options={options}
+													value={value}
+													handleUpdate={handleUpdate}
+												/>
+											)
+										}}
+									</LabelAndOverridesForDropdown>
+								</>
 							) : null}
 
 							<LabelAndOverridesForCheckbox
