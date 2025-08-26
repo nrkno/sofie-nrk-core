@@ -53,9 +53,7 @@ export async function handlePrepareRundownPlaylistForBroadcast(
 			await checkNoOtherPlaylistsActive(context, playlist)
 		},
 		async (playoutModel) => {
-			await resetRundownPlaylist(context, playoutModel)
-
-			await activateRundownPlaylist(context, playoutModel, true) // Activate rundownPlaylist (rehearsal)
+			await activateRundownPlaylist(context, playoutModel, true, true) // Activate rundownPlaylist (rehearsal)
 		}
 	)
 }
