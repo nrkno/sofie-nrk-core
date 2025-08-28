@@ -1191,7 +1191,7 @@ __metadata:
   resolution: "@sofie-automation/shared-lib@portal:../packages/shared-lib::locator=automation-core%40workspace%3A."
   dependencies:
     "@mos-connection/model": "npm:^4.2.2"
-    timeline-state-resolver-types: "npm:9.3.0"
+    timeline-state-resolver-types: "npm:9.3.2-nightly-feat-atem-action-runMacro-20250826-131017-4b83dba8f.0"
     tslib: "npm:^2.8.1"
     type-fest: "npm:^4.33.0"
   languageName: node
@@ -10234,12 +10234,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"timeline-state-resolver-types@npm:9.3.0":
-  version: 9.3.0
-  resolution: "timeline-state-resolver-types@npm:9.3.0"
+"timeline-state-resolver-types@npm:9.3.2-nightly-feat-atem-action-runMacro-20250826-131017-4b83dba8f.0":
+  version: 9.3.2-nightly-feat-atem-action-runMacro-20250826-131017-4b83dba8f.0
+  resolution: "timeline-state-resolver-types@npm:9.3.2-nightly-feat-atem-action-runMacro-20250826-131017-4b83dba8f.0"
   dependencies:
     tslib: "npm:^2.6.3"
-  checksum: 10/2193715a9a3acd89134b6dd102aa8a0adc3386a286744255788d44343e9e820a4cec293609397139a1506d326f0689599e8cc0ca50868c05ad4e78b90f5324ec
+  checksum: 10/cab721b93c3732b49cfefd2abd20c8c2b81425bb62b4e4c99cb87d7e80473a6be397fc62878a5a58d15fb33100676531ce5c14c4082f7bf1d16d268ca6bf1ddc
   languageName: node
   linkType: hard
 
