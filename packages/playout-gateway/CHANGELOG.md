@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.52.6-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.4-nrk...v1.52.6-nrk) (2025-08-28)
+
+
+### Bug Fixes
+
+* use TSR with TSR-Action: Atem Macro support ([cc46834](https://github.com/Sofie-Automation/sofie-core/commit/cc468340a10a89dece88d153719a04a291b31869))
+
+
+
+
+
 ## [1.52.5-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.4-nrk...v1.52.5-nrk) (2025-08-13)
 
 **Note:** Version bump only for package playout-gateway

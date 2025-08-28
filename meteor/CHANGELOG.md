@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.52.6-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.4-nrk...v1.52.6-nrk) (2025-08-28)
+
+
+### Features
+
+* replace `wasActive` in onRundownActivate with previousState&currentState in RundownActivationContext. Also changed the algorithm in handleResetRundownPlaylist, so that activateRundownPlaylist always runs ([35a99f1](https://github.com/Sofie-Automation/sofie-core/commit/35a99f16023da46d5949c28cbba09008e3d5f8bc))
+* Translations for R52 (SOFIE-3786) ([f4821e7](https://github.com/Sofie-Automation/sofie-core/commit/f4821e75c8b7685c9e72199437bfb5309754747a))
+
+
+### Bug Fixes
+
+* bug in onTimelineGenerate: Use the same time for "now" both when resolving "now" and in onTimelineGenerate context ([dc41611](https://github.com/Sofie-Automation/sofie-core/commit/dc4161107d23cadcb4bf337d773de4b9199947da))
+* **Settings GUI.Package Manager:** Add missing input form for the AtemMediaStore accessor type ([7184cf2](https://github.com/Sofie-Automation/sofie-core/commit/7184cf26b0de5b7e5fb78b064a2f1d9a1a96db88))
+* **Settings GUI.Package Manager:** Change input type for container.accessors.${accessorId}.ISAUrls to an array of strings ([20eb608](https://github.com/Sofie-Automation/sofie-core/commit/20eb60805f740b73f9d2ba911d7109521a64640f))
+* **Settings GUI.Package Manager:** Change input type for container.accessors.${accessorId}.serverId to an int and not a string ([ef06a60](https://github.com/Sofie-Automation/sofie-core/commit/ef06a604cd2335016700f2d64a6b5b4ecb4c50b6))
+* use TSR with TSR-Action: Atem Macro support ([cc46834](https://github.com/Sofie-Automation/sofie-core/commit/cc468340a10a89dece88d153719a04a291b31869))
+* vertical alignment of context menu icons ([84bfc3c](https://github.com/Sofie-Automation/sofie-core/commit/84bfc3c9bbd72e481762bc3426972e46fc6dc91c))
+
 ### [1.52.5-nrk](///compare/v1.52.4-nrk...v1.52.5-nrk) (2025-08-13)
 
 
