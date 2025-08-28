@@ -3,6 +3,46 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.52.5-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.4-nrk...v1.52.5-nrk) (2025-08-13)
+
+**Note:** Version bump only for package @sofie-automation/server-core-integration
+
+
+
+
+
+## [1.52.4-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.3-nrk...v1.52.4-nrk) (2025-08-11)
+
+**Note:** Version bump only for package @sofie-automation/server-core-integration
+
+
+
+
+
+## [1.52.3-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.2-nrk...v1.52.3-nrk) (2025-08-07)
+
+**Note:** Version bump only for package @sofie-automation/server-core-integration
+
+
+
+
+
+## [1.52.2-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.1+nrk...v1.52.2-nrk) (2025-08-04)
+
+**Note:** Version bump only for package @sofie-automation/server-core-integration
+
+
+
+
+
+## [1.52.1](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.0+nrk...v1.52.1) (2025-07-07)
+
+**Note:** Version bump only for package @sofie-automation/server-core-integration
+
+
+
+
+
 # [1.52.0](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.0-in-testing.1...v1.52.0) (2025-06-30)
 
 **Note:** Version bump only for package @sofie-automation/server-core-integration
@@ -29,15 +69,14 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 
 
-# [1.52.0-in-testing.0](https://github.com/nrkno/sofie-core/compare/v1.51.6...v1.52.0-in-testing.0) (2025-02-04)
+## [1.51.8](https://github.com/nrkno/sofie-core/compare/v1.51.7...v1.51.8) (2025-06-24)
+
+**Note:** Version bump only for package @sofie-automation/server-core-integration
 
 
-### Features
 
-* always add `dnt=gateway` header for gateway connections ([c7bdfe6](https://github.com/nrkno/sofie-core/commit/c7bdfe6787b76a5d23eb841764abf7b0cc799028))
-* meteor 3.0.4 ([8670727](https://github.com/nrkno/sofie-core/commit/8670727bba5ac9cffe0e5d36b4bd45d6664482be))
-* support for http header in packagemanager ([1e5bbc6](https://github.com/nrkno/sofie-core/commit/1e5bbc669fe67fedf48027524232ad6696fc8909))
-* update meteor to 3.1 and node to 22 ([61b6854](https://github.com/nrkno/sofie-core/commit/61b6854261a03f04e81416b9d37ee995e3a10108))
+
+
 ## [1.51.7](https://github.com/nrkno/sofie-core/compare/v1.51.6...v1.51.7) (2025-05-06)
 
 **Note:** Version bump only for package @sofie-automation/server-core-integration

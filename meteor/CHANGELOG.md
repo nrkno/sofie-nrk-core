@@ -2,6 +2,56 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.52.5-nrk](///compare/v1.52.4-nrk...v1.52.5-nrk) (2025-08-13)
+
+
+### Features
+
+* Translations for R52 (SOFIE-3786) f4821e7
+
+
+### Bug Fixes
+
+* vertical alignment of context menu icons 84bfc3c
+
+### [1.52.4-nrk](///compare/v1.52.3-nrk...v1.52.4-nrk) (2025-08-11)
+
+
+### Bug Fixes
+
+* update mos-connection for missing mosID bug fix ([#9](undefined/undefined/undefined/issues/9)) e55cb5e
+
+### [1.52.3-nrk](///compare/v1.52.2-nrk...v1.52.3-nrk) (2025-08-07)
+
+
+### Features
+
+* add BlueprintAssetIcon component 07aa194
+* **BlueprintAssetIcon:** support data urls 8063f54
+* clean up dead code 082eb89
+* **FloatingInspector:** make video previews as large as graphics previews 38cab1d
+* implement Bucket Panel Icon 49d559c
+
+
+### Bug Fixes
+
+* **BlueprintAssetIcon:** data URLs  have null origin 16449d7
+* **ContextMenu:** separators in context menu are wrong color e6999ff
+
+### [1.52.2-nrk](///compare/v1.52.1+nrk...v1.52.2-nrk) (2025-08-04)
+
+
+### Bug Fixes
+
+* **AfterBroadcastForm:** shouldDeactivateRundown should be true when loop is _not_ running ad816c3
+
+### [1.52.1](///compare/v1.52.0+nrk...v1.52.1) (2025-07-07)
+
+
+### Bug Fixes
+
+* **Presenter Screen:** Diff is showing incorrect values edb9645
+
 ## [1.52.0](///compare/v1.52.0-in-testing.1...v1.52.0) (2025-06-30)
 
 

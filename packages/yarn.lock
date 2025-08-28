@@ -4157,38 +4157,38 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@mos-connection/connector@npm:^4.2.2":
-  version: 4.2.2
-  resolution: "@mos-connection/connector@npm:4.2.2"
+"@mos-connection/connector@npm:4.2.3":
+  version: 4.2.3
+  resolution: "@mos-connection/connector@npm:4.2.3"
   dependencies:
-    "@mos-connection/helper": "npm:4.2.2"
-    "@mos-connection/model": "npm:4.2.2"
+    "@mos-connection/helper": "npm:4.2.3"
+    "@mos-connection/model": "npm:4.2.3"
     eventemitter3: "npm:^5.0.1"
     iconv-lite: "npm:^0.6.3"
     tslib: "npm:^2.5.3"
     xml-js: "npm:^1.6.11"
     xmlbuilder: "npm:^15.1.1"
-  checksum: 10/9f130ad7e498e6df65a7736ef875c3d20d281bf29a8f5729c15f8bfd76820783dcd03cbb60d6faec76bc1a55854723fad87125c58b46aad1ec8b92ad5d827fa0
+  checksum: 10/fbcdbbde3ad6d756c10944972403973976ff8c8911c8ad483b34369024b98d30adf86b7553487acf3d945da6f870618d1ca18547aab92222f873182617960533
   languageName: node
   linkType: hard
 
-"@mos-connection/helper@npm:4.2.2, @mos-connection/helper@npm:^4.2.2":
-  version: 4.2.2
-  resolution: "@mos-connection/helper@npm:4.2.2"
+"@mos-connection/helper@npm:4.2.3":
+  version: 4.2.3
+  resolution: "@mos-connection/helper@npm:4.2.3"
   dependencies:
-    "@mos-connection/model": "npm:4.2.2"
+    "@mos-connection/model": "npm:4.2.3"
     iconv-lite: "npm:^0.6.3"
     tslib: "npm:^2.5.3"
     xml-js: "npm:^1.6.11"
     xmlbuilder: "npm:^15.1.1"
-  checksum: 10/aa81a2808ac48439d0d6c5b586f302bed7f04c0d2bb8795d950b4df856f7ab0904f16464fe7a4838908caf6b26ac91a7ea2d5a1b24dcaed67111dd9f449ed168
+  checksum: 10/e11b2abebebefa82f5ac4526086957bbb652bbf0cf7bdfd5ae79318c40127e591092d596880569d3fa9b947ce58b6d939bc43995b3480ecc06f6f3dd513d4e65
   languageName: node
   linkType: hard
 
-"@mos-connection/model@npm:4.2.2, @mos-connection/model@npm:^4.2.2":
-  version: 4.2.2
-  resolution: "@mos-connection/model@npm:4.2.2"
-  checksum: 10/9cf044c543e165c6579df46af7a7081a8cd0baea36b0769b3237c94eef7254959b7b84421d612d39c2f1c6da82080cfd43f795fb42ea1f7cb2b6ce21d7108aeb
+"@mos-connection/model@npm:4.2.3":
+  version: 4.2.3
+  resolution: "@mos-connection/model@npm:4.2.3"
+  checksum: 10/57e1c0f1fb8eb7da1c2e49c0907498b50e27626293406602e1f4c7827fc7f8ea26b22c0e98afe786abf369f32a196ae0591670044f046b019f1f42c47b58d0e7
   languageName: node
   linkType: hard
 
@@ -5920,11 +5920,11 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@sofie-automation/blueprints-integration@npm:1.52.0, @sofie-automation/blueprints-integration@workspace:blueprints-integration":
+"@sofie-automation/blueprints-integration@npm:1.52.5-nrk, @sofie-automation/blueprints-integration@workspace:blueprints-integration":
   version: 0.0.0-use.local
   resolution: "@sofie-automation/blueprints-integration@workspace:blueprints-integration"
   dependencies:
-    "@sofie-automation/shared-lib": "npm:1.52.0"
+    "@sofie-automation/shared-lib": "npm:1.52.5-nrk"
     tslib: "npm:^2.8.1"
     type-fest: "npm:^4.33.0"
   languageName: unknown
@@ -5961,12 +5961,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@sofie-automation/corelib@npm:1.52.0, @sofie-automation/corelib@workspace:corelib":
+"@sofie-automation/corelib@npm:1.52.5-nrk, @sofie-automation/corelib@workspace:corelib":
   version: 0.0.0-use.local
   resolution: "@sofie-automation/corelib@workspace:corelib"
   dependencies:
-    "@sofie-automation/blueprints-integration": "npm:1.52.0"
-    "@sofie-automation/shared-lib": "npm:1.52.0"
+    "@sofie-automation/blueprints-integration": "npm:1.52.5-nrk"
+    "@sofie-automation/shared-lib": "npm:1.52.5-nrk"
     fast-clone: "npm:^1.5.13"
     i18next: "npm:^21.10.0"
     influx: "npm:^5.9.7"
@@ -5997,9 +5997,9 @@ __metadata:
   resolution: "@sofie-automation/job-worker@workspace:job-worker"
   dependencies:
     "@slack/webhook": "npm:^7.0.4"
-    "@sofie-automation/blueprints-integration": "npm:1.52.0"
-    "@sofie-automation/corelib": "npm:1.52.0"
-    "@sofie-automation/shared-lib": "npm:1.52.0"
+    "@sofie-automation/blueprints-integration": "npm:1.52.5-nrk"
+    "@sofie-automation/corelib": "npm:1.52.5-nrk"
+    "@sofie-automation/shared-lib": "npm:1.52.5-nrk"
     amqplib: "npm:^0.10.5"
     deepmerge: "npm:^4.3.1"
     elastic-apm-node: "npm:^4.11.0"
@@ -6015,14 +6015,14 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@sofie-automation/meteor-lib@npm:1.52.0, @sofie-automation/meteor-lib@workspace:meteor-lib":
+"@sofie-automation/meteor-lib@npm:1.52.5-nrk, @sofie-automation/meteor-lib@workspace:meteor-lib":
   version: 0.0.0-use.local
   resolution: "@sofie-automation/meteor-lib@workspace:meteor-lib"
   dependencies:
-    "@mos-connection/helper": "npm:^4.2.2"
-    "@sofie-automation/blueprints-integration": "npm:1.52.0"
-    "@sofie-automation/corelib": "npm:1.52.0"
-    "@sofie-automation/shared-lib": "npm:1.52.0"
+    "@mos-connection/helper": "npm:4.2.3"
+    "@sofie-automation/blueprints-integration": "npm:1.52.5-nrk"
+    "@sofie-automation/corelib": "npm:1.52.5-nrk"
+    "@sofie-automation/shared-lib": "npm:1.52.5-nrk"
     "@types/deep-extend": "npm:^0.6.2"
     "@types/semver": "npm:^7.5.8"
     "@types/underscore": "npm:^1.13.0"
@@ -6048,11 +6048,11 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@sofie-automation/server-core-integration@npm:1.52.0, @sofie-automation/server-core-integration@workspace:server-core-integration":
+"@sofie-automation/server-core-integration@npm:1.52.5-nrk, @sofie-automation/server-core-integration@workspace:server-core-integration":
   version: 0.0.0-use.local
   resolution: "@sofie-automation/server-core-integration@workspace:server-core-integration"
   dependencies:
-    "@sofie-automation/shared-lib": "npm:1.52.0"
+    "@sofie-automation/shared-lib": "npm:1.52.5-nrk"
     ejson: "npm:^2.2.3"
     faye-websocket: "npm:^0.11.4"
     got: "npm:^11.8.6"
@@ -6061,11 +6061,11 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@sofie-automation/shared-lib@npm:1.52.0, @sofie-automation/shared-lib@workspace:shared-lib":
+"@sofie-automation/shared-lib@npm:1.52.5-nrk, @sofie-automation/shared-lib@workspace:shared-lib":
   version: 0.0.0-use.local
   resolution: "@sofie-automation/shared-lib@workspace:shared-lib"
   dependencies:
-    "@mos-connection/model": "npm:^4.2.2"
+    "@mos-connection/model": "npm:4.2.3"
     timeline-state-resolver-types: "npm:9.3.2-nightly-feat-atem-action-runMacro-20250826-131017-4b83dba8f.0"
     tslib: "npm:^2.8.1"
     type-fest: "npm:^4.33.0"
@@ -6092,10 +6092,10 @@ __metadata:
     "@jstarpl/react-contextmenu": "npm:^2.15.1"
     "@nrk/core-icons": "npm:^9.6.0"
     "@popperjs/core": "npm:^2.11.8"
-    "@sofie-automation/blueprints-integration": "npm:1.52.0"
-    "@sofie-automation/corelib": "npm:1.52.0"
-    "@sofie-automation/meteor-lib": "npm:1.52.0"
-    "@sofie-automation/shared-lib": "npm:1.52.0"
+    "@sofie-automation/blueprints-integration": "npm:1.52.5-nrk"
+    "@sofie-automation/corelib": "npm:1.52.5-nrk"
+    "@sofie-automation/meteor-lib": "npm:1.52.5-nrk"
+    "@sofie-automation/shared-lib": "npm:1.52.5-nrk"
     "@sofie-automation/sorensen": "npm:^1.5.8"
     "@testing-library/dom": "npm:^10.4.0"
     "@testing-library/jest-dom": "npm:^6.6.3"
@@ -11304,13 +11304,13 @@ asn1@evs-broadcast/node-asn1:
   linkType: hard
 
 "cross-spawn@npm:^7.0.0, cross-spawn@npm:^7.0.2, cross-spawn@npm:^7.0.3":
-  version: 7.0.3
-  resolution: "cross-spawn@npm:7.0.3"
+  version: 7.0.6
+  resolution: "cross-spawn@npm:7.0.6"
   dependencies:
     path-key: "npm:^3.1.0"
     shebang-command: "npm:^2.0.0"
     which: "npm:^2.0.1"
-  checksum: 10/e1a13869d2f57d974de0d9ef7acbf69dc6937db20b918525a01dacb5032129bd552d290d886d981e99f1b624cb03657084cc87bd40f115c07ecf376821c729ce
+  checksum: 10/0d52657d7ae36eb130999dffff1168ec348687b48dd38e2ff59992ed916c88d328cf1d07ff4a4a10bc78de5e1c23f04b306d569e42f7a2293915c081e4dfee86
   languageName: node
   linkType: hard
 
@@ -18626,10 +18626,10 @@ asn1@evs-broadcast/node-asn1:
     "@asyncapi/generator": "npm:^2.6.0"
     "@asyncapi/html-template": "npm:^3.1.0"
     "@asyncapi/nodejs-ws-template": "npm:^0.10.0"
-    "@sofie-automation/blueprints-integration": "npm:1.52.0"
-    "@sofie-automation/corelib": "npm:1.52.0"
-    "@sofie-automation/server-core-integration": "npm:1.52.0"
-    "@sofie-automation/shared-lib": "npm:1.52.0"
+    "@sofie-automation/blueprints-integration": "npm:1.52.5-nrk"
+    "@sofie-automation/corelib": "npm:1.52.5-nrk"
+    "@sofie-automation/server-core-integration": "npm:1.52.5-nrk"
+    "@sofie-automation/shared-lib": "npm:1.52.5-nrk"
     debug: "npm:^4.4.0"
     fast-clone: "npm:^1.5.13"
     influx: "npm:^5.9.7"
@@ -20678,9 +20678,9 @@ asn1@evs-broadcast/node-asn1:
   version: 0.0.0-use.local
   resolution: "mos-gateway@workspace:mos-gateway"
   dependencies:
-    "@mos-connection/connector": "npm:^4.2.2"
-    "@sofie-automation/server-core-integration": "npm:1.52.0"
-    "@sofie-automation/shared-lib": "npm:1.52.0"
+    "@mos-connection/connector": "npm:4.2.3"
+    "@sofie-automation/server-core-integration": "npm:1.52.5-nrk"
+    "@sofie-automation/shared-lib": "npm:1.52.5-nrk"
     tslib: "npm:^2.8.1"
     type-fest: "npm:^4.33.0"
     underscore: "npm:^1.13.7"
@@ -22930,8 +22930,8 @@ asn1@evs-broadcast/node-asn1:
   version: 0.0.0-use.local
   resolution: "playout-gateway@workspace:playout-gateway"
   dependencies:
-    "@sofie-automation/server-core-integration": "npm:1.52.0"
-    "@sofie-automation/shared-lib": "npm:1.52.0"
+    "@sofie-automation/server-core-integration": "npm:1.52.5-nrk"
+    "@sofie-automation/shared-lib": "npm:1.52.5-nrk"
     debug: "npm:^4.4.0"
     influx: "npm:^5.9.7"
     timeline-state-resolver: "npm:9.3.2-nightly-feat-atem-action-runMacro-20250826-131017-4b83dba8f.0"
