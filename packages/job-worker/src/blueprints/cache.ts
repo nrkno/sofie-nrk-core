@@ -57,6 +57,7 @@ export async function parseBlueprintDocument(
 			const context = vm.createContext(
 				{
 					fetch,
+					require, // nocommit: HACK
 				},
 				{}
 			)
