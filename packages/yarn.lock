@@ -4157,38 +4157,38 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@mos-connection/connector@npm:4.2.3":
-  version: 4.2.3
-  resolution: "@mos-connection/connector@npm:4.2.3"
+"@mos-connection/connector@npm:^4.3.1":
+  version: 4.3.1
+  resolution: "@mos-connection/connector@npm:4.3.1"
   dependencies:
-    "@mos-connection/helper": "npm:4.2.3"
-    "@mos-connection/model": "npm:4.2.3"
+    "@mos-connection/helper": "npm:4.3.1"
+    "@mos-connection/model": "npm:4.3.1"
     eventemitter3: "npm:^5.0.1"
     iconv-lite: "npm:^0.6.3"
     tslib: "npm:^2.5.3"
     xml-js: "npm:^1.6.11"
     xmlbuilder: "npm:^15.1.1"
-  checksum: 10/fbcdbbde3ad6d756c10944972403973976ff8c8911c8ad483b34369024b98d30adf86b7553487acf3d945da6f870618d1ca18547aab92222f873182617960533
+  checksum: 10/c5e64e8c9c08068720f5e95b7c959fc5779a46fa94e313ea65b35e319f8d044294cb17146b285668893587d05dc7b4897cd08e60833bbc8be3e5e8d92e74a70b
   languageName: node
   linkType: hard
 
-"@mos-connection/helper@npm:4.2.3":
-  version: 4.2.3
-  resolution: "@mos-connection/helper@npm:4.2.3"
+"@mos-connection/helper@npm:4.3.1, @mos-connection/helper@npm:^4.3.1":
+  version: 4.3.1
+  resolution: "@mos-connection/helper@npm:4.3.1"
   dependencies:
-    "@mos-connection/model": "npm:4.2.3"
+    "@mos-connection/model": "npm:4.3.1"
     iconv-lite: "npm:^0.6.3"
     tslib: "npm:^2.5.3"
     xml-js: "npm:^1.6.11"
     xmlbuilder: "npm:^15.1.1"
-  checksum: 10/e11b2abebebefa82f5ac4526086957bbb652bbf0cf7bdfd5ae79318c40127e591092d596880569d3fa9b947ce58b6d939bc43995b3480ecc06f6f3dd513d4e65
+  checksum: 10/7f22e2c59ec4aa4934f4c76de75b547414368031c9fd3ce17a3b1fc5533419962d1494ab02d6518bea9b0036305101e6442e74dd602f17ac715ca7b11679b77b
   languageName: node
   linkType: hard
 
-"@mos-connection/model@npm:4.2.3":
-  version: 4.2.3
-  resolution: "@mos-connection/model@npm:4.2.3"
-  checksum: 10/57e1c0f1fb8eb7da1c2e49c0907498b50e27626293406602e1f4c7827fc7f8ea26b22c0e98afe786abf369f32a196ae0591670044f046b019f1f42c47b58d0e7
+"@mos-connection/model@npm:4.3.1, @mos-connection/model@npm:^4.3.1":
+  version: 4.3.1
+  resolution: "@mos-connection/model@npm:4.3.1"
+  checksum: 10/03b1977bae64a157555b6d13300670840f8715e657bae4db2dd38702e0ecc64195f40ab06ee5ebacf4699ecdc87a9812452df6a3cbb96cf490ffed5eec1cee85
   languageName: node
   linkType: hard
 
@@ -6019,7 +6019,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@sofie-automation/meteor-lib@workspace:meteor-lib"
   dependencies:
-    "@mos-connection/helper": "npm:4.2.3"
+    "@mos-connection/helper": "npm:^4.3.1"
     "@sofie-automation/blueprints-integration": "npm:1.52.6-nrk"
     "@sofie-automation/corelib": "npm:1.52.6-nrk"
     "@sofie-automation/shared-lib": "npm:1.52.6-nrk"
@@ -6065,7 +6065,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@sofie-automation/shared-lib@workspace:shared-lib"
   dependencies:
-    "@mos-connection/model": "npm:4.2.3"
+    "@mos-connection/model": "npm:^4.3.1"
     timeline-state-resolver-types: "npm:9.3.2-nightly-feat-atem-action-runMacro-20250826-131017-4b83dba8f.0"
     tslib: "npm:^2.8.1"
     type-fest: "npm:^4.33.0"
@@ -20678,7 +20678,7 @@ asn1@evs-broadcast/node-asn1:
   version: 0.0.0-use.local
   resolution: "mos-gateway@workspace:mos-gateway"
   dependencies:
-    "@mos-connection/connector": "npm:4.2.3"
+    "@mos-connection/connector": "npm:^4.3.1"
     "@sofie-automation/server-core-integration": "npm:1.52.6-nrk"
     "@sofie-automation/shared-lib": "npm:1.52.6-nrk"
     tslib: "npm:^2.8.1"
