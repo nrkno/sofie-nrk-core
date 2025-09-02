@@ -6066,7 +6066,7 @@ __metadata:
   resolution: "@sofie-automation/shared-lib@workspace:shared-lib"
   dependencies:
     "@mos-connection/model": "npm:^4.3.1"
-    timeline-state-resolver-types: "npm:9.3.1"
+    timeline-state-resolver-types: "npm:9.3.2"
     tslib: "npm:^2.8.1"
     type-fest: "npm:^4.33.0"
   languageName: unknown
@@ -22934,7 +22934,7 @@ asn1@evs-broadcast/node-asn1:
     "@sofie-automation/shared-lib": "npm:1.52.0"
     debug: "npm:^4.4.0"
     influx: "npm:^5.9.7"
-    timeline-state-resolver: "npm:9.3.1"
+    timeline-state-resolver: "npm:9.3.2"
     tslib: "npm:^2.8.1"
     underscore: "npm:^1.13.7"
     winston: "npm:^3.17.0"
@@ -27303,15 +27303,6 @@ asn1@evs-broadcast/node-asn1:
   languageName: node
   linkType: hard
 
-"superfly-timeline@npm:^9.1.2":
-  version: 9.1.2
-  resolution: "superfly-timeline@npm:9.1.2"
-  dependencies:
-    tslib: "npm:^2.6.0"
-  checksum: 10/f77552cb8b4faab5d13aa88da364498c90d5117427af739fa456d73acd26075fe2e04cc227b8d58d45a4684af7115c24a7e5867c85479a2c0aba3f43b6230367
-  languageName: node
-  linkType: hard
-
 "superfly-timeline@npm:^9.2.0":
   version: 9.2.0
   resolution: "superfly-timeline@npm:9.2.0"
@@ -27651,18 +27642,18 @@ asn1@evs-broadcast/node-asn1:
   languageName: node
   linkType: hard
 
-"timeline-state-resolver-types@npm:9.3.1":
-  version: 9.3.1
-  resolution: "timeline-state-resolver-types@npm:9.3.1"
+"timeline-state-resolver-types@npm:9.3.2":
+  version: 9.3.2
+  resolution: "timeline-state-resolver-types@npm:9.3.2"
   dependencies:
     tslib: "npm:^2.6.3"
-  checksum: 10/92e5bdac8839378f255598590f90906b875a5a2e292e0f86677f960f256ce02008430639674bc4aa87dec295635df5818c6dfe1fd2dc9914cbb6919ce9cba388
+  checksum: 10/bec9a377a683dab694ffbb7eed81c06aeb32070fef8037937d0be4b2867017eddd6956db5d6eddf14e269ad134abcb6e202d21a9a279596710a6a48191744cdf
   languageName: node
   linkType: hard
 
-"timeline-state-resolver@npm:9.3.1":
-  version: 9.3.1
-  resolution: "timeline-state-resolver@npm:9.3.1"
+"timeline-state-resolver@npm:9.3.2":
+  version: 9.3.2
+  resolution: "timeline-state-resolver@npm:9.3.2"
   dependencies:
     "@tv2media/v-connection": "npm:^7.3.4"
     atem-connection: "npm:3.5.0"
@@ -27685,9 +27676,9 @@ asn1@evs-broadcast/node-asn1:
     p-timeout: "npm:^3.2.0"
     simple-oauth2: "npm:^5.1.0"
     sprintf-js: "npm:^1.1.3"
-    superfly-timeline: "npm:^9.1.2"
+    superfly-timeline: "npm:^9.2.0"
     threadedclass: "npm:^1.2.2"
-    timeline-state-resolver-types: "npm:9.3.1"
+    timeline-state-resolver-types: "npm:9.3.2"
     tslib: "npm:^2.6.3"
     tv-automation-quantel-gateway-client: "npm:^3.1.7"
     type-fest: "npm:^3.13.1"
@@ -27695,7 +27686,7 @@ asn1@evs-broadcast/node-asn1:
     utf-8-validate: "npm:^6.0.4"
     ws: "npm:^8.18.0"
     xml-js: "npm:^1.6.11"
-  checksum: 10/707a8b59ceaf48d8c25fb0142d775c3054f7f2360eee15a81563b36e580d264b85cc1252a569cc49a210fa260fa2cba8a20ad609fd2279f9617b6c29565f6080
+  checksum: 10/09489227b77d43ec4da5da312301bf4fa9a51fe028864c43184a887ac45454e851c574911791781b6bdca36bab42dd9ee3775b9742236db7135eef23d0dbb8db
   languageName: node
   linkType: hard
 
