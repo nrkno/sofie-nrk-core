@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.52.7-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.6-nrk...v1.52.7-nrk) (2025-09-03)
+
+
+### Bug Fixes
+
+* update dependencies for mos-connection and TSR ([fad249b](https://github.com/Sofie-Automation/sofie-core/commit/fad249bfafd9f4b0929849bc5a76ae88539605dd))
+
+
+
+
+
 ## [1.52.6-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.4-nrk...v1.52.6-nrk) (2025-08-28)
 
 **Note:** Version bump only for package mos-gateway

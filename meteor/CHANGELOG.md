@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.52.7-nrk](///compare/v1.52.6-nrk...v1.52.7-nrk) (2025-09-03)
+
+
+### Bug Fixes
+
+* ensure the previousPartInstnace is cleaned up when belonging to a Rundown being removed from the playlist bf174bb
+* ignore invalid partInstances during syncChangesToPartInstances 236f335
+* ingest parts not being updated when rank changes 7e68da3
+* missing await of promise 77412a7
+* update dependencies for mos-connection and TSR fad249b
+
 ### [1.52.6-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.4-nrk...v1.52.6-nrk) (2025-08-28)
 
 
