@@ -373,7 +373,7 @@ export class MosHandler {
 				// onStory: (cb: (story: IMOSROFullStory) => Promise<any>) => void
 				mosDevice.onRequestAllRunningOrders(async () => {
 					// MOSDevice >>>> Core
-					// Not implemented (yet)
+					// Not implemented, as Sofie does not support this feature.
 					return []
 				})
 				mosDevice.onRunningOrderStory(async (story: IMOSROFullStory) => {
