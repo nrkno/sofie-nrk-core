@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.52.8-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.7-nrk...v1.52.8-nrk) (2025-09-08)
+
+
+### Bug Fixes
+
+* update tsr ([995ffd4](https://github.com/Sofie-Automation/sofie-core/commit/995ffd451c89655eee5c93044cd1749a0a74d7f8))
+
+
+
+
+
 ## [1.52.7-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.6-nrk...v1.52.7-nrk) (2025-09-03)
 
 **Note:** Version bump only for package playout-gateway

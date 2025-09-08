@@ -1,6 +1,6 @@
 {
 	"name": "automation-core",
-	"version": "1.52.7-nrk",
+	"version": "1.52.8-nrk",
 	"private": true,
 	"engines": {
 		"node": ">=22.11"

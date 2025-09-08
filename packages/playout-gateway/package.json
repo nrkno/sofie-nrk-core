@@ -1,6 +1,6 @@
 {
 	"name": "playout-gateway",
-	"version": "1.52.7-nrk",
+	"version": "1.52.8-nrk",
 	"private": true,
 	"description": "Connect to Core, play stuff",
 	"license": "MIT",
@@ -56,8 +56,8 @@
 		"production"
 	],
 	"dependencies": {
-		"@sofie-automation/server-core-integration": "1.52.7-nrk",
-		"@sofie-automation/shared-lib": "1.52.7-nrk",
+		"@sofie-automation/server-core-integration": "1.52.8-nrk",
+		"@sofie-automation/shared-lib": "1.52.8-nrk",
 		"debug": "^4.4.0",
 		"influx": "^5.9.7",
 		"timeline-state-resolver": "9.3.2-nightly-test-release52-nrk-20250903-154625-af8a78ee0.0",

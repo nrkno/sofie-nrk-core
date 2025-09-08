@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.52.8-nrk](///compare/v1.52.7-nrk...v1.52.8-nrk) (2025-09-08)
+
+
+### Bug Fixes
+
+* update tsr 995ffd4
+
 ### [1.52.7-nrk](///compare/v1.52.6-nrk...v1.52.7-nrk) (2025-09-03)
 
 
