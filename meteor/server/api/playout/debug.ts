@@ -163,24 +163,6 @@ MeteorDebugMethods({
 		logger.silly('This is a silly log level')
 		await sleep(100)
 
-		logger.info('Next up, throwing an uncaught error:')
-		await sleep(10)
-		setTimeout(() => {
-			throw new Error('This is an uncaught error, and should be logged as such')
-		}, 10)
-		await sleep(100)
-
-		logger.info('Next up, an uncaught promise rejection:')
-		await sleep(10)
-		setTimeout(() => {
-			/* eslint-disable no-unused-vars */
-			// @ts-expect-error unused variable
-			const _p = new Promise((_resolve, reject) => {
-				reject(new Error('This is an uncaught promise rejection, and should be logged as such'))
-			})
-		}, 10)
-		await sleep(100)
-
 		logger.info('Next up, logging a single line using console.log')
 		await sleep(10)
 		console.log('This is a plain message on stdout!')
@@ -204,5 +186,32 @@ MeteorDebugMethods({
 		logger.info(`That's all, folks!`)
 		await sleep(10)
 		logger.info(`END DEBUGGING LOGS! ====================`)
+	},
+	async debug_test_logs2() {
+		logger.info('DEBUGGING LOGS2! ====================')
+		await sleep(10)
+
+		logger.info('Next up, throwing an uncaught error:')
+		await sleep(10)
+		setTimeout(() => {
+			throw new Error('This is an uncaught error, and should be logged as such')
+		}, 10)
+		// Note: Nodejs will exit upon an uncaught thrown error
+		await sleep(100)
+	},
+	async debug_test_logs3() {
+		logger.info('DEBUGGING LOGS3! ====================')
+		await sleep(10)
+
+		logger.info('Next up, an uncaught promise rejection:')
+		await sleep(10)
+		setTimeout(() => {
+			/* eslint-disable no-unused-vars */
+			// @ts-expect-error unused variable
+			const _p = new Promise((_resolve, reject) => {
+				reject(new Error('This is an uncaught promise rejection, and should be logged as such'))
+			})
+		}, 10)
+		await sleep(100)
 	},
 })
