@@ -1,5 +1,5 @@
 import { PartId, RundownPlaylistId, SegmentId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { check } from 'meteor/check'
+import { check, Match } from 'meteor/check'
 import {
 	CustomPublishCollection,
 	SetupObserversResult,
