@@ -59,6 +59,8 @@ export class CoreHandler {
 	private _statusInitialized = false
 	private _statusDestroyed = false
 
+	public connectedToCore = false
+
 	constructor(logger: Logger, deviceOptions: DeviceConfig) {
 		this.logger = logger
 		this._deviceOptions = deviceOptions
@@ -73,11 +75,13 @@ export class CoreHandler {
 
 		this.core.onConnected(() => {
 			this.logger.info('Core Connected!')
+			this.connectedToCore = true
 
 			if (this._onConnected) this._onConnected()
 		})
 		this.core.onDisconnected(() => {
 			this.logger.warn('Core Disconnected!')
+			this.connectedToCore = false
 		})
 		this.core.onError((err: any) => {
 			this.logger.error('Core Error: ' + (typeof err === 'string' ? err : err.message || err.toString() || err))
@@ -389,9 +393,12 @@ export class CoreHandler {
 
 		return Object.fromEntries(this._tsrHandler.getDebugStates().entries())
 	}
-	async updateCoreStatus(): Promise<any> {
+	getCoreStatus(): {
+		statusCode: StatusCode
+		messages: string[]
+	} {
 		let statusCode = StatusCode.GOOD
-		const messages: Array<string> = []
+		const messages: string[] = []
 
 		if (!this._statusInitialized) {
 			statusCode = StatusCode.BAD
@@ -401,11 +408,13 @@ export class CoreHandler {
 			statusCode = StatusCode.BAD
 			messages.push('Shut down')
 		}
-
-		return this.core.setStatus({
-			statusCode: statusCode,
-			messages: messages,
-		})
+		return {
+			statusCode,
+			messages,
+		}
+	}
+	async updateCoreStatus(): Promise<any> {
+		return this.core.setStatus(this.getCoreStatus())
 	}
 }
 
