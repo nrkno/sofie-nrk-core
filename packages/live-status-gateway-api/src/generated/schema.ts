@@ -63,6 +63,7 @@ enum SubscriptionName {
 	ACTIVE_PIECES = 'activePieces',
 	SEGMENTS = 'segments',
 	AD_LIBS = 'adLibs',
+	NOTIFICATIONS = 'notifications',
 	BUCKETS = 'buckets',
 	RESERVED_PACKAGES = 'packages',
 }
@@ -766,12 +767,125 @@ interface BucketAdLibStatus {
 	additionalProperties?: Record<string, any>
 }
 
+/**
+ * Active notifications in Sofie
+ */
+interface NotificationsEvent {
+	event: 'notifications'
+	/**
+	 * Active notifications in Sofie
+	 */
+	activeNotifications: NotificationObj[]
+}
+
+/**
+ * This describes a notification that should be shown to a user. These can come from various sources, and are added and removed dynamically during system usage
+ */
+interface NotificationObj {
+	/**
+	 * Unique identifier for the notification
+	 */
+	_id: string
+	/**
+	 * Severity level of the notification.
+	 */
+	severity: NotificationSeverity
+	/**
+	 * The message of the notification
+	 */
+	message: string
+	/**
+	 * Describes what the notification is related to
+	 */
+	relatedTo:
+		| NotificationTargetRundown
+		| NotificationTargetRundownPlaylist
+		| NotificationTargetPartInstance
+		| NotificationTargetPieceInstance
+		| NotificationTargetUnknown
+	/**
+	 * Unix timestamp of creation
+	 */
+	created: number
+	/**
+	 * Unix timestamp of last modification
+	 */
+	modified?: number
+}
+
+/**
+ * Severity level of the notification.
+ */
+enum NotificationSeverity {
+	WARNING = 'warning',
+	ERROR = 'error',
+	INFO = 'info',
+}
+
+interface NotificationTargetRundown {
+	/**
+	 * Possible NotificationTarget types
+	 */
+	type: NotificationTargetType.RUNDOWN
+	studioId: string
+	rundownId: string
+}
+
+/**
+ * Possible NotificationTarget types
+ */
+enum NotificationTargetType {
+	RUNDOWN = 'rundown',
+	PLAYLIST = 'playlist',
+	PART_INSTANCE = 'partInstance',
+	PIECE_INSTANCE = 'pieceInstance',
+	UNKNOWN = 'unknown',
+}
+
+interface NotificationTargetRundownPlaylist {
+	/**
+	 * Possible NotificationTarget types
+	 */
+	type: NotificationTargetType.PLAYLIST
+	studioId: string
+	playlistId: string
+}
+
+interface NotificationTargetPartInstance {
+	/**
+	 * Possible NotificationTarget types
+	 */
+	type: NotificationTargetType.PART_INSTANCE
+	studioId: string
+	rundownId: string
+	partInstanceId: string
+}
+
+interface NotificationTargetPieceInstance {
+	/**
+	 * Possible NotificationTarget types
+	 */
+	type: NotificationTargetType.PIECE_INSTANCE
+	studioId: string
+	rundownId: string
+	partInstanceId: string
+	pieceInstanceId: string
+}
+
+interface NotificationTargetUnknown {
+	/**
+	 * Possible NotificationTarget types
+	 */
+	type: NotificationTargetType.UNKNOWN
+}
+
 export type Slash =
 	| ActivePiecesEvent
 	| ActivePlaylistEvent
 	| AdLibsEvent
 	| BucketsEvent
 	| HeartbeatEvent
+	| NotificationsEvent
 	| PackagesEvent
 	| PongEvent
 	| SegmentsEvent
@@ -824,4 +938,13 @@ export {
 	BucketsEvent,
 	BucketStatus,
 	BucketAdLibStatus,
+	NotificationsEvent,
+	NotificationObj,
+	NotificationSeverity,
+	NotificationTargetRundown,
+	NotificationTargetType,
+	NotificationTargetRundownPlaylist,
+	NotificationTargetPartInstance,
+	NotificationTargetPieceInstance,
+	NotificationTargetUnknown,
 }
