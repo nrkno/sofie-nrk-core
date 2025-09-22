@@ -1,6 +1,6 @@
 {
 	"name": "playout-gateway",
-	"version": "1.52.0",
+	"version": "1.52.8-nrk",
 	"private": true,
 	"description": "Connect to Core, play stuff",
 	"license": "MIT",
@@ -61,12 +61,12 @@
 	},
 	"dependencies": {
 		"@koa/router": "^14.0.0",
-		"@sofie-automation/server-core-integration": "1.52.0",
-		"@sofie-automation/shared-lib": "1.52.0",
+		"@sofie-automation/server-core-integration": "1.52.8-nrk",
+		"@sofie-automation/shared-lib": "1.52.8-nrk",
 		"debug": "^4.4.0",
 		"influx": "^5.9.7",
 		"koa": "^3.0.1",
-		"timeline-state-resolver": "9.3.0",
+		"timeline-state-resolver": "9.3.2-nightly-test-release52-nrk-20250903-154625-af8a78ee0.0",
 		"tslib": "^2.8.1",
 		"underscore": "^1.13.7",
 		"winston": "^3.17.0"

@@ -1,6 +1,6 @@
 {
 	"name": "@sofie-automation/shared-lib",
-	"version": "1.52.0",
+	"version": "1.52.8-nrk",
 	"description": "Library for types & values shared by core, workers and gateways",
 	"main": "dist/index.js",
 	"typings": "dist/index.d.ts",
@@ -38,8 +38,8 @@
 		"/LICENSE"
 	],
 	"dependencies": {
-		"@mos-connection/model": "^4.2.2",
-		"timeline-state-resolver-types": "9.3.0",
+		"@mos-connection/model": "^4.3.1",
+		"timeline-state-resolver-types": "9.3.2-nightly-test-release52-nrk-20250903-154625-af8a78ee0.0",
 		"tslib": "^2.8.1",
 		"type-fest": "^4.33.0"
 	},
