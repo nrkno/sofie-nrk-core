@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.52.9-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.8-nrk...v1.52.9-nrk) (2025-09-29)
+
+
+### Bug Fixes
+
+* **core-integration:** use setMaxListeners on CoreConnection to avoid MaxListenersExceededWarning message ([a02ef23](https://github.com/Sofie-Automation/sofie-core/commit/a02ef236b8a396847bc467ccd5f459a0862e6abe))
+
+
+
+
+
 ## [1.52.8-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.7-nrk...v1.52.8-nrk) (2025-09-08)
 
 **Note:** Version bump only for package @sofie-automation/server-core-integration

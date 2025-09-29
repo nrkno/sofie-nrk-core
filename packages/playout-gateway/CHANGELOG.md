@@ -3,6 +3,19 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.52.9-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.8-nrk...v1.52.9-nrk) (2025-09-29)
+
+
+### Bug Fixes
+
+* **PGW:** handle situation when device is not initialized yet ([6060e7e](https://github.com/Sofie-Automation/sofie-core/commit/6060e7e2645dfbc19fde263de35f545d9200e02c))
+* TSR dep ([ff083c4](https://github.com/Sofie-Automation/sofie-core/commit/ff083c46eb8ce78f432afa6f32c8bc9e2370fcde))
+* update TSR dep ([08625a6](https://github.com/Sofie-Automation/sofie-core/commit/08625a6b1ed4778b988f3f3c093904880e650b0b))
+
+
+
+
+
 ## [1.52.8-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.7-nrk...v1.52.8-nrk) (2025-09-08)
 
 

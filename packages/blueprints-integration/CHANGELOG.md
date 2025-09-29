@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.52.9-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.8-nrk...v1.52.9-nrk) (2025-09-29)
+
+
+### Bug Fixes
+
+* add plannedStartedPlayback and plannedStoppedPlayback to IBlueprintPartInstanceTimings interface ([#1515](https://github.com/Sofie-Automation/sofie-core/issues/1515)) ([9e8ee71](https://github.com/Sofie-Automation/sofie-core/commit/9e8ee71863a8b00be521a2325b2375f03a32956c))
+
+
+
+
+
 ## [1.52.8-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.7-nrk...v1.52.8-nrk) (2025-09-08)
 
 **Note:** Version bump only for package @sofie-automation/blueprints-integration

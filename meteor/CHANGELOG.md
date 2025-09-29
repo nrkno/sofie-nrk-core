@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.52.9-nrk](https://github.com/nrkno/sofie-nrk-core/compare/v1.52.8-nrk...v1.52.9-nrk) (2025-09-29)
+
+
+### Bug Fixes
+
+* add plannedStartedPlayback and plannedStoppedPlayback to IBlueprintPartInstanceTimings interface ([#1515](https://github.com/nrkno/sofie-nrk-core/issues/1515)) ([9e8ee71](https://github.com/nrkno/sofie-nrk-core/commit/9e8ee71863a8b00be521a2325b2375f03a32956c))
+* **core-integration:** use setMaxListeners on CoreConnection to avoid MaxListenersExceededWarning message ([a02ef23](https://github.com/nrkno/sofie-nrk-core/commit/a02ef236b8a396847bc467ccd5f459a0862e6abe))
+* **PGW:** handle situation when device is not initialized yet ([6060e7e](https://github.com/nrkno/sofie-nrk-core/commit/6060e7e2645dfbc19fde263de35f545d9200e02c))
+* playlistId can be optional ([c1cdf87](https://github.com/nrkno/sofie-nrk-core/commit/c1cdf87c2d8fc3be542245b016786c409f2ee2f9))
+* TSR dep ([ff083c4](https://github.com/nrkno/sofie-nrk-core/commit/ff083c46eb8ce78f432afa6f32c8bc9e2370fcde))
+* update dependencies for mos-connection, TSR and timeline ([#1517](https://github.com/nrkno/sofie-nrk-core/issues/1517)) ([e7ef19c](https://github.com/nrkno/sofie-nrk-core/commit/e7ef19cbd3a7bcd16e80140e50435b097a13ad0e))
+* update TSR dep ([08625a6](https://github.com/nrkno/sofie-nrk-core/commit/08625a6b1ed4778b988f3f3c093904880e650b0b))
+
 ### [1.52.8-nrk](///compare/v1.52.7-nrk...v1.52.8-nrk) (2025-09-08)
 
 
