@@ -434,9 +434,7 @@ const Base64ImagePickerWithOverrides = ({ commonAttrs }: FormComponentProps) => 
 const BreadCrumbsFormWithOverrides = ({ commonAttrs }: Readonly<FormComponentProps>) => {
 	return (
 		<LabelAndOverrides {...commonAttrs}>
-			{(value, handleUpdate) => (
-				<BreadCrumbTextInput value={value || []} handleUpdate={handleUpdate} />
-			)}
+			{(value, handleUpdate) => <BreadCrumbTextInput value={value || []} handleUpdate={handleUpdate} />}
 		</LabelAndOverrides>
 	)
 }

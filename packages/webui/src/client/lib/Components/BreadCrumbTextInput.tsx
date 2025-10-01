@@ -83,7 +83,7 @@ export function BreadCrumbTextInput({
 
 	const [inputState, dispatch] = useReducer(
 		(state: InputState, action: ReducerActions) => {
-			let newState = {
+			const newState = {
 				...state,
 			}
 			switch (action.type) {
@@ -224,7 +224,7 @@ export function BreadCrumbTextInput({
 				dispatch({
 					type: 'focus',
 					index: index - 1,
-					position: 'end'
+					position: 'end',
 				})
 				event.preventDefault()
 				delete event.currentTarget.dataset['backspace']
@@ -235,7 +235,7 @@ export function BreadCrumbTextInput({
 					position: 'begin',
 				})
 				event.preventDefault()
-				delete event.currentTarget.dataset['backspace']	
+				delete event.currentTarget.dataset['backspace']
 			} else {
 				delete event.currentTarget.dataset['backspace']
 			}

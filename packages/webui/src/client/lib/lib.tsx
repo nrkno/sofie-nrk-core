@@ -272,8 +272,8 @@ export function useRundownViewEventBusListener<TEvent extends RundownViewEvents>
 	}, [name, cb])
 }
 
-export function getAllAncestors(el: HTMLElement) {
-	const ancestors = []
+export function getAllAncestors(el: HTMLElement): HTMLElement[] {
+	const ancestors: HTMLElement[] = []
 	let currentElement: HTMLElement | null = el
 
 	while (currentElement) {
