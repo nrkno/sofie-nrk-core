@@ -56,6 +56,11 @@ type ReducerActions =
 			value: string
 	  }
 	| {
+			type: 'focus'
+			index: number
+			position: 'begin' | 'end'
+	  }
+	| {
 			type: 'clearEdit'
 	  }
 
@@ -63,6 +68,7 @@ type InputState = {
 	value: string[]
 	editingValue: string[] | null
 	selectIndex: number | null
+	selectIndexPosition: 'begin' | 'end' | null
 }
 
 export function BreadCrumbTextInput({
@@ -89,9 +95,11 @@ export function BreadCrumbTextInput({
 					newState.editingValue ??= newState.value ?? []
 					if (action.index === undefined) {
 						newState.selectIndex = newState.editingValue.push('') - 1
+						newState.selectIndexPosition = 'end'
 					} else {
 						newState.editingValue.splice(action.index, 0, '')
 						newState.selectIndex = action.index
+						newState.selectIndexPosition = 'end'
 					}
 					break
 				}
@@ -100,8 +108,10 @@ export function BreadCrumbTextInput({
 					newState.editingValue.splice(action.index, 1)
 					if (action.selectPrevious) {
 						newState.selectIndex = Math.max(0, action.index - 1)
+						newState.selectIndexPosition = 'end'
 					} else {
 						newState.selectIndex = null
+						newState.selectIndexPosition = 'end'
 					}
 					break
 				}
@@ -112,6 +122,11 @@ export function BreadCrumbTextInput({
 				}
 				case 'clearEdit': {
 					newState.editingValue = null
+					break
+				}
+				case 'focus': {
+					newState.selectIndex = action.index
+					newState.selectIndexPosition = action.position
 				}
 			}
 
@@ -120,6 +135,7 @@ export function BreadCrumbTextInput({
 		{
 			editingValue: null,
 			selectIndex: null,
+			selectIndexPosition: null,
 			value,
 		}
 	)
@@ -127,7 +143,7 @@ export function BreadCrumbTextInput({
 	useEffect(() => {
 		dispatch({
 			type: 'setValue',
-			value
+			value,
 		})
 	}, [dispatch, value])
 
@@ -185,6 +201,8 @@ export function BreadCrumbTextInput({
 					index: index + 1,
 				})
 				event.stopPropagation()
+
+				delete event.currentTarget.dataset['backspace']
 			} else if (event.key === 'Backspace') {
 				if (!event.currentTarget.value) {
 					if (!event.currentTarget.dataset['backspace']) {
@@ -202,6 +220,22 @@ export function BreadCrumbTextInput({
 						}
 					}
 				}
+			} else if (event.key === 'ArrowLeft' && event.currentTarget.selectionStart === 0) {
+				dispatch({
+					type: 'focus',
+					index: index - 1,
+					position: 'end'
+				})
+				event.preventDefault()
+				delete event.currentTarget.dataset['backspace']
+			} else if (event.key === 'ArrowRight' && event.currentTarget.selectionEnd === event.currentTarget.value.length) {
+				dispatch({
+					type: 'focus',
+					index: index + 1,
+					position: 'begin',
+				})
+				event.preventDefault()
+				delete event.currentTarget.dataset['backspace']	
 			} else {
 				delete event.currentTarget.dataset['backspace']
 			}
@@ -250,7 +284,16 @@ export function BreadCrumbTextInput({
 		if (!inputToFocus || !(inputToFocus instanceof HTMLInputElement)) return
 
 		inputToFocus.focus()
-	}, [inputState.selectIndex])
+
+		if (inputState.selectIndexPosition === null) return
+		if (inputState.selectIndexPosition === 'end') {
+			inputToFocus.selectionStart = inputToFocus.value.length
+			inputToFocus.selectionEnd = inputToFocus.selectionStart
+		} else if (inputState.selectIndexPosition === 'begin') {
+			inputToFocus.selectionStart = 0
+			inputToFocus.selectionEnd = 0
+		}
+	}, [inputState.selectIndex, inputState.selectIndexPosition])
 
 	return (
 		<div className="input-breadcrumbtext" ref={inputRef} tabIndex={0} onBlur={handleBlur}>
