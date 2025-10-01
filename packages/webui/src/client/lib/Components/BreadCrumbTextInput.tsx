@@ -133,38 +133,6 @@ export function BreadCrumbTextInput({
 
 	const volatileValue = inputState.editingValue ?? inputState.value
 
-	// const handleChange = useCallback(
-	// 	(event: React.ChangeEvent<HTMLTextAreaElement>) => {
-	// 		setEditingValue(event.target.value)
-
-	// 		if (updateOnKey) {
-	// 			handleUpdate(splitValueIntoLines(event.target.value))
-	// 		}
-	// 	},
-	// 	[handleUpdate, updateOnKey]
-	// )
-	// const handleBlur = useCallback(
-	// 	(event: React.FocusEvent<HTMLTextAreaElement>) => {
-	// 		handleUpdate(splitValueIntoLines(event.target.value))
-	// 		setEditingValue(null)
-	// 	},
-	// 	[handleUpdate]
-	// )
-	// const handleFocus = useCallback((event: React.FocusEvent<HTMLTextAreaElement>) => {
-	// 	setEditingValue(event.currentTarget.value)
-	// }, [])
-	// const handleKeyUp = useCallback((event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-	// 	if (event.key === 'Escape') {
-	// 		setEditingValue(null)
-	// 	}
-	// }, [])
-	// const handleKeyPress = useCallback((event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-	// 	// Suppress the default behaviour of submitting on enter press
-	// 	if (event.key === 'Enter') {
-	// 		event.stopPropagation()
-	// 	}
-	// }, [])
-
 	const inputRef = useRef<HTMLDivElement>(null)
 
 	const doCommit = useCallback(() => {
