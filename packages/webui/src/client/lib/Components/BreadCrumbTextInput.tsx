@@ -216,6 +216,7 @@ export function BreadCrumbTextInput({
 					type: 'insert',
 					index: index + 1,
 				})
+				event.stopPropagation()
 			} else if (event.key === 'Backspace') {
 				if (!event.currentTarget.value) {
 					if (!event.currentTarget.dataset['backspace']) {
