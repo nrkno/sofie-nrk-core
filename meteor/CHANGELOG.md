@@ -2,6 +2,105 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.52.9-nrk](https://github.com/nrkno/sofie-nrk-core/compare/v1.52.8-nrk...v1.52.9-nrk) (2025-09-29)
+
+
+### Bug Fixes
+
+* add plannedStartedPlayback and plannedStoppedPlayback to IBlueprintPartInstanceTimings interface ([#1515](https://github.com/nrkno/sofie-nrk-core/issues/1515)) ([9e8ee71](https://github.com/nrkno/sofie-nrk-core/commit/9e8ee71863a8b00be521a2325b2375f03a32956c))
+* **core-integration:** use setMaxListeners on CoreConnection to avoid MaxListenersExceededWarning message ([a02ef23](https://github.com/nrkno/sofie-nrk-core/commit/a02ef236b8a396847bc467ccd5f459a0862e6abe))
+* **PGW:** handle situation when device is not initialized yet ([6060e7e](https://github.com/nrkno/sofie-nrk-core/commit/6060e7e2645dfbc19fde263de35f545d9200e02c))
+* playlistId can be optional ([c1cdf87](https://github.com/nrkno/sofie-nrk-core/commit/c1cdf87c2d8fc3be542245b016786c409f2ee2f9))
+* TSR dep ([ff083c4](https://github.com/nrkno/sofie-nrk-core/commit/ff083c46eb8ce78f432afa6f32c8bc9e2370fcde))
+* update dependencies for mos-connection, TSR and timeline ([#1517](https://github.com/nrkno/sofie-nrk-core/issues/1517)) ([e7ef19c](https://github.com/nrkno/sofie-nrk-core/commit/e7ef19cbd3a7bcd16e80140e50435b097a13ad0e))
+* update TSR dep ([08625a6](https://github.com/nrkno/sofie-nrk-core/commit/08625a6b1ed4778b988f3f3c093904880e650b0b))
+
+### [1.52.8-nrk](///compare/v1.52.7-nrk...v1.52.8-nrk) (2025-09-08)
+
+
+### Bug Fixes
+
+* update tsr 995ffd4
+
+### [1.52.7-nrk](///compare/v1.52.6-nrk...v1.52.7-nrk) (2025-09-03)
+
+
+### Bug Fixes
+
+* ensure the previousPartInstnace is cleaned up when belonging to a Rundown being removed from the playlist bf174bb
+* ignore invalid partInstances during syncChangesToPartInstances 236f335
+* ingest parts not being updated when rank changes 7e68da3
+* missing await of promise 77412a7
+* update dependencies for mos-connection and TSR fad249b
+
+### [1.52.6-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.4-nrk...v1.52.6-nrk) (2025-08-28)
+
+
+### Features
+
+* replace `wasActive` in onRundownActivate with previousState&currentState in RundownActivationContext. Also changed the algorithm in handleResetRundownPlaylist, so that activateRundownPlaylist always runs ([35a99f1](https://github.com/Sofie-Automation/sofie-core/commit/35a99f16023da46d5949c28cbba09008e3d5f8bc))
+* Translations for R52 (SOFIE-3786) ([f4821e7](https://github.com/Sofie-Automation/sofie-core/commit/f4821e75c8b7685c9e72199437bfb5309754747a))
+
+
+### Bug Fixes
+
+* bug in onTimelineGenerate: Use the same time for "now" both when resolving "now" and in onTimelineGenerate context ([dc41611](https://github.com/Sofie-Automation/sofie-core/commit/dc4161107d23cadcb4bf337d773de4b9199947da))
+* **Settings GUI.Package Manager:** Add missing input form for the AtemMediaStore accessor type ([7184cf2](https://github.com/Sofie-Automation/sofie-core/commit/7184cf26b0de5b7e5fb78b064a2f1d9a1a96db88))
+* **Settings GUI.Package Manager:** Change input type for container.accessors.${accessorId}.ISAUrls to an array of strings ([20eb608](https://github.com/Sofie-Automation/sofie-core/commit/20eb60805f740b73f9d2ba911d7109521a64640f))
+* **Settings GUI.Package Manager:** Change input type for container.accessors.${accessorId}.serverId to an int and not a string ([ef06a60](https://github.com/Sofie-Automation/sofie-core/commit/ef06a604cd2335016700f2d64a6b5b4ecb4c50b6))
+* use TSR with TSR-Action: Atem Macro support ([cc46834](https://github.com/Sofie-Automation/sofie-core/commit/cc468340a10a89dece88d153719a04a291b31869))
+* vertical alignment of context menu icons ([84bfc3c](https://github.com/Sofie-Automation/sofie-core/commit/84bfc3c9bbd72e481762bc3426972e46fc6dc91c))
+
+### [1.52.5-nrk](///compare/v1.52.4-nrk...v1.52.5-nrk) (2025-08-13)
+
+
+### Features
+
+* Translations for R52 (SOFIE-3786) f4821e7
+
+
+### Bug Fixes
+
+* vertical alignment of context menu icons 84bfc3c
+
+### [1.52.4-nrk](///compare/v1.52.3-nrk...v1.52.4-nrk) (2025-08-11)
+
+
+### Bug Fixes
+
+* update mos-connection for missing mosID bug fix ([#9](undefined/undefined/undefined/issues/9)) e55cb5e
+
+### [1.52.3-nrk](///compare/v1.52.2-nrk...v1.52.3-nrk) (2025-08-07)
+
+
+### Features
+
+* add BlueprintAssetIcon component 07aa194
+* **BlueprintAssetIcon:** support data urls 8063f54
+* clean up dead code 082eb89
+* **FloatingInspector:** make video previews as large as graphics previews 38cab1d
+* implement Bucket Panel Icon 49d559c
+
+
+### Bug Fixes
+
+* **BlueprintAssetIcon:** data URLs  have null origin 16449d7
+* **ContextMenu:** separators in context menu are wrong color e6999ff
+
+### [1.52.2-nrk](///compare/v1.52.1+nrk...v1.52.2-nrk) (2025-08-04)
+
+
+### Bug Fixes
+
+* **AfterBroadcastForm:** shouldDeactivateRundown should be true when loop is _not_ running ad816c3
+
+### [1.52.1](///compare/v1.52.0+nrk...v1.52.1) (2025-07-07)
+
+
+### Bug Fixes
+
+* **Presenter Screen:** Diff is showing incorrect values edb9645
+
 ## [1.52.0](///compare/v1.52.0-in-testing.1...v1.52.0) (2025-06-30)
 
 

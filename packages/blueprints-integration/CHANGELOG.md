@@ -3,6 +3,88 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.52.9-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.8-nrk...v1.52.9-nrk) (2025-09-29)
+
+
+### Bug Fixes
+
+* add plannedStartedPlayback and plannedStoppedPlayback to IBlueprintPartInstanceTimings interface ([#1515](https://github.com/Sofie-Automation/sofie-core/issues/1515)) ([9e8ee71](https://github.com/Sofie-Automation/sofie-core/commit/9e8ee71863a8b00be521a2325b2375f03a32956c))
+
+
+
+
+
+## [1.52.8-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.7-nrk...v1.52.8-nrk) (2025-09-08)
+
+**Note:** Version bump only for package @sofie-automation/blueprints-integration
+
+
+
+
+
+## [1.52.7-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.6-nrk...v1.52.7-nrk) (2025-09-03)
+
+**Note:** Version bump only for package @sofie-automation/blueprints-integration
+
+
+
+
+
+## [1.52.6-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.4-nrk...v1.52.6-nrk) (2025-08-28)
+
+
+### Features
+
+* replace `wasActive` in onRundownActivate with previousState&currentState in RundownActivationContext. Also changed the algorithm in handleResetRundownPlaylist, so that activateRundownPlaylist always runs ([35a99f1](https://github.com/Sofie-Automation/sofie-core/commit/35a99f16023da46d5949c28cbba09008e3d5f8bc))
+
+
+
+
+
+## [1.52.5-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.4-nrk...v1.52.5-nrk) (2025-08-13)
+
+**Note:** Version bump only for package @sofie-automation/blueprints-integration
+
+
+
+
+
+## [1.52.4-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.3-nrk...v1.52.4-nrk) (2025-08-11)
+
+**Note:** Version bump only for package @sofie-automation/blueprints-integration
+
+
+
+
+
+## [1.52.3-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.2-nrk...v1.52.3-nrk) (2025-08-07)
+
+
+### Features
+
+* add BlueprintAssetIcon component ([07aa194](https://github.com/Sofie-Automation/sofie-core/commit/07aa1949a819a3290a2c3560ab8935ec1bc2f9b2))
+* implement Bucket Panel Icon ([49d559c](https://github.com/Sofie-Automation/sofie-core/commit/49d559c8d743ed260095456a79919896256b71f7))
+
+
+
+
+
+## [1.52.2-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.1+nrk...v1.52.2-nrk) (2025-08-04)
+
+**Note:** Version bump only for package @sofie-automation/blueprints-integration
+
+
+
+
+
+## [1.52.1](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.0+nrk...v1.52.1) (2025-07-07)
+
+**Note:** Version bump only for package @sofie-automation/blueprints-integration
+
+
+
+
+
 # [1.52.0](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.0-in-testing.1...v1.52.0) (2025-06-30)
 
 **Note:** Version bump only for package @sofie-automation/blueprints-integration
@@ -53,34 +135,12 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 
 
-# [1.52.0-in-testing.0](https://github.com/nrkno/sofie-core/compare/v1.51.6...v1.52.0-in-testing.0) (2025-02-04)
+## [1.51.8](https://github.com/nrkno/sofie-core/compare/v1.51.7...v1.51.8) (2025-06-24)
+
+**Note:** Version bump only for package @sofie-automation/blueprints-integration
 
 
-### Bug Fixes
 
-* review comments ([752a30a](https://github.com/nrkno/sofie-core/commit/752a30a69ea4a864239a438b278c3b53d06a12a2))
-
-
-### Features
-
-* add in-out words to the VT type ([7bec461](https://github.com/nrkno/sofie-core/commit/7bec4619836cb92ab85331afe130d0ed54ca976e))
-* add RemoteSpeak source layer type ([a9b98e7](https://github.com/nrkno/sofie-core/commit/a9b98e7a544f5dab90c6cc17713abbdc5b930744))
-* add segment timing countdownType ([9aaa2dd](https://github.com/nrkno/sofie-core/commit/9aaa2dd48e841177f32a8d16a2e6c37706c6c2ae))
-* allow adlib-actions to remove pieces from the current partInstance ([902e7ff](https://github.com/nrkno/sofie-core/commit/902e7fffe6cc23c48f7bd86e23595d83f74d84fa))
-* allow drag from mos-plugin to part ([d51ba2f](https://github.com/nrkno/sofie-core/commit/d51ba2fe8b8effa6037f379534b357d5320cc3c7))
-* config package manager from blueprints ([685364d](https://github.com/nrkno/sofie-core/commit/685364d5fd4af690a55292ba99ff8ecff386f893))
-* configure Core system/studio settings via blueprints ([ef14c8f](https://github.com/nrkno/sofie-core/commit/ef14c8f4f139be273ce8a8a3c21e6cc0f580d297))
-* configure peripheral device settings from blueprints ([878214b](https://github.com/nrkno/sofie-core/commit/878214bf983ed12fe82822b47b9c629727d4c20d))
-* customizable package status messages ([2ac7cb1](https://github.com/nrkno/sofie-core/commit/2ac7cb1eb95edc8f901168066396110b2cd71faa))
-* exclude pieces from part keepalive ([74bea6c](https://github.com/nrkno/sofie-core/commit/74bea6cf3a978410bc5e79b325a6fe8b0b190ba9))
-* list routesets from blueprints adlib action ([c228251](https://github.com/nrkno/sofie-core/commit/c22825130793c843f7290d3ee844b805bf2788f1))
-* meteor 3.0.4 ([8670727](https://github.com/nrkno/sofie-core/commit/8670727bba5ac9cffe0e5d36b4bd45d6664482be))
-* modify datastore in `onRundownActivate` SOFIE-3310 ([#1240](https://github.com/nrkno/sofie-core/issues/1240)) ([8a0759f](https://github.com/nrkno/sofie-core/commit/8a0759f610497e37493e8a798aa0dd13f4f57119))
-* move next part should respect quickloop bounds ([8f0153e](https://github.com/nrkno/sofie-core/commit/8f0153e294a4f4842e333cc3c4e2bacbf6c4c236))
-* processIngestData & userEditOperations ([e69a4fc](https://github.com/nrkno/sofie-core/commit/e69a4fc2f4e3d1e6c6b287e34a3b2f55080ce0c4))
-* quickloop improvements ([f1f77fa](https://github.com/nrkno/sofie-core/commit/f1f77fa11b50fe93afc50631988d7c2aa6306f13))
-* routeset config defined in blueprints ([e839b97](https://github.com/nrkno/sofie-core/commit/e839b97c0205df38e5bc7ab816a9c79406a7d767))
-* update meteor to 3.1 and node to 22 ([61b6854](https://github.com/nrkno/sofie-core/commit/61b6854261a03f04e81416b9d37ee995e3a10108))
 
 
 ## [1.51.7](https://github.com/nrkno/sofie-core/compare/v1.51.6...v1.51.7) (2025-05-06)

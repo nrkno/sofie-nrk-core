@@ -8,8 +8,6 @@ import {
 } from '@sofie-automation/corelib/dist/worker/studio'
 import { JobContext } from '../jobs'
 import { runJobWithPlayoutModel } from './lock'
-import { resetRundownPlaylist } from './lib'
-import { updateTimeline } from './timeline/generate'
 import { getActiveRundownPlaylistsInStudioFromDb } from '../studio/lib'
 import {
 	activateRundownPlaylist,
@@ -53,9 +51,7 @@ export async function handlePrepareRundownPlaylistForBroadcast(
 			await checkNoOtherPlaylistsActive(context, playlist)
 		},
 		async (playoutModel) => {
-			await resetRundownPlaylist(context, playoutModel)
-
-			await activateRundownPlaylist(context, playoutModel, true) // Activate rundownPlaylist (rehearsal)
+			await activateRundownPlaylist(context, playoutModel, true, true) // Activate rundownPlaylist (rehearsal)
 		}
 	)
 }
@@ -110,15 +106,7 @@ export async function handleResetRundownPlaylist(context: JobContext, data: Rese
 			}
 		},
 		async (playoutModel) => {
-			await resetRundownPlaylist(context, playoutModel)
-
-			if (data.activate) {
-				// Do the activation
-				await activateRundownPlaylist(context, playoutModel, data.activate !== 'active') // Activate rundown
-			} else if (playoutModel.playlist.activationId) {
-				// Only update the timeline if this is the active playlist
-				await updateTimeline(context, playoutModel)
-			}
+			await activateRundownPlaylist(context, playoutModel, data.activate !== 'active', true) // Activate rundown
 		}
 	)
 }
