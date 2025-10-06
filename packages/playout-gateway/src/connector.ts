@@ -8,7 +8,7 @@ import {
 	loadCertificatesFromDisk,
 	stringifyError,
 } from '@sofie-automation/server-core-integration'
-import { HealthConfig, HealthEndpoints } from './health'
+import { HealthConfig, HealthEndpoints } from './health.js'
 
 export interface Config {
 	certificates: CertificatesConfig
