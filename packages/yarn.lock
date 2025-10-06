@@ -6256,10 +6256,14 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@sofie-automation/server-core-integration@workspace:server-core-integration"
   dependencies:
+    "@koa/router": "npm:^14.0.0"
     "@sofie-automation/shared-lib": "npm:1.52.0"
+    "@types/koa": "npm:^3.0.0"
+    "@types/koa__router": "npm:^12.0.4"
     ejson: "npm:^2.2.3"
     faye-websocket: "npm:^0.11.4"
     got: "npm:^11.8.6"
+    koa: "npm:^3.0.1"
     tslib: "npm:^2.8.1"
     underscore: "npm:^1.13.7"
   languageName: unknown
@@ -23648,14 +23652,10 @@ asn1@evs-broadcast/node-asn1:
   version: 0.0.0-use.local
   resolution: "playout-gateway@workspace:playout-gateway"
   dependencies:
-    "@koa/router": "npm:^14.0.0"
     "@sofie-automation/server-core-integration": "npm:1.52.0"
     "@sofie-automation/shared-lib": "npm:1.52.0"
-    "@types/koa": "npm:^3.0.0"
-    "@types/koa__router": "npm:^12.0.4"
     debug: "npm:^4.4.0"
     influx: "npm:^5.9.7"
-    koa: "npm:^3.0.1"
     timeline-state-resolver: "npm:9.3.2"
     tslib: "npm:^2.8.1"
     underscore: "npm:^1.13.7"

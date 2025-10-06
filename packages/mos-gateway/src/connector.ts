@@ -5,6 +5,9 @@ import {
 	PeripheralDeviceId,
 	loadCertificatesFromDisk,
 	CertificatesConfig,
+	stringifyError,
+	HealthConfig,
+	HealthEndpoints,
 } from '@sofie-automation/server-core-integration'
 
 export interface Config {
@@ -12,12 +15,16 @@ export interface Config {
 	device: DeviceConfig
 	core: CoreConfig
 	mos: MosConfig
+	health: HealthConfig
 }
 export interface DeviceConfig {
 	deviceId: PeripheralDeviceId
 	deviceToken: string
 }
 export class Connector {
+	public initialized = false
+	public initializedError: string | undefined = undefined
+
 	private mosHandler: MosHandler | undefined
 	private coreHandler: CoreHandler | undefined
 	private _config: Config | undefined
@@ -38,11 +45,18 @@ export class Connector {
 			this._logger.info('Initializing Core...')
 			await this.initCore(certificates)
 
+			if (!this.coreHandler) throw Error('coreHandler is undefined!')
+
+			new HealthEndpoints(this, this.coreHandler, config.health)
+
 			this._logger.info('Initializing Mos...')
 			await this.initMos()
 
 			this._logger.info('Initialization done')
+			this.initialized = true
 		} catch (e: any) {
+			this.initializedError = stringifyError(e)
+
 			this._logger.error('Error during initialization:', e, e.stack)
 
 			this._logger.info('Shutting down in 10 seconds!')

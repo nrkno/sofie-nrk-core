@@ -7,8 +7,9 @@ import {
 	PeripheralDeviceId,
 	loadCertificatesFromDisk,
 	stringifyError,
+	HealthConfig,
+	HealthEndpoints,
 } from '@sofie-automation/server-core-integration'
-import { HealthConfig, HealthEndpoints } from './health'
 
 export interface Config {
 	certificates: CertificatesConfig
