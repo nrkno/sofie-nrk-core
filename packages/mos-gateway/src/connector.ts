@@ -8,6 +8,7 @@ import {
 	stringifyError,
 	HealthConfig,
 	HealthEndpoints,
+	IConnector,
 } from '@sofie-automation/server-core-integration'
 
 export interface Config {
@@ -21,7 +22,7 @@ export interface DeviceConfig {
 	deviceId: PeripheralDeviceId
 	deviceToken: string
 }
-export class Connector {
+export class Connector implements IConnector {
 	public initialized = false
 	public initializedError: string | undefined = undefined
 

@@ -10,6 +10,7 @@ import {
 	stringifyError,
 	PeripheralDevicePubSub,
 	PeripheralDevicePubSubCollectionsNames,
+	ICoreHandler,
 } from '@sofie-automation/server-core-integration'
 import * as Winston from 'winston'
 
@@ -29,7 +30,7 @@ export interface CoreConfig {
 /**
  * Represents a connection between mos-integration and Core
  */
-export class CoreHandler {
+export class CoreHandler implements ICoreHandler {
 	core: CoreConnection | undefined
 	logger: Winston.Logger
 	public _observers: Array<Observer<any>> = []
