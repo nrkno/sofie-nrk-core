@@ -11,6 +11,7 @@ import {
 	stringifyError,
 	PeripheralDevicePubSub,
 	PeripheralDevicePubSubCollectionsNames,
+	ICoreHandler,
 } from '@sofie-automation/server-core-integration'
 import { MediaObject, DeviceOptionsAny, ActionExecutionResult } from 'timeline-state-resolver'
 import * as _ from 'underscore'
@@ -40,7 +41,7 @@ export interface MemoryUsageReport {
 /**
  * Represents a connection between the Gateway and Core
  */
-export class CoreHandler {
+export class CoreHandler implements ICoreHandler {
 	core!: CoreConnection
 	logger: Logger
 	public _observers: Array<Observer<any>> = []
