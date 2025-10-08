@@ -7,8 +7,10 @@ import {
 	PeripheralDeviceId,
 	loadCertificatesFromDisk,
 	stringifyError,
+	HealthConfig,
+	HealthEndpoints,
+	IConnector,
 } from '@sofie-automation/server-core-integration'
-import { HealthConfig, HealthEndpoints } from './health'
 
 export interface Config {
 	certificates: CertificatesConfig
@@ -23,7 +25,7 @@ export interface DeviceConfig {
 	deviceId: PeripheralDeviceId
 	deviceToken: string
 }
-export class Connector {
+export class Connector implements IConnector {
 	public initialized = false
 	public initializedError: string | undefined = undefined
 

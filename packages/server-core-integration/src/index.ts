@@ -1,6 +1,8 @@
 export * from './lib/coreConnection'
 export * from './lib/configManifest'
 export * from './lib/ddpClient'
+export * from './lib/gateway-types'
+export * from './lib/health'
 export * from './lib/methods'
 export * from './lib/process'
 export { SubscriptionId } from './lib/subscriptions'

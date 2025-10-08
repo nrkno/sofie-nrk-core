@@ -1,9 +1,8 @@
 import * as Koa from 'koa'
 import * as Router from '@koa/router'
-import { StatusCode } from 'timeline-state-resolver'
-import { assertNever } from '@sofie-automation/server-core-integration'
-import { CoreHandler } from './coreHandler'
-import { Connector } from './connector'
+import { StatusCode } from '@sofie-automation/shared-lib/dist/lib/status'
+import { assertNever } from '@sofie-automation/shared-lib/dist/lib/lib'
+import { IConnector, ICoreHandler } from './gateway-types'
 
 export interface HealthConfig {
 	/** If set, exposes health HTTP endpoints on the given port */
@@ -16,7 +15,7 @@ export interface HealthConfig {
  */
 export class HealthEndpoints {
 	private app = new Koa()
-	constructor(private connector: Connector, private coreHandler: CoreHandler, private config: HealthConfig) {
+	constructor(private connector: IConnector, private coreHandler: ICoreHandler, private config: HealthConfig) {
 		if (!config.port) return // disabled
 
 		const router = new Router()
