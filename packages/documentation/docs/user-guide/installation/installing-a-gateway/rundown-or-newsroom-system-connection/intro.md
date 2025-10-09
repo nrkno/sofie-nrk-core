@@ -1,3 +1,6 @@
+---
+sidebar_position: 1
+---
 # Rundown & Newsroom Systems
 
 Sofie&nbsp;Core doesn't talk directly to the newsroom systems, but instead via one of the Gateways.

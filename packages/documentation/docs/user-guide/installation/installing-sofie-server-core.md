@@ -8,8 +8,8 @@ sidebar_position: 2
 
 ### **Prerequisites**
 
-**\(Linux\)** Install [Docker](https://docs.docker.com/install/linux/docker-ce/ubuntu/) and [docker-compose](https://www.digitalocean.com/community/tutorials/how-to-install-docker-compose-on-ubuntu-18-04).
-**\(Windows\)** Install [Docker for Windows](https://hub.docker.com/editions/community/docker-ce-desktop-windows).
+* **Linux**: Install [Docker](https://docs.docker.com/install/linux/docker-ce/ubuntu/) and [docker-compose](https://www.digitalocean.com/community/tutorials/how-to-install-docker-compose-on-ubuntu-18-04).
+* **Windows**: Install [Docker for Windows](https://hub.docker.com/editions/community/docker-ce-desktop-windows).
 
 ### Installation
 
