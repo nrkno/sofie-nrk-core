@@ -386,6 +386,13 @@ export interface PlayoutModel extends PlayoutModelReadonly, StudioPlayoutModelBa
 		toPieceInstances: PieceInstanceWithTimings[]
 	): PartCalculatedTimings
 
+	/**
+	 * Return an expected "now" value (i.e. the closest moment in time that can be safely addressed),
+	 * considering any playout latency. Every call will return a value greater or equal than previous,
+	 * meaning that this function is monotonic.
+	 */
+	getNowInPlayout(): number
+
 	/** Lifecycle */
 
 	/**

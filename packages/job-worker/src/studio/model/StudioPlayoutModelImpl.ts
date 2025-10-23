@@ -18,6 +18,7 @@ import { DatabasePersistedModel } from '../../modelBase.js'
 import { ExpectedPackageDBFromStudioBaselineObjects } from '@sofie-automation/corelib/dist/dataModel/ExpectedPackages'
 import { ExpectedPlayoutItemStudio } from '@sofie-automation/corelib/dist/dataModel/ExpectedPlayoutItem'
 import { StudioBaselineHelper } from './StudioBaselineHelper.js'
+import { getExpectedLatency } from '@sofie-automation/corelib/dist/studio/playout'
 
 /**
  * This is a model used for studio operations.
@@ -76,6 +77,31 @@ export class StudioPlayoutModelImpl implements StudioPlayoutModel {
 			}
 		}
 		return this.#isMultiGatewayMode
+	}
+
+	public get multiGatewayNowSafeLatency(): number | undefined {
+		return this.context.studio.settings.multiGatewayNowSafeLatency
+	}
+
+	/**
+	 * Calculate an offset to apply to the 'now' value, to compensate for delay in playout-gateway
+	 * The intention is that any concrete value used instead of 'now' should still be just in the future for playout-gateway
+	 */
+	getNowOffsetLatency(): number | undefined {
+		/** The timestamp that "now" was set to */
+		let nowOffsetLatency: number | undefined
+
+		if (this.isMultiGatewayMode) {
+			const playoutDevices = this.peripheralDevices.filter(
+				(device) => device.type === PeripheralDeviceType.PLAYOUT
+			)
+			const worstLatency = Math.max(0, ...playoutDevices.map((device) => getExpectedLatency(device).safe))
+			/** Add a little more latency, to account for network latency variability */
+			const ADD_SAFE_LATENCY = this.multiGatewayNowSafeLatency || 30
+			nowOffsetLatency = worstLatency + ADD_SAFE_LATENCY
+		}
+
+		return nowOffsetLatency
 	}
 
 	setExpectedPackagesForStudioBaseline(packages: ExpectedPackageDBFromStudioBaselineObjects[]): void {

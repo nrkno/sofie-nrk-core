@@ -21,7 +21,6 @@ import { PieceLifespan } from '@sofie-automation/blueprints-integration'
 import { SourceLayers } from '@sofie-automation/corelib/dist/dataModel/ShowStyleBase'
 import { updatePartInstanceRanksAfterAdlib } from '../updatePartInstanceRanksAndOrphanedState.js'
 import { setNextPart } from './setNext.js'
-import { calculateNowOffsetLatency } from './timeline/multi-gateway.js'
 import { logger } from '../logging.js'
 import { ReadonlyDeep } from 'type-fest'
 import { PlayoutRundownModel } from './model/PlayoutRundownModel.js'
@@ -279,7 +278,8 @@ export function innerStopPieces(
 	}
 
 	const resolvedPieces = getResolvedPiecesForCurrentPartInstance(context, sourceLayers, currentPartInstance)
-	const offsetRelativeToNow = (timeOffset || 0) + (calculateNowOffsetLatency(context, playoutModel) || 0)
+	// TODO: this should be reworked, so that getNowOffsetLatency() can be a protected method of the model
+	const offsetRelativeToNow = (timeOffset ?? 0) + (playoutModel.getNowOffsetLatency() ?? 0)
 	const stopAt = getCurrentTime() + offsetRelativeToNow
 	const relativeStopAt = stopAt - lastStartedPlayback
 
