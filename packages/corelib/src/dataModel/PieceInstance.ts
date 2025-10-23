@@ -67,7 +67,10 @@ export interface PieceInstance {
 				endRelativeToPart: number
 		  }
 		| {
-				/** The time relative to 'now' (ms since 'now') */
+				/**
+				 * The time relative to 'now' (ms since 'now')
+				 * @deprecated Since 1.53.0; use `endRelativeToPart` instead.
+				 */
 				endRelativeToNow: number
 		  }
 
