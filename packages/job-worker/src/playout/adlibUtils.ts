@@ -278,9 +278,7 @@ export function innerStopPieces(
 	}
 
 	const resolvedPieces = getResolvedPiecesForCurrentPartInstance(context, sourceLayers, currentPartInstance)
-	// TODO: this should be reworked, so that getNowOffsetLatency() can be a protected method of the model
-	const offsetRelativeToNow = (timeOffset ?? 0) + (playoutModel.getNowOffsetLatency() ?? 0)
-	const stopAt = getCurrentTime() + offsetRelativeToNow
+	const stopAt = playoutModel.getNowInPlayout() + (timeOffset ?? 0)
 	const relativeStopAt = stopAt - lastStartedPlayback
 
 	for (const resolvedPieceInstance of resolvedPieces) {
@@ -310,15 +308,9 @@ export function innerStopPieces(
 
 				const pieceInstanceModel = playoutModel.findPieceInstance(pieceInstance._id)
 				if (pieceInstanceModel) {
-					const newDuration: Required<PieceInstance>['userDuration'] = playoutModel.isMultiGatewayMode
-						? {
-								endRelativeToNow: offsetRelativeToNow,
-							}
-						: {
-								endRelativeToPart: relativeStopAt,
-							}
-
-					pieceInstanceModel.pieceInstance.setDuration(newDuration)
+					pieceInstanceModel.pieceInstance.setDuration({
+						endRelativeToPart: relativeStopAt,
+					})
 
 					stoppedInstances.push(pieceInstance._id)
 				} else {

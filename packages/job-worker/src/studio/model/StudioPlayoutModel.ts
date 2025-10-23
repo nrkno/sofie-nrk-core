@@ -28,8 +28,6 @@ export interface StudioPlayoutModelBaseReadonly {
 	readonly isMultiGatewayMode: boolean
 
 	readonly multiGatewayNowSafeLatency: number | undefined
-
-	getNowOffsetLatency(): number | undefined
 }
 
 export interface StudioPlayoutModelBase extends StudioPlayoutModelBaseReadonly {

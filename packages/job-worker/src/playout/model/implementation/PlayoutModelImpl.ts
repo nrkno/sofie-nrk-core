@@ -274,7 +274,7 @@ export class PlayoutModelReadonlyImpl implements PlayoutModelReadonly {
 	 * Calculate an offset to apply to the 'now' value, to compensate for delay in playout-gateway
 	 * The intention is that any concrete value used instead of 'now' should still be just in the future for playout-gateway
 	 */
-	getNowOffsetLatency(): number | undefined {
+	protected getNowOffsetLatency(): number | undefined {
 		/** The timestamp that "now" was set to */
 		let nowOffsetLatency: number | undefined
 
