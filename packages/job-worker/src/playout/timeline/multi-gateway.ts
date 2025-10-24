@@ -6,7 +6,6 @@ import { PieceTimelineMetadata } from './pieceGroup.js'
 import { logger } from '../../logging.js'
 import { PlayoutModel } from '../model/PlayoutModel.js'
 import { RundownTimelineTimingContext, getInfinitePartGroupId } from './rundown.js'
-import { getPieceControlObjectId } from '@sofie-automation/corelib/dist/playout/ids'
 import { PlayoutPartInstanceModel } from '../model/PlayoutPartInstanceModel.js'
 import { PlayoutPieceInstanceModel } from '../model/PlayoutPieceInstanceModel.js'
 
@@ -231,29 +230,6 @@ function deNowifyCurrentPieces(
 		}
 	}
 
-	// Ensure any pieces with an unconfirmed userDuration is confirmed
-	for (const pieceInstance of currentPartInstance.pieceInstances) {
-		if (
-			pieceInstance.pieceInstance.userDuration &&
-			'endRelativeToNow' in pieceInstance.pieceInstance.userDuration
-		) {
-			const relativeToNow = pieceInstance.pieceInstance.userDuration.endRelativeToNow
-			const endRelativeToPart = relativeToNow + nowInPart
-			pieceInstance.setDuration({ endRelativeToPart })
-
-			// Update the piece control obj
-			const controlObj = timelineObjsMap[getPieceControlObjectId(pieceInstance.pieceInstance)]
-			if (controlObj && !Array.isArray(controlObj.enable) && controlObj.enable.end === 'now') {
-				controlObj.enable.end = endRelativeToPart
-			}
-
-			// If the piece is an infinite, there may be a now in the parent group
-			const infiniteGroup = timelineObjsMap[getInfinitePartGroupId(pieceInstance.pieceInstance._id)]
-			if (infiniteGroup && !Array.isArray(infiniteGroup.enable) && infiniteGroup.enable.end === 'now') {
-				infiniteGroup.enable.end = targetNowTime + relativeToNow
-			}
-		}
-	}
 	return { objectsNotDeNowified }
 }
 
