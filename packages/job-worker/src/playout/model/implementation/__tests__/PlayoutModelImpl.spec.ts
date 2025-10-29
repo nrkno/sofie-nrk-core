@@ -1,6 +1,11 @@
 import { JSONBlobStringify, PieceLifespan, StatusCode } from '@sofie-automation/blueprints-integration'
 import { AdLibPiece } from '@sofie-automation/corelib/dist/dataModel/AdLibPiece'
-import { PartInstanceId, RundownId, RundownPlaylistId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import {
+	PartInstanceId,
+	PeripheralDeviceId,
+	RundownId,
+	RundownPlaylistId,
+} from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { DBPart } from '@sofie-automation/corelib/dist/dataModel/Part'
 import { DBPartInstance } from '@sofie-automation/corelib/dist/dataModel/PartInstance'
 import {
@@ -29,6 +34,12 @@ import { ProcessedShowStyleCompound } from '../../../../jobs/index.js'
 import { runWithPlaylistLock } from '../../../../playout/lock.js'
 import { PlayoutModelImpl } from '../PlayoutModelImpl.js'
 import { PlayoutRundownModelImpl } from '../PlayoutRundownModelImpl.js'
+import { PlayoutSegmentModelImpl } from '../PlayoutSegmentModelImpl.js'
+import _ from 'underscore'
+
+const TIME_FAR_PAST = 1000
+const TIME_CONNECTED = 2000
+const TIME_PING = 3000
 
 describe('PlayoutModelImpl', () => {
 	let context: MockJobContext
@@ -60,7 +71,7 @@ describe('PlayoutModelImpl', () => {
 		)
 
 		it('returns the current time', async () => {
-			const { playlistId: playlistId0 } = await setupRundownWithAutoplayPart0(
+			const { playlistId: playlistId0, rundownId: rundownId0 } = await setupRundownWithAutoplayPart0(
 				context,
 				protectString('rundown00'),
 				showStyleCompound
@@ -68,63 +79,59 @@ describe('PlayoutModelImpl', () => {
 
 			const playlist = await context.mockCollections.RundownPlaylists.findOne(playlistId0)
 
-			const TIME_FAR_PAST = 1000
-			const TIME_CONNECTED = 2000
-			const TIME_PING = 3000
-
 			const TIME_NOW = 5000
 
-			const peripheralDevices: PeripheralDevice[] = [
-				{
-					_id: protectString('playoutGateway0'),
-					category: PeripheralDeviceCategory.PLAYOUT,
-					type: PeripheralDeviceType.PLAYOUT,
-					subType: '',
-					connected: true,
-					configManifest: {
-						deviceConfigSchema: JSONBlobStringify({}),
-						subdeviceManifest: {},
-					},
-					connectionId: 'connectionId0',
-					created: TIME_FAR_PAST,
-					deviceName: 'Dummy Playout Gateway 1',
-					lastConnected: TIME_CONNECTED,
-					lastSeen: TIME_PING,
-					name: 'Dummy Playout Gateway 1',
-					organizationId: null,
-					status: {
-						statusCode: StatusCode.GOOD,
-						messages: [],
-					},
-					token: '',
-				},
-				{
-					_id: protectString('playoutGateway1'),
-					category: PeripheralDeviceCategory.PLAYOUT,
-					type: PeripheralDeviceType.PLAYOUT,
-					subType: '',
-					connected: true,
-					configManifest: {
-						deviceConfigSchema: JSONBlobStringify({}),
-						subdeviceManifest: {},
-					},
-					connectionId: 'connectionId1',
-					created: TIME_FAR_PAST,
-					deviceName: 'Dummy Playout Gateway 2',
-					lastConnected: TIME_CONNECTED,
-					lastSeen: TIME_PING,
-					name: 'Dummy Playout Gateway 2',
-					organizationId: null,
-					status: {
-						statusCode: StatusCode.GOOD,
-						messages: [],
-					},
-					token: '',
-				},
+			const peripheralDevices = [setupMockPlayoutGateway(protectString('playoutGateway0'))]
+
+			const { partInstances, groupedPieceInstances, rundowns } = await getPlayoutModelImplArugments(
+				context,
+				playlistId0,
+				rundownId0
+			)
+
+			if (!playlist) throw new Error('Playlist not found!')
+
+			jest.setSystemTime(TIME_NOW)
+
+			await runWithPlaylistLock(context, playlistId0, async (lock) => {
+				const model = new PlayoutModelImpl(
+					context,
+					lock,
+					playlistId0,
+					peripheralDevices,
+					playlist,
+					partInstances,
+					groupedPieceInstances,
+					rundowns,
+					undefined
+				)
+
+				const now = model.getNowInPlayout()
+				expect(now).toBeGreaterThanOrEqual(TIME_NOW)
+				expect(now - TIME_NOW).toBeLessThan(100)
+			})
+		})
+
+		it('never returns a smaller value', async () => {
+			const { playlistId: playlistId0, rundownId: rundownId0 } = await setupRundownWithAutoplayPart0(
+				context,
+				protectString('rundown00'),
+				showStyleCompound
+			)
+
+			const playlist = await context.mockCollections.RundownPlaylists.findOne(playlistId0)
+			const TIME_NOW = 5000
+
+			const peripheralDevices = [
+				setupMockPlayoutGateway(protectString('playoutGateway0')),
+				setupMockPlayoutGateway(protectString('playoutGateway1')),
 			]
-			const partInstances: DBPartInstance[] = []
-			const groupedPieceInstances: Map<PartInstanceId, PieceInstance[]> = new Map()
-			const rundowns: PlayoutRundownModelImpl[] = []
+
+			const { partInstances, groupedPieceInstances, rundowns } = await getPlayoutModelImplArugments(
+				context,
+				playlistId0,
+				rundownId0
+			)
 
 			if (!playlist) throw new Error('Playlist not found!')
 
@@ -173,6 +180,77 @@ describe('PlayoutModelImpl', () => {
 		})
 	})
 })
+
+async function getPlayoutModelImplArugments(
+	context: MockJobContext,
+	playlistId: RundownPlaylistId,
+	rundownId: RundownId
+) {
+	const partInstances = await context.mockCollections.PartInstances.findFetch({
+		rundownId,
+	})
+	const pieceInstances = await context.mockCollections.PieceInstances.findFetch({
+		rundownId,
+	})
+	const groupedPieceInstances: Map<PartInstanceId, PieceInstance[]> = new Map(
+		Object.entries<PieceInstance[]>(
+			_.groupBy(pieceInstances, (pieceInstance) => unprotectString(pieceInstance.partInstanceId))
+		)
+	) as any
+	const rundowns: PlayoutRundownModelImpl[] = await Promise.all(
+		(
+			await context.mockCollections.Rundowns.findFetch({
+				playlistId,
+			})
+		).map(async (rundown) => {
+			const segments = await context.mockCollections.Segments.findFetch({
+				rundownId: rundown._id,
+			})
+
+			const allSegmentModelImpl = await Promise.all(
+				segments.map(async (segment) => {
+					const parts = await context.mockCollections.Parts.findFetch({
+						rundownId: rundown._id,
+					})
+					return new PlayoutSegmentModelImpl(segment, parts)
+				})
+			)
+			return new PlayoutRundownModelImpl(rundown, allSegmentModelImpl, [])
+		})
+	)
+
+	return {
+		partInstances,
+		groupedPieceInstances,
+		rundowns,
+	}
+}
+
+function setupMockPlayoutGateway(id: PeripheralDeviceId): PeripheralDevice {
+	return {
+		_id: id,
+		category: PeripheralDeviceCategory.PLAYOUT,
+		type: PeripheralDeviceType.PLAYOUT,
+		subType: '',
+		connected: true,
+		configManifest: {
+			deviceConfigSchema: JSONBlobStringify({}),
+			subdeviceManifest: {},
+		},
+		connectionId: '',
+		created: TIME_FAR_PAST,
+		deviceName: `Dummy ${id}`,
+		lastConnected: TIME_CONNECTED,
+		lastSeen: TIME_PING,
+		name: `Dummy ${id}`,
+		organizationId: null,
+		status: {
+			statusCode: StatusCode.GOOD,
+			messages: [],
+		},
+		token: '',
+	}
+}
 
 async function setupRundownWithAutoplayPart0(
 	context: MockJobContext,
