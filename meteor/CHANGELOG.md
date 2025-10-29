@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.52.10-nrk](///compare/v1.52.9-nrk...v1.52.10-nrk) (2025-10-29)
+
+
+### Features
+
+* add health endpoints to MOS Gateway 9f01196
+* add health endpoints to Playout Gateway c5b8122
+* add health endpoints to Playout Gateway 45b7213
+* add piece status to indicate invalid package container source SOFIE-2991 ([#14](undefined/undefined/undefined/issues/14)) f5bdd36
+
 ### [1.52.9-nrk](https://github.com/nrkno/sofie-nrk-core/compare/v1.52.8-nrk...v1.52.9-nrk) (2025-09-29)
 
 

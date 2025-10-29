@@ -3,6 +3,19 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.52.10-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.9-nrk...v1.52.10-nrk) (2025-10-29)
+
+
+### Features
+
+* add health endpoints to MOS Gateway ([9f01196](https://github.com/Sofie-Automation/sofie-core/commit/9f0119665197a6cd0c628967618c5bd234049e75))
+* add health endpoints to Playout Gateway ([c5b8122](https://github.com/Sofie-Automation/sofie-core/commit/c5b8122f7ea3c5ac5715513d69390176055d08e5))
+* add health endpoints to Playout Gateway ([45b7213](https://github.com/Sofie-Automation/sofie-core/commit/45b721330eec8c4fc3895c622b5f8d2137d92105))
+
+
+
+
+
 ## [1.52.9-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.8-nrk...v1.52.9-nrk) (2025-09-29)
 
 
