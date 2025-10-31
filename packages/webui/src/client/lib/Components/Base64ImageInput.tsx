@@ -29,7 +29,7 @@ export function Base64ImageInputControl({
 				handleUpdate(reader.result as string)
 			}
 			reader.onerror = (error) => {
-				console.error('Error reading file:', error)		
+				console.error('Error reading file:', error)
 			}
 		},
 		[handleUpdate]
