@@ -1191,7 +1191,7 @@ __metadata:
   resolution: "@sofie-automation/shared-lib@portal:../packages/shared-lib::locator=automation-core%40workspace%3A."
   dependencies:
     "@mos-connection/model": "npm:^4.3.1"
-    timeline-state-resolver-types: "npm:9.3.1-nightly-feat-nrk-r52-kairos-20251103-122238-ddd81f135.0"
+    timeline-state-resolver-types: "npm:9.3.1-nightly-feat-nrk-r52-kairos-20251105-133327-e0c4f1e49.0"
     tslib: "npm:^2.8.1"
     type-fest: "npm:^4.33.0"
   languageName: node
@@ -10243,13 +10243,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"timeline-state-resolver-types@npm:9.3.1-nightly-feat-nrk-r52-kairos-20251103-122238-ddd81f135.0":
-  version: 9.3.1-nightly-feat-nrk-r52-kairos-20251103-122238-ddd81f135.0
-  resolution: "timeline-state-resolver-types@npm:9.3.1-nightly-feat-nrk-r52-kairos-20251103-122238-ddd81f135.0"
+"timeline-state-resolver-types@npm:9.3.1-nightly-feat-nrk-r52-kairos-20251105-133327-e0c4f1e49.0":
+  version: 9.3.1-nightly-feat-nrk-r52-kairos-20251105-133327-e0c4f1e49.0
+  resolution: "timeline-state-resolver-types@npm:9.3.1-nightly-feat-nrk-r52-kairos-20251105-133327-e0c4f1e49.0"
   dependencies:
     kairos-lib: "npm:0.2.0"
     tslib: "npm:^2.6.3"
-  checksum: 10/aec2f6a99dc2a707e365338477096aa38fc74369272eed133ff2eea118eaf3111433c5654acc5efbaa0fad13432f5d3caa3199f4e01463f61145ebc2476a8755
+  checksum: 10/5f72120dd47d9ce28a64c1ba31a1245ea63a5308ee9ce802365f6c3268839a68a01a75fef1234ea35d9c2dbf788f02ddb4b5d2ce0172fac1c027228cdeb5a53f
   languageName: node
   linkType: hard
 

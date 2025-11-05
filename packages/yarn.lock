@@ -6542,7 +6542,7 @@ __metadata:
   resolution: "@sofie-automation/shared-lib@workspace:shared-lib"
   dependencies:
     "@mos-connection/model": "npm:^4.3.1"
-    timeline-state-resolver-types: "npm:9.3.1-nightly-feat-nrk-r52-kairos-20251103-122238-ddd81f135.0"
+    timeline-state-resolver-types: "npm:9.3.1-nightly-feat-nrk-r52-kairos-20251105-133327-e0c4f1e49.0"
     tslib: "npm:^2.8.1"
     type-fest: "npm:^4.33.0"
   languageName: unknown
@@ -23978,7 +23978,7 @@ asn1@evs-broadcast/node-asn1:
     "@types/koa__router": "npm:^12.0.4"
     debug: "npm:^4.4.0"
     influx: "npm:^5.9.7"
-    timeline-state-resolver: "npm:9.3.1-nightly-feat-nrk-r52-kairos-20251103-122238-ddd81f135.0"
+    timeline-state-resolver: "npm:9.3.1-nightly-feat-nrk-r52-kairos-20251105-133327-e0c4f1e49.0"
     tslib: "npm:^2.8.1"
     underscore: "npm:^1.13.7"
     winston: "npm:^3.17.0"
@@ -28767,19 +28767,19 @@ asn1@evs-broadcast/node-asn1:
   languageName: node
   linkType: hard
 
-"timeline-state-resolver-types@npm:9.3.1-nightly-feat-nrk-r52-kairos-20251103-122238-ddd81f135.0":
-  version: 9.3.1-nightly-feat-nrk-r52-kairos-20251103-122238-ddd81f135.0
-  resolution: "timeline-state-resolver-types@npm:9.3.1-nightly-feat-nrk-r52-kairos-20251103-122238-ddd81f135.0"
+"timeline-state-resolver-types@npm:9.3.1-nightly-feat-nrk-r52-kairos-20251105-133327-e0c4f1e49.0":
+  version: 9.3.1-nightly-feat-nrk-r52-kairos-20251105-133327-e0c4f1e49.0
+  resolution: "timeline-state-resolver-types@npm:9.3.1-nightly-feat-nrk-r52-kairos-20251105-133327-e0c4f1e49.0"
   dependencies:
     kairos-lib: "npm:0.2.0"
     tslib: "npm:^2.6.3"
-  checksum: 10/aec2f6a99dc2a707e365338477096aa38fc74369272eed133ff2eea118eaf3111433c5654acc5efbaa0fad13432f5d3caa3199f4e01463f61145ebc2476a8755
+  checksum: 10/5f72120dd47d9ce28a64c1ba31a1245ea63a5308ee9ce802365f6c3268839a68a01a75fef1234ea35d9c2dbf788f02ddb4b5d2ce0172fac1c027228cdeb5a53f
   languageName: node
   linkType: hard
 
-"timeline-state-resolver@npm:9.3.1-nightly-feat-nrk-r52-kairos-20251103-122238-ddd81f135.0":
-  version: 9.3.1-nightly-feat-nrk-r52-kairos-20251103-122238-ddd81f135.0
-  resolution: "timeline-state-resolver@npm:9.3.1-nightly-feat-nrk-r52-kairos-20251103-122238-ddd81f135.0"
+"timeline-state-resolver@npm:9.3.1-nightly-feat-nrk-r52-kairos-20251105-133327-e0c4f1e49.0":
+  version: 9.3.1-nightly-feat-nrk-r52-kairos-20251105-133327-e0c4f1e49.0
+  resolution: "timeline-state-resolver@npm:9.3.1-nightly-feat-nrk-r52-kairos-20251105-133327-e0c4f1e49.0"
   dependencies:
     "@tv2media/v-connection": "npm:^7.3.4"
     atem-connection: "npm:3.5.0"
@@ -28805,7 +28805,7 @@ asn1@evs-broadcast/node-asn1:
     sprintf-js: "npm:^1.1.3"
     superfly-timeline: "npm:^9.2.0"
     threadedclass: "npm:^1.2.2"
-    timeline-state-resolver-types: "npm:9.3.1-nightly-feat-nrk-r52-kairos-20251103-122238-ddd81f135.0"
+    timeline-state-resolver-types: "npm:9.3.1-nightly-feat-nrk-r52-kairos-20251105-133327-e0c4f1e49.0"
     tslib: "npm:^2.6.3"
     tv-automation-quantel-gateway-client: "npm:^3.1.7"
     type-fest: "npm:^3.13.1"
@@ -28813,7 +28813,7 @@ asn1@evs-broadcast/node-asn1:
     utf-8-validate: "npm:^6.0.4"
     ws: "npm:^8.18.0"
     xml-js: "npm:^1.6.11"
-  checksum: 10/041b9941aaed154b1a334972cffe646cf5a4579bef7e0f41ba76b52e206795b28123dcf6cef788f806124eaacf31609fe2d147f0f7b1a4b421d2969aad994550
+  checksum: 10/f3e2382dcf0079669b334359de8c6f538659f68a2a6b63d657c9d9ad4c017cb78abdb716881b7e5ac482e4e13a7a9e09df448cb5d567834678929848e38849ed
   languageName: node
   linkType: hard
 
