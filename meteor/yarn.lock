@@ -1191,7 +1191,7 @@ __metadata:
   resolution: "@sofie-automation/shared-lib@portal:../packages/shared-lib::locator=automation-core%40workspace%3A."
   dependencies:
     "@mos-connection/model": "npm:^4.3.1"
-    timeline-state-resolver-types: "npm:9.3.1-nightly-feat-nrk-r52-kairos-20251105-133327-e0c4f1e49.0"
+    timeline-state-resolver-types: "npm:9.3.1-nightly-feat-nrk-r52-kairos-20251112-143559-ce39a8c04.0"
     tslib: "npm:^2.8.1"
     type-fest: "npm:^4.33.0"
   languageName: node
@@ -6733,12 +6733,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"kairos-lib@npm:0.2.0":
-  version: 0.2.0
-  resolution: "kairos-lib@npm:0.2.0"
+"kairos-lib@npm:0.2.1":
+  version: 0.2.1
+  resolution: "kairos-lib@npm:0.2.1"
   dependencies:
     tslib: "npm:^2.8.1"
-  checksum: 10/f09b85dec6a7fe1bc6bc238c4605d778c166c40c7f44bc46bef5ba9ceb9fe302ff24ea36e4c612d849516b89b58244b981d34bd56206dede73a1998e8eb5c15d
+  checksum: 10/c8ecb7999ccae3c42a8905f597a584af15329461a371f3a15b537c5842d94891a7fb6f090fbd255a8c7d985c11931ee23f88a28bf71d4619be222dbc5bf816f5
   languageName: node
   linkType: hard
 
@@ -10243,13 +10243,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"timeline-state-resolver-types@npm:9.3.1-nightly-feat-nrk-r52-kairos-20251105-133327-e0c4f1e49.0":
-  version: 9.3.1-nightly-feat-nrk-r52-kairos-20251105-133327-e0c4f1e49.0
-  resolution: "timeline-state-resolver-types@npm:9.3.1-nightly-feat-nrk-r52-kairos-20251105-133327-e0c4f1e49.0"
+"timeline-state-resolver-types@npm:9.3.1-nightly-feat-nrk-r52-kairos-20251112-143559-ce39a8c04.0":
+  version: 9.3.1-nightly-feat-nrk-r52-kairos-20251112-143559-ce39a8c04.0
+  resolution: "timeline-state-resolver-types@npm:9.3.1-nightly-feat-nrk-r52-kairos-20251112-143559-ce39a8c04.0"
   dependencies:
-    kairos-lib: "npm:0.2.0"
+    kairos-lib: "npm:0.2.1"
     tslib: "npm:^2.6.3"
-  checksum: 10/5f72120dd47d9ce28a64c1ba31a1245ea63a5308ee9ce802365f6c3268839a68a01a75fef1234ea35d9c2dbf788f02ddb4b5d2ce0172fac1c027228cdeb5a53f
+  checksum: 10/f985092a6d081025f05865a87049dc52ed7f838227f3d68cc30b586e6a0269b6bd5482a6494ba912f80f1c9643387789aeb3248e21ecc3514411de381c42c109
   languageName: node
   linkType: hard
 
