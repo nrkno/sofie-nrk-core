@@ -119,7 +119,7 @@ export async function showStyleBaseFrom(
 		outputLayersWithOverrides: outputLayers,
 		sourceLayersWithOverrides: sourceLayers,
 		blueprintConfigWithOverrides: blueprintConfig,
-		_rundownVersionHash: '',
+		_rundownVersionHash: showStyleBase?._rundownVersionHash ?? '',
 		lastBlueprintConfig: undefined,
 		lastBlueprintFixUpHash: undefined,
 	}
@@ -339,14 +339,15 @@ export async function studioFrom(apiStudio: APIStudio, existingId?: StudioId): P
 			? updateOverrides(studio.settingsWithOverrides, studioSettings)
 			: wrapDefaultObject(studioSettings),
 		supportedShowStyleBase: apiStudio.supportedShowStyleBase?.map((id) => protectString<ShowStyleBaseId>(id)) ?? [],
-		mappingsWithOverrides: wrapDefaultObject({}),
-		routeSetsWithOverrides: wrapDefaultObject({}),
-		_rundownVersionHash: '',
+		mappingsWithOverrides: studio?.mappingsWithOverrides ?? wrapDefaultObject({}),
+		mappingsHash: studio?.mappingsHash,
+		routeSetsWithOverrides: studio?.routeSetsWithOverrides ?? wrapDefaultObject({}),
+		_rundownVersionHash: studio?._rundownVersionHash ?? '',
 		routeSetExclusivityGroupsWithOverrides: wrapDefaultObject({}),
 		packageContainersWithOverrides: wrapDefaultObject({}),
 		previewContainerIds: [],
 		thumbnailContainerIds: [],
-		peripheralDeviceSettings: {
+		peripheralDeviceSettings: studio?.peripheralDeviceSettings ?? {
 			deviceSettings: wrapDefaultObject({}),
 			playoutDevices: wrapDefaultObject({}),
 			ingestDevices: wrapDefaultObject({}),
