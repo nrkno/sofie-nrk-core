@@ -107,19 +107,6 @@ jobs:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
-      - name: Determine if images should be published to DockerHub
-        id: dockerhub
-        run: |
-          # check if a release branch, or main, or a tag
-          if [[ "${{ github.ref }}" =~ ^refs/heads/release([0-9]+)$ || "${{ github.ref }}" == "refs/heads/main" || "${{ github.ref }}" == refs/tags/* ]]
-          then
-            DOCKERHUB_PUBLISH="1"
-          else
-            DOCKERHUB_PUBLISH="0"
-          fi
-          # debug output
-          echo "dockerhub-publish $DOCKERHUB_PUBLISH"
-          echo "dockerhub-publish=$DOCKERHUB_PUBLISH" >> $GITHUB_OUTPUT
       - name: Check if push to GHCR is enabled
         id: check-ghcr
         env:
@@ -128,7 +115,7 @@ jobs:
           echo "Enable push to GHCR: ${{ env.GHCR_ENABLED != '' }}"
           echo "enable=${{ env.GHCR_ENABLED != '' }}" >> $GITHUB_OUTPUT
       - name: Check if there is access to repo secrets (needed for build and push)
-        if: steps.dockerhub.outputs.dockerhub-publish == '1' || steps.check-ghcr.outputs.enable == 'true'
+        if: steps.check-ghcr.outputs.enable == 'true'
         id: check-build-and-push
         env:
           SECRET_ACCESS: ${{ secrets.DOCKERHUB_IMAGE_PREFIX }}
@@ -142,18 +129,6 @@ jobs:
         with:
           images: |
             ghcr.io/${{ github.repository }}-server-core
-          tags: |
-            type=schedule
-            type=ref,event=branch
-            type=ref,event=tag
-            type=raw,value=latest,enable={{is_default_branch}}
-      - name: Get the Docker tag for DockerHub
-        id: dockerhub-tag
-        if: steps.check-build-and-push.outputs.enable == 'true'
-        uses: docker/metadata-action@v5
-        with:
-          images: |
-            ${{ secrets.DOCKERHUB_IMAGE_PREFIX }}server-core
           tags: |
             type=schedule
             type=ref,event=branch
@@ -210,12 +185,6 @@ jobs:
       - name: Set up Docker Buildx
         if: steps.check-build-and-push.outputs.enable == 'true'
         uses: docker/setup-buildx-action@v3
-      - name: Login to DockerHub
-        if: steps.check-build-and-push.outputs.enable == 'true' && steps.dockerhub.outputs.dockerhub-publish == '1'
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Login to GitHub Container Registry
         if: steps.check-build-and-push.outputs.enable == 'true' && steps.check-ghcr.outputs.enable == 'true'
         uses: docker/login-action@v3
@@ -234,16 +203,6 @@ jobs:
           labels: ${{ steps.ghcr-tag.outputs.labels }}
           tags: "${{ steps.ghcr-tag.outputs.tags }}"
           github-token: ${{ github.token }}
-      - name: Build and push to DockerHub
-        if: steps.check-build-and-push.outputs.enable == 'true' && steps.dockerhub.outputs.dockerhub-publish == '1'
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./meteor/Dockerfile.circle
-          push: true
-          provenance: false
-          labels: ${{ steps.dockerhub-tag.outputs.labels }}
-          tags: ${{ steps.dockerhub-tag.outputs.tags }}
       - name: Get image for Trivy scanning
         id: trivy-image
         if: steps.check-build-and-push.outputs.enable == 'true' && steps.check-ghcr.outputs.enable == 'true' && steps.ghcr-tag.outputs.tags != 0
@@ -287,19 +246,6 @@ jobs:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
-      - name: Determine if images should be published to DockerHub
-        id: dockerhub
-        run: |
-          # check if a release branch, or main, or a tag
-          if [[ "${{ github.ref }}" =~ ^refs/heads/release([0-9]+)$ || "${{ github.ref }}" == "refs/heads/main" || "${{ github.ref }}" == "refs/tags/*" ]]
-          then
-            DOCKERHUB_PUBLISH="1"
-          else
-            DOCKERHUB_PUBLISH="0"
-          fi
-          # debug output
-          echo "dockerhub-publish $DOCKERHUB_PUBLISH"
-          echo "dockerhub-publish=$DOCKERHUB_PUBLISH" >> $GITHUB_OUTPUT
       - name: Check if push to GHCR is enabled
         id: check-ghcr
         env:
@@ -308,7 +254,7 @@ jobs:
           echo "Enable push to GHCR: ${{ env.GHCR_ENABLED != '' }}"
           echo "enable=${{ env.GHCR_ENABLED != '' }}" >> $GITHUB_OUTPUT
       - name: Check if there is access to repo secrets (needed for build and push)
-        if: steps.dockerhub.outputs.dockerhub-publish == '1' || steps.check-ghcr.outputs.enable == 'true'
+        if: steps.check-ghcr.outputs.enable == 'true'
         id: check-build-and-push
         env:
           SECRET_ACCESS: ${{ secrets.DOCKERHUB_IMAGE_PREFIX }}
@@ -322,18 +268,6 @@ jobs:
         with:
           images: |
             ghcr.io/${{ github.repository }}-${{ matrix.gateway-name }}
-          tags: |
-            type=schedule
-            type=ref,event=branch
-            type=ref,event=tag
-            type=raw,value=latest,enable={{is_default_branch}}
-      - name: Get the Docker tag for DockerHub
-        id: dockerhub-tag
-        if: steps.check-build-and-push.outputs.enable == 'true'
-        uses: docker/metadata-action@v5
-        with:
-          images: |
-            ${{ secrets.DOCKERHUB_IMAGE_PREFIX }}${{ matrix.gateway-name }}
           tags: |
             type=schedule
             type=ref,event=branch
@@ -364,12 +298,6 @@ jobs:
       - name: Set up Docker Buildx
         if: steps.check-build-and-push.outputs.enable == 'true'
         uses: docker/setup-buildx-action@v3
-      - name: Login to DockerHub
-        if: steps.check-build-and-push.outputs.enable == 'true' && steps.dockerhub.outputs.dockerhub-publish == '1'
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Login to GitHub Container Registry
         if: steps.check-build-and-push.outputs.enable == 'true' && steps.check-ghcr.outputs.enable == 'true'
         uses: docker/login-action@v3
@@ -387,16 +315,6 @@ jobs:
           provenance: false
           labels: ${{ steps.ghcr-tag.outputs.labels }}
           tags: "${{ steps.ghcr-tag.outputs.tags }}"
-      - name: Build and push to DockerHub
-        if: steps.check-build-and-push.outputs.enable == 'true' && steps.dockerhub.outputs.dockerhub-publish == '1'
-        uses: docker/build-push-action@v6
-        with:
-          context: ./packages
-          file: ./packages/${{ matrix.gateway-name }}/Dockerfile.circle
-          push: true
-          provenance: false
-          labels: ${{ steps.dockerhub-tag.outputs.labels }}
-          tags: "${{ steps.dockerhub-tag.outputs.tags }}"
       - name: Get image for Trivy scanning
         id: trivy-image
         if: steps.check-build-and-push.outputs.enable == 'true' && steps.check-ghcr.outputs.enable == 'true' && steps.ghcr-tag.outputs.tags != 0
