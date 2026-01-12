@@ -158,7 +158,7 @@ export class DDPConnector extends EventEmitter<DDPConnectorEvents> {
 		if (this.listenerCount('failed') > 0) {
 			this.emit('failed', error)
 		} else {
-			console.log('Failed', error)
+			console.log('_onClientConnectionFailed failed', error)
 		}
 		this._monitorDDPConnection()
 	}

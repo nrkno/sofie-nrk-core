@@ -206,7 +206,7 @@ export async function prepareMigration(returnAllChunks?: boolean): Promise<Prepa
 				// unknown blueprint type
 			}
 		} else {
-			console.log(`blueprint ${blueprint._id} has no code`)
+			logger.warn(`blueprint ${blueprint._id} has no code`)
 		}
 	}
 

@@ -224,7 +224,7 @@ export class CoreConnectionChild<
 		if (!this._destroyed) {
 			this.emit('error', e)
 		} else {
-			console.log('destroyed error', e)
+			console.error('CoreConnectionChild destroyed error', e)
 		}
 	}
 

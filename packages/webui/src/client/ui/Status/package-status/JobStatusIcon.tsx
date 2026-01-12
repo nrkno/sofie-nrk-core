@@ -21,7 +21,6 @@ export const JobStatusIcon: React.FC<{ status: ExpectedPackageWorkStatus; connec
 		progress = 0
 		label = status.status
 	}
-	console.log('connected', connected)
 	if (!connected) {
 		progress = 0
 		label = '?'

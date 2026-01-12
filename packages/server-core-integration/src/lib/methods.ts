@@ -89,7 +89,7 @@ export class ConnectionMethodsQueue {
 			}
 			const timeout = setTimeout(() => {
 				// Timeout
-				console.error(`Timeout "${methodName}"`)
+				console.error(`ConnectionMethodsQueue Timeout "${methodName}"`)
 				console.error(JSON.stringify(fullAttrs))
 				reject(
 					new Error(

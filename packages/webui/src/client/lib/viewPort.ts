@@ -339,7 +339,7 @@ function pointerLockChange(_e: Event): void {
 }
 
 function pointerLockError(e: Event): void {
-	console.log('Pointer lock error', e)
+	console.error('Pointer lock error', e)
 	pointerLockTurnstile = 0
 }
 

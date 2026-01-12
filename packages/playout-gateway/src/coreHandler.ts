@@ -444,7 +444,6 @@ export class CoreTSRDeviceHandler {
 			)
 		})
 
-		console.log('has got status? ' + this._hasGottenStatusChange)
 		if (!this._hasGottenStatusChange) {
 			this._deviceStatus = await this._device.device.getStatus()
 		}
@@ -481,7 +480,7 @@ export class CoreTSRDeviceHandler {
 		this._coreParentHandler.setupObserverForPeripheralDeviceCommands(this)
 	}
 	statusChanged(deviceStatus: Partial<PeripheralDeviceAPI.PeripheralDeviceStatusObject>, fromDevice = true): void {
-		console.log('device ' + this._deviceId + ' status set to ' + deviceStatus.statusCode)
+		this._coreParentHandler.logger.debug('Device ' + this._deviceId + ' status set to ' + deviceStatus.statusCode)
 		if (fromDevice) this._hasGottenStatusChange = true
 
 		this._deviceStatus = {

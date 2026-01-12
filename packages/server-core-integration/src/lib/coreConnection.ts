@@ -388,7 +388,7 @@ export class CoreConnection<
 		if (!this._destroyed) {
 			this.emit('error', e)
 		} else {
-			console.log('destroyed error', e)
+			console.error('CoreConnection destroyed error', e)
 		}
 	}
 	private _setConnected(connected: boolean) {

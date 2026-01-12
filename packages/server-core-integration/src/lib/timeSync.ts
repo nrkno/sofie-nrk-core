@@ -89,7 +89,7 @@ export class TimeSync {
 
 			setTimeout(() => {
 				this.syncTime().catch((err) => {
-					console.log(err)
+					console.log('Error in syncTime', err)
 				})
 			}, 1)
 		}
