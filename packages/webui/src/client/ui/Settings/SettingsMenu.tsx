@@ -357,6 +357,7 @@ function SettingsMenuShowStyle({ showStyleBase }: Readonly<SettingsMenuShowStyle
 			{ label: t('Source/Output Layers'), subPath: `layers` },
 			{ label: t('Action Triggers'), subPath: `action-triggers` },
 			{ label: t('Custom Hotkey Labels'), subPath: `hotkey-labels` },
+			{ label: t('AB Channel Display'), subPath: `ab-channel-display` },
 
 			...RundownLayoutsAPI.getSettingsManifest(t).map((region) => {
 				return { label: region.title, subPath: `layouts-${region._id}` }
@@ -532,6 +533,7 @@ function SettingsMenuPeripheralDevice({ device }: Readonly<SettingsMenuPeriphera
 					{statusCodeString(t, device.status.statusCode)}
 					{configIdString(t, device.studioAndConfigId?.configId)}
 				</p>
+				<p className="text-s">{configIdString(t, device.studioAndConfigId?.configId)}</p>
 			</NavLink>
 			<hr className="vsubtle" />
 		</>
@@ -561,6 +563,6 @@ function statusCodeString(t: TFunction, statusCode: StatusCode): string {
 }
 
 function configIdString(t: TFunction, configId: string | undefined): string {
-	if (configId) return t(', Config ID: ') + configId
-	else return t(', Unconfigured')
+	if (configId) return t('Config ID: ') + configId
+	else return t('Unconfigured')
 }

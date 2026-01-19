@@ -313,8 +313,6 @@ export function AccessorTableRow({
 											const strValue = Array.isArray(value) ? value.join(', ') : value
 											return (
 												<TextInputControl
-													modifiedClassName="bghl"
-													classNames="input text-input input-l"
 													value={strValue}
 													handleUpdate={(value: string) => {
 														// Convert comma-separated string into array of strings
@@ -344,14 +342,7 @@ export function AccessorTableRow({
 										itemKey={`container.accessors.${accessorId}.serverId`}
 										overrideHelper={overrideHelper}
 									>
-										{(value, handleUpdate) => (
-											<IntInputControl
-												modifiedClassName="bghl"
-												classNames="input text-input input-l"
-												value={value}
-												handleUpdate={handleUpdate}
-											/>
-										)}
+										{(value, handleUpdate) => <IntInputControl value={value} handleUpdate={handleUpdate} />}
 									</LabelAndOverrides>
 									<LabelAndOverrides
 										label={t('Quantel transformer URL')}
@@ -394,14 +385,7 @@ export function AccessorTableRow({
 										itemKey={`container.accessors.${accessorId}.resourceId`}
 										overrideHelper={overrideHelper}
 									>
-										{(value, handleUpdate) => (
-											<TextInputControl
-												modifiedClassName="bghl"
-												classNames="input text-input input-l"
-												value={value}
-												handleUpdate={handleUpdate}
-											/>
-										)}
+										{(value, handleUpdate) => <TextInputControl value={value} handleUpdate={handleUpdate} />}
 									</LabelAndOverrides>
 									<LabelAndOverrides
 										label={t('Network Id')}
@@ -411,14 +395,7 @@ export function AccessorTableRow({
 										itemKey={`container.accessors.${accessorId}.networkId`}
 										overrideHelper={overrideHelper}
 									>
-										{(value, handleUpdate) => (
-											<TextInputControl
-												modifiedClassName="bghl"
-												classNames="input text-input input-l"
-												value={value}
-												handleUpdate={handleUpdate}
-											/>
-										)}
+										{(value, handleUpdate) => <TextInputControl value={value} handleUpdate={handleUpdate} />}
 									</LabelAndOverrides>
 
 									<LabelAndOverrides
@@ -429,14 +406,7 @@ export function AccessorTableRow({
 										itemKey={`container.accessors.${accessorId}.atemHost`}
 										overrideHelper={overrideHelper}
 									>
-										{(value, handleUpdate) => (
-											<TextInputControl
-												modifiedClassName="bghl"
-												classNames="input text-input input-l"
-												value={value}
-												handleUpdate={handleUpdate}
-											/>
-										)}
+										{(value, handleUpdate) => <TextInputControl value={value} handleUpdate={handleUpdate} />}
 									</LabelAndOverrides>
 									<LabelAndOverrides
 										label={t('Bank Index')}
@@ -446,14 +416,7 @@ export function AccessorTableRow({
 										itemKey={`container.accessors.${accessorId}.bankIndex`}
 										overrideHelper={overrideHelper}
 									>
-										{(value, handleUpdate) => (
-											<IntInputControl
-												modifiedClassName="bghl"
-												classNames="input text-input input-l"
-												value={value}
-												handleUpdate={handleUpdate}
-											/>
-										)}
+										{(value, handleUpdate) => <IntInputControl value={value} handleUpdate={handleUpdate} />}
 									</LabelAndOverrides>
 									<LabelAndOverridesForDropdown
 										label={t('Media Type')}
@@ -465,14 +428,7 @@ export function AccessorTableRow({
 										options={getDropdownInputOptions(['clip', 'still'])}
 									>
 										{(value, handleUpdate, options) => {
-											return (
-												<DropdownInputControl
-													classNames="input text-input input-l"
-													options={options}
-													value={value}
-													handleUpdate={handleUpdate}
-												/>
-											)
+											return <DropdownInputControl options={options} value={value} handleUpdate={handleUpdate} />
 										}}
 									</LabelAndOverridesForDropdown>
 								</>

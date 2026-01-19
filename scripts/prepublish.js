@@ -16,9 +16,9 @@ const basePath = path.resolve("./packages");
  * Argument allowing to override the default package scope in forks
  * Will change the package names from @sofie-automation/<package-name> to <scopeOverride>/<package-name>
  */
-const repositoryName = process.argv[2] // eg nrkno/sofie-nrk-core
-const scopeOverride = process.argv[3] // eg nrk
-const prefixSofie = !!process.argv[4] // eg 1
+const repositoryName = process.argv[2]; // eg nrkno/sofie-nrk-core
+const scopeOverride = process.argv[3]; // eg nrk
+const prefixSofie = !!process.argv[4]; // eg 1
 
 (async () => {
 	// exists?
@@ -36,76 +36,85 @@ const prefixSofie = !!process.argv[4] // eg 1
 		// exists?
 		if (!(await exists(packagePath))) continue;
 
-        const pkgJson = require(packagePath)
-        packages.push({
-            packagePath,
+		const pkgJson = require(packagePath);
+		packages.push({
+			packagePath,
 			dirName: dir.name,
-            package: pkgJson,
-            originalName: pkgJson.name
-        })
-    }
+			package: pkgJson,
+			originalName: pkgJson.name,
+		});
+	}
 
-
-    for (const p of packages) {
-        let changed = false
-        // Rewrite internal dependencies to target the correct version, so that it works when published to npm:
-        for (const depName of Object.keys(p.package.dependencies || {})) {
-
-            const foundPackage = packages.find(p => p.originalName === depName)
-            if (foundPackage) {
-				modifyDependency(depName, p.package.dependencies, foundPackage.package.version)
-				changed = true
-            }
-        }
+	for (const p of packages) {
+		let changed = false;
+		// Rewrite internal dependencies to target the correct version, so that it works when published to npm:
+		for (const depName of Object.keys(p.package.dependencies || {})) {
+			const foundPackage = packages.find(
+				(p) => p.originalName === depName,
+			);
+			if (foundPackage) {
+				modifyDependency(
+					depName,
+					p.package.dependencies,
+					foundPackage.package.version,
+				);
+				changed = true;
+			}
+		}
 
 		// Update any references to github repository, some of this is needed for provenance
-		if (repositoryName){
+		if (repositoryName) {
 			if (p.package.repository) {
-				p.package.repository.url = `https://github.com/${repositoryName}.git`
+				p.package.repository.url = `https://github.com/${repositoryName}.git`;
 			}
 			if (p.package.bugs) {
-				p.package.bugs.url = `https://github.com/${repositoryName}/issues`
+				p.package.bugs.url = `https://github.com/${repositoryName}/issues`;
 			}
-			p.package.homepage = `https://github.com/${repositoryName}/blob/main/packages/${p.dirName}#readme`
-			changed = true
+			p.package.homepage = `https://github.com/${repositoryName}/blob/main/packages/${p.dirName}#readme`;
+			changed = true;
 		}
 
-		const newName = translatePackageName(p.package.name)
+		const newName = translatePackageName(p.package.name);
 		if (newName && newName !== p.package.name) {
-			p.package.name = newName
-			changed = true
+			p.package.name = newName;
+			changed = true;
 		}
-        if (changed) {
-            await fsp.writeFile(p.packagePath, JSON.stringify(p.package, null, '\t')+'\n')
-            console.log(`Updated ${p.originalName !== p.package.name ? p.originalName + ' -> ' : ''}${p.package.name}`)
-        }
-    }
+		if (changed) {
+			await fsp.writeFile(
+				p.packagePath,
+				JSON.stringify(p.package, null, "\t") + "\n",
+			);
+			console.log(
+				`Updated ${p.originalName !== p.package.name ? p.originalName + " -> " : ""}${p.package.name}`,
+			);
+		}
+	}
 
-    console.log(`Done`)
+	console.log(`Done`);
 })().catch((err) => {
-    console.error(err)
-    process.exit(1)
-})
-
+	console.error(err);
+	process.exit(1);
+});
 
 function translatePackageName(name) {
-	const packageName = name.split('/')
+	const packageName = name.split("/");
 	if (scopeOverride && packageName.length === 2) {
-		let nameSuffix = packageName[1]
-		if (prefixSofie && !nameSuffix.startsWith('sofie-')) nameSuffix = 'sofie-' + nameSuffix
+		let nameSuffix = packageName[1];
+		if (prefixSofie && !nameSuffix.startsWith("sofie-"))
+			nameSuffix = "sofie-" + nameSuffix;
 
-		return `@${scopeOverride}/${nameSuffix}`
+		return `@${scopeOverride}/${nameSuffix}`;
 	} else {
-		return null
+		return null;
 	}
 }
 
 function modifyDependency(depName, dependencies, version) {
-	const newName = translatePackageName(depName)
+	const newName = translatePackageName(depName);
 	if (newName) {
-		dependencies[depName] = `npm:${newName}@${version}`
+		dependencies[depName] = `npm:${newName}@${version}`;
 	} else {
-		dependencies[depName] = version
+		dependencies[depName] = version;
 	}
 }
 

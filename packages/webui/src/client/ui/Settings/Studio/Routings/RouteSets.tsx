@@ -242,7 +242,10 @@ function RouteSetRow({
 			},
 			...exclusivityGroupsFromOverrides
 				.filter((group) => group.type === 'normal')
-				.map((group) => group.computed?.name || group.id),
+				.map((group) => ({
+					name: group.computed?.name || group.id,
+					value: group.id,
+				})),
 		])
 	}, [exclusivityGroupsFromOverrides])
 

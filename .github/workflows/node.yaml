@@ -13,7 +13,6 @@ jobs:
   lint-core:
     name: Typecheck and Lint Core
     runs-on: ubuntu-latest
-    continue-on-error: true
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
@@ -346,7 +345,6 @@ jobs:
   lint-packages:
     name: Lint Package
     runs-on: ubuntu-latest
-    continue-on-error: true
     timeout-minutes: 15
 
     strategy:
@@ -541,7 +539,6 @@ jobs:
   publish-docs:
     name: Publish Docs
     runs-on: ubuntu-latest
-    continue-on-error: true
     timeout-minutes: 15
 
     steps:
@@ -592,7 +589,6 @@ jobs:
   check-for-multiple-library-versions:
     name: Check for multiple library versions
     runs-on: ubuntu-latest
-    continue-on-error: true
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6

@@ -455,6 +455,7 @@ export async function setupMockShowStyleBlueprint(showStyleVariantId: ShowStyleV
 						rundown,
 						globalAdLibPieces: [],
 						globalActions: [],
+						globalPieces: [],
 						baseline: { timelineObjects: [] },
 					}
 				},
@@ -899,5 +900,6 @@ export function convertToUIShowStyleBase(showStyleBase: DBShowStyleBase): UIShow
 		hotkeyLegend: showStyleBase.hotkeyLegend,
 		sourceLayers: applyAndValidateOverrides(showStyleBase.sourceLayersWithOverrides).obj,
 		outputLayers: applyAndValidateOverrides(showStyleBase.outputLayersWithOverrides).obj,
+		abChannelDisplay: showStyleBase.abChannelDisplay,
 	})
 }
