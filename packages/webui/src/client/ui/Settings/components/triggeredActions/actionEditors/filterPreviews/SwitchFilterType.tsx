@@ -20,7 +20,7 @@ export function SwitchFilterType({
 		<ButtonGroup size="sm" className={className}>
 			{allowedTypes.includes('view') ? (
 				<Button
-					variant={selectedType === 'view' ? "primary" : "outline-secondary"}
+					variant={selectedType === 'view' ? 'primary' : 'outline-secondary'}
 					onClick={() => onChangeType('view')}
 				>
 					{t('View')}
@@ -28,7 +28,7 @@ export function SwitchFilterType({
 			) : null}
 			{allowedTypes.includes('rundownPlaylist') ? (
 				<Button
-					variant={selectedType === 'rundownPlaylist' ? "primary" : "outline-secondary"}
+					variant={selectedType === 'rundownPlaylist' ? 'primary' : 'outline-secondary'}
 					onClick={() => onChangeType('rundownPlaylist')}
 				>
 					{t('Rundown')}
@@ -36,7 +36,7 @@ export function SwitchFilterType({
 			) : null}
 			{allowedTypes.includes('adLib') ? (
 				<Button
-					variant={selectedType === 'adLib' ? "primary" : "outline-secondary"}
+					variant={selectedType === 'adLib' ? 'primary' : 'outline-secondary'}
 					onClick={() => onChangeType('adLib')}
 				>
 					{t('AdLib')}
