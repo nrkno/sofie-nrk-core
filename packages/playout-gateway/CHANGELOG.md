@@ -3,18 +3,18 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
-# [26.3.0-2](https://github.com/Sofie-Automation/sofie-core/compare/v26.3.0-1...v26.3.0-2) (2026-02-18)
+## [1.52.16-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.15-nrk...v1.52.16-nrk) (2026-03-02)
 
 
 ### Bug Fixes
 
-* Add missing 'rootDir' to tsconfig ([20e7d12](https://github.com/Sofie-Automation/sofie-core/commit/20e7d12aabdf4c9cf36f8a271435fce8aa253c2d))
+* remove over-eager debug logging filtering from connectionManager ([567105f](https://github.com/Sofie-Automation/sofie-core/commit/567105f381580bf9c39b36a8d48e7ac90d3e954d))
 
 
 
 
 
-# [26.3.0-1](https://github.com/Sofie-Automation/sofie-core/compare/v26.3.0-0...v26.3.0-1) (2026-02-11)
+## [1.52.15-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.14-nrk...v1.52.15-nrk) (2026-01-22)
 
 **Note:** Version bump only for package playout-gateway
 
@@ -22,25 +22,135 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 
 
-# [26.3.0-0](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.0...v26.3.0-0) (2026-02-04)
+## [1.52.14-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.13-nrk...v1.52.14-nrk) (2025-12-16)
+
+**Note:** Version bump only for package playout-gateway
 
 
-### Bug Fixes
 
-* docker images using CMD instead of ENTRYPOINT ([e1beb6e](https://github.com/Sofie-Automation/sofie-core/commit/e1beb6e082c7c9ce4a8009feceb58eb7ef89f308))
-* **PGW:** handle situation when device is not initialized yet ([6060e7e](https://github.com/Sofie-Automation/sofie-core/commit/6060e7e2645dfbc19fde263de35f545d9200e02c))
-* remove over-eager debug logging filtering from connectionManager ([#1594](https://github.com/Sofie-Automation/sofie-core/issues/1594)) ([462a27a](https://github.com/Sofie-Automation/sofie-core/commit/462a27a3c68176fbcf3c5ab3d22fa0f79037db1d))
-* update mos-connection for missing mosID bug fix ([#9](https://github.com/Sofie-Automation/sofie-core/issues/9)) ([e8e07e3](https://github.com/Sofie-Automation/sofie-core/commit/e8e07e3e86e0a6e4d1bb5802f0e782ad323f424e))
-* update tsr and remove deprecated playout-gateway methods ([#1525](https://github.com/Sofie-Automation/sofie-core/issues/1525)) ([5b9c7ad](https://github.com/Sofie-Automation/sofie-core/commit/5b9c7ad68375301722057ef4927bab13ce6896c1))
+
+
+## [1.52.13-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.12-nrk...v1.52.13-nrk) (2025-12-05)
+
+**Note:** Version bump only for package playout-gateway
+
+
+
+
+
+## [1.52.11-nrk.0](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.11-nrk...v1.52.11-nrk.0) (2025-11-26)
+
+**Note:** Version bump only for package playout-gateway
+
+
+
+
+
+## [1.52.11-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.10-nrk...v1.52.11-nrk) (2025-11-20)
 
 
 ### Features
 
-* add health endpoints to MOS- and Playout-Gateway ([5b590dd](https://github.com/Sofie-Automation/sofie-core/commit/5b590ddbaf86ee90d338837867a4d3bfc2e11c97))
-* add object to timeline to trigger a regeneration at point in time ([ad450c3](https://github.com/Sofie-Automation/sofie-core/commit/ad450c39ceef5fcf3373905dd6a55adf4dd9cbb6))
-* enable support for tsr plugins ([51a2379](https://github.com/Sofie-Automation/sofie-core/commit/51a237969092deda4972734e04e2aea01b78fe5a))
-* move GW config types to generated in shared lib ([f54d9ca](https://github.com/Sofie-Automation/sofie-core/commit/f54d9ca63bc00a05915aac45e0be5b595c980567))
-* update meteor to 3.3.2 ([#1529](https://github.com/Sofie-Automation/sofie-core/issues/1529)) ([9bd232e](https://github.com/Sofie-Automation/sofie-core/commit/9bd232e8f0561a46db8cc6143c5353d7fa531206))
+* kairos ([fe2ab51](https://github.com/Sofie-Automation/sofie-core/commit/fe2ab512121b1bd1b7e2b6c54af7c9939e71b619))
+
+
+
+
+
+## [1.52.10-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.9-nrk...v1.52.10-nrk) (2025-10-29)
+
+
+### Features
+
+* add health endpoints to MOS Gateway ([9f01196](https://github.com/Sofie-Automation/sofie-core/commit/9f0119665197a6cd0c628967618c5bd234049e75))
+* add health endpoints to Playout Gateway ([c5b8122](https://github.com/Sofie-Automation/sofie-core/commit/c5b8122f7ea3c5ac5715513d69390176055d08e5))
+* add health endpoints to Playout Gateway ([45b7213](https://github.com/Sofie-Automation/sofie-core/commit/45b721330eec8c4fc3895c622b5f8d2137d92105))
+
+
+
+
+
+## [1.52.9-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.8-nrk...v1.52.9-nrk) (2025-09-29)
+
+
+### Bug Fixes
+
+* **PGW:** handle situation when device is not initialized yet ([6060e7e](https://github.com/Sofie-Automation/sofie-core/commit/6060e7e2645dfbc19fde263de35f545d9200e02c))
+* TSR dep ([ff083c4](https://github.com/Sofie-Automation/sofie-core/commit/ff083c46eb8ce78f432afa6f32c8bc9e2370fcde))
+* update TSR dep ([08625a6](https://github.com/Sofie-Automation/sofie-core/commit/08625a6b1ed4778b988f3f3c093904880e650b0b))
+
+
+
+
+
+## [1.52.8-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.7-nrk...v1.52.8-nrk) (2025-09-08)
+
+
+### Bug Fixes
+
+* update tsr ([995ffd4](https://github.com/Sofie-Automation/sofie-core/commit/995ffd451c89655eee5c93044cd1749a0a74d7f8))
+
+
+
+
+
+## [1.52.7-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.6-nrk...v1.52.7-nrk) (2025-09-03)
+
+**Note:** Version bump only for package playout-gateway
+
+
+
+
+
+## [1.52.6-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.4-nrk...v1.52.6-nrk) (2025-08-28)
+
+
+### Bug Fixes
+
+* use TSR with TSR-Action: Atem Macro support ([cc46834](https://github.com/Sofie-Automation/sofie-core/commit/cc468340a10a89dece88d153719a04a291b31869))
+
+
+
+
+
+## [1.52.5-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.4-nrk...v1.52.5-nrk) (2025-08-13)
+
+**Note:** Version bump only for package playout-gateway
+
+
+
+
+
+## [1.52.4-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.3-nrk...v1.52.4-nrk) (2025-08-11)
+
+
+### Bug Fixes
+
+* update mos-connection for missing mosID bug fix ([#9](https://github.com/Sofie-Automation/sofie-core/issues/9)) ([e55cb5e](https://github.com/Sofie-Automation/sofie-core/commit/e55cb5e8ebf9c66c46bce78cbae55f5731cda244))
+
+
+
+
+
+## [1.52.3-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.2-nrk...v1.52.3-nrk) (2025-08-07)
+
+**Note:** Version bump only for package playout-gateway
+
+
+
+
+
+## [1.52.2-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.1+nrk...v1.52.2-nrk) (2025-08-04)
+
+**Note:** Version bump only for package playout-gateway
+
+
+
+
+
+## [1.52.1](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.0+nrk...v1.52.1) (2025-07-07)
+
+**Note:** Version bump only for package playout-gateway
 
 
 
@@ -78,13 +188,13 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 
 
-# [1.52.0-in-testing.0](https://github.com/nrkno/sofie-core/compare/v1.51.6...v1.52.0-in-testing.0) (2025-02-04)
+## [1.51.8](https://github.com/nrkno/sofie-core/compare/v1.51.7...v1.51.8) (2025-06-24)
 
-### Features
+**Note:** Version bump only for package playout-gateway
 
-- meteor 3.0.4 ([8670727](https://github.com/nrkno/sofie-core/commit/8670727bba5ac9cffe0e5d36b4bd45d6664482be))
-- modify datastore in `onRundownActivate` SOFIE-3310 ([#1240](https://github.com/nrkno/sofie-core/issues/1240)) ([8a0759f](https://github.com/nrkno/sofie-core/commit/8a0759f610497e37493e8a798aa0dd13f4f57119))
-- update meteor to 3.1 and node to 22 ([61b6854](https://github.com/nrkno/sofie-core/commit/61b6854261a03f04e81416b9d37ee995e3a10108))
+
+
+
 
 ## [1.51.7](https://github.com/nrkno/sofie-core/compare/v1.51.6...v1.51.7) (2025-05-06)
 

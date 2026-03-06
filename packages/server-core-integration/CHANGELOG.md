@@ -3,7 +3,7 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
-# [26.3.0-2](https://github.com/Sofie-Automation/sofie-core/compare/v26.3.0-1...v26.3.0-2) (2026-02-18)
+## [1.52.16-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.15-nrk...v1.52.16-nrk) (2026-03-02)
 
 **Note:** Version bump only for package @sofie-automation/server-core-integration
 
@@ -11,7 +11,7 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 
 
-# [26.3.0-1](https://github.com/Sofie-Automation/sofie-core/compare/v26.3.0-0...v26.3.0-1) (2026-02-11)
+## [1.52.15-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.14-nrk...v1.52.15-nrk) (2026-01-22)
 
 **Note:** Version bump only for package @sofie-automation/server-core-integration
 
@@ -19,7 +19,50 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 
 
-# [26.3.0-0](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.0...v26.3.0-0) (2026-02-04)
+## [1.52.14-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.13-nrk...v1.52.14-nrk) (2025-12-16)
+
+**Note:** Version bump only for package @sofie-automation/server-core-integration
+
+
+
+
+
+## [1.52.13-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.12-nrk...v1.52.13-nrk) (2025-12-05)
+
+**Note:** Version bump only for package @sofie-automation/server-core-integration
+
+
+
+
+
+## [1.52.11-nrk.0](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.11-nrk...v1.52.11-nrk.0) (2025-11-26)
+
+**Note:** Version bump only for package @sofie-automation/server-core-integration
+
+
+
+
+
+## [1.52.11-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.10-nrk...v1.52.11-nrk) (2025-11-20)
+
+**Note:** Version bump only for package @sofie-automation/server-core-integration
+
+
+
+
+
+## [1.52.10-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.9-nrk...v1.52.10-nrk) (2025-10-29)
+
+
+### Features
+
+* add health endpoints to MOS Gateway ([9f01196](https://github.com/Sofie-Automation/sofie-core/commit/9f0119665197a6cd0c628967618c5bd234049e75))
+
+
+
+
+
+## [1.52.9-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.8-nrk...v1.52.9-nrk) (2025-09-29)
 
 
 ### Bug Fixes
@@ -27,10 +70,68 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 * **core-integration:** use setMaxListeners on CoreConnection to avoid MaxListenersExceededWarning message ([a02ef23](https://github.com/Sofie-Automation/sofie-core/commit/a02ef236b8a396847bc467ccd5f459a0862e6abe))
 
 
-### Features
 
-* add health endpoints to MOS- and Playout-Gateway ([5b590dd](https://github.com/Sofie-Automation/sofie-core/commit/5b590ddbaf86ee90d338837867a4d3bfc2e11c97))
-* update meteor to 3.3.2 ([#1529](https://github.com/Sofie-Automation/sofie-core/issues/1529)) ([9bd232e](https://github.com/Sofie-Automation/sofie-core/commit/9bd232e8f0561a46db8cc6143c5353d7fa531206))
+
+
+## [1.52.8-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.7-nrk...v1.52.8-nrk) (2025-09-08)
+
+**Note:** Version bump only for package @sofie-automation/server-core-integration
+
+
+
+
+
+## [1.52.7-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.6-nrk...v1.52.7-nrk) (2025-09-03)
+
+**Note:** Version bump only for package @sofie-automation/server-core-integration
+
+
+
+
+
+## [1.52.6-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.4-nrk...v1.52.6-nrk) (2025-08-28)
+
+**Note:** Version bump only for package @sofie-automation/server-core-integration
+
+
+
+
+
+## [1.52.5-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.4-nrk...v1.52.5-nrk) (2025-08-13)
+
+**Note:** Version bump only for package @sofie-automation/server-core-integration
+
+
+
+
+
+## [1.52.4-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.3-nrk...v1.52.4-nrk) (2025-08-11)
+
+**Note:** Version bump only for package @sofie-automation/server-core-integration
+
+
+
+
+
+## [1.52.3-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.2-nrk...v1.52.3-nrk) (2025-08-07)
+
+**Note:** Version bump only for package @sofie-automation/server-core-integration
+
+
+
+
+
+## [1.52.2-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.1+nrk...v1.52.2-nrk) (2025-08-04)
+
+**Note:** Version bump only for package @sofie-automation/server-core-integration
+
+
+
+
+
+## [1.52.1](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.0+nrk...v1.52.1) (2025-07-07)
+
+**Note:** Version bump only for package @sofie-automation/server-core-integration
 
 
 
@@ -62,14 +163,13 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 
 
-# [1.52.0-in-testing.0](https://github.com/nrkno/sofie-core/compare/v1.51.6...v1.52.0-in-testing.0) (2025-02-04)
+## [1.51.8](https://github.com/nrkno/sofie-core/compare/v1.51.7...v1.51.8) (2025-06-24)
 
-### Features
+**Note:** Version bump only for package @sofie-automation/server-core-integration
 
-- always add `dnt=gateway` header for gateway connections ([c7bdfe6](https://github.com/nrkno/sofie-core/commit/c7bdfe6787b76a5d23eb841764abf7b0cc799028))
-- meteor 3.0.4 ([8670727](https://github.com/nrkno/sofie-core/commit/8670727bba5ac9cffe0e5d36b4bd45d6664482be))
-- support for http header in packagemanager ([1e5bbc6](https://github.com/nrkno/sofie-core/commit/1e5bbc669fe67fedf48027524232ad6696fc8909))
-- update meteor to 3.1 and node to 22 ([61b6854](https://github.com/nrkno/sofie-core/commit/61b6854261a03f04e81416b9d37ee995e3a10108))
+
+
+
 
 ## [1.51.7](https://github.com/nrkno/sofie-core/compare/v1.51.6...v1.51.7) (2025-05-06)
 

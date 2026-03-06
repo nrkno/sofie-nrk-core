@@ -164,7 +164,7 @@ function deNowifyInfinites(
 		if (Array.isArray(obj.enable) || obj.enable.start !== 'now') continue
 
 		if (!obj.inGroup) {
-			obj.enable = { start: targetNowTime }
+			obj.enable = { ...obj.enable, start: targetNowTime }
 			continue
 		}
 
@@ -182,7 +182,7 @@ function deNowifyInfinites(
 			continue
 		}
 
-		obj.enable = { start: targetNowTime - parentStartTime }
+		obj.enable = { ...obj.enable, start: targetNowTime - parentStartTime }
 		logger.silly(
 			`deNowifyInfinites: Setting "${obj.id}" enable.start = ${JSON.stringify(obj.enable.start)}, ${targetNowTime} ${parentStartTime} parentObject: "${parentObject.id}"`
 		)
@@ -335,6 +335,8 @@ function preserveOrTrackInfiniteTimings(
 	// Update the timeline group
 	const startedPlayback = plannedStartedPlayback ?? pieceInstance.pieceInstance.plannedStartedPlayback
 	if (startedPlayback) {
+		const infinitePartGroupId = getInfinitePartGroupId(pieceInstance.pieceInstance._id)
+		const infinitePartGroupObj = timelineObjsMap[infinitePartGroupId]
 		const pieceControlObjectId = getPieceControlObjectId(pieceInstance.pieceInstance)
 		const pieceControlObj = timelineObjsMap[pieceControlObjectId]
 
@@ -348,8 +350,6 @@ function preserveOrTrackInfiniteTimings(
 			pieceEnableStartOffset = pieceControlObj.enable.start
 		}
 
-		const infinitePartGroupId = getInfinitePartGroupId(pieceInstance.pieceInstance._id)
-		const infinitePartGroupObj = timelineObjsMap[infinitePartGroupId]
 		if (
 			infinitePartGroupObj &&
 			!Array.isArray(infinitePartGroupObj.enable) &&

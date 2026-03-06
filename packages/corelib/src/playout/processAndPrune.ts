@@ -334,11 +334,13 @@ export function resolvePrunedPieceInstance(
 		caps.push(pieceInstance.userDuration.endRelativeToPart - resolvedStart)
 	}
 
+	const resolvedDuration = caps.length ? Math.min(...caps) : undefined
+
 	return {
 		instance: pieceInstance,
 
 		resolvedStart,
-		resolvedDuration: caps.length ? Math.min(...caps) : undefined,
+		resolvedDuration,
 
 		timelinePriority: pieceInstance.priority,
 	}

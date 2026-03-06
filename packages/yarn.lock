@@ -5449,7 +5449,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@npmcli/package-json@npm:7.0.2, @npmcli/package-json@npm:^7.0.0":
+"@npmcli/package-json@npm:7.0.2":
   version: 7.0.2
   resolution: "@npmcli/package-json@npm:7.0.2"
   dependencies:
@@ -5485,6 +5485,21 @@ __metadata:
     proc-log: "npm:^4.0.0"
     semver: "npm:^7.5.3"
   checksum: 10/304a819b93f79a6e0e56cb371961a66d2db72142e310d545ecbbbe4d917025a30601aa8e63a5f0cc28f0fe281c116bdaf79b334619b105a1d027a2b769ecd137
+  languageName: node
+  linkType: hard
+
+"@npmcli/package-json@npm:^7.0.0":
+  version: 7.0.1
+  resolution: "@npmcli/package-json@npm:7.0.1"
+  dependencies:
+    "@npmcli/git": "npm:^7.0.0"
+    glob: "npm:^11.0.3"
+    hosted-git-info: "npm:^9.0.0"
+    json-parse-even-better-errors: "npm:^4.0.0"
+    proc-log: "npm:^5.0.0"
+    semver: "npm:^7.5.3"
+    validate-npm-package-license: "npm:^3.0.4"
+  checksum: 10/be69096e889ebd3b832de24c56be17784ba00529af5f16d8092c0e911ac29acaf18ba86792e791a15f0681366ffd923a696b0b0f3840b1e68407909273c23e3e
   languageName: node
   linkType: hard
 
@@ -10097,7 +10112,7 @@ asn1@evs-broadcast/node-asn1:
   languageName: node
   linkType: hard
 
-"axios@npm:^1.12.0, axios@npm:^1.7.8":
+"axios@npm:^1.12.0":
   version: 1.13.3
   resolution: "axios@npm:1.13.3"
   dependencies:
@@ -10105,6 +10120,17 @@ asn1@evs-broadcast/node-asn1:
     form-data: "npm:^4.0.4"
     proxy-from-env: "npm:^1.1.0"
   checksum: 10/2ceca9215671f9c2bcd5d8a0a1a667e9a35f9f7cfae88f25bba773ed9612de6cac50b2bf8be5e6918cbd2db601b4431ca87a00bffd9682939a8b85da9c89345a
+  languageName: node
+  linkType: hard
+
+"axios@npm:^1.7.8":
+  version: 1.12.2
+  resolution: "axios@npm:1.12.2"
+  dependencies:
+    follow-redirects: "npm:^1.15.6"
+    form-data: "npm:^4.0.4"
+    proxy-from-env: "npm:^1.1.0"
+  checksum: 10/886a79770594eaad76493fecf90344b567bd956240609b5dcd09bd0afe8d3e6f1ad6d3257a93a483b6192b409d4b673d9515a34619e3e3ed1b2c0ec2a83b20ba
   languageName: node
   linkType: hard
 
