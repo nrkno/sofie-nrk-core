@@ -211,10 +211,8 @@ export type PieceContentStatusPiece = Pick<
 	 */
 	previousPieceInstanceId?: PieceInstanceId
 }
-export interface PieceContentStatusStudio extends Pick<
-	DBStudio,
-	'_id' | 'previewContainerIds' | 'thumbnailContainerIds'
-> {
+export interface PieceContentStatusStudio
+	extends Pick<DBStudio, '_id' | 'previewContainerIds' | 'thumbnailContainerIds'> {
 	/** Mappings between the physical devices / outputs and logical ones */
 	mappings: MappingsExt
 	/** Route sets with overrides */
