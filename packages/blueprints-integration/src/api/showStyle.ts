@@ -57,10 +57,8 @@ export { PackageStatusMessage }
 
 export type TimelinePersistentState = unknown
 
-export interface ShowStyleBlueprintManifest<
-	TRawConfig = IBlueprintConfig,
-	TProcessedConfig = unknown,
-> extends BlueprintManifestBase {
+export interface ShowStyleBlueprintManifest<TRawConfig = IBlueprintConfig, TProcessedConfig = unknown>
+	extends BlueprintManifestBase {
 	blueprintType: BlueprintManifestType.SHOWSTYLE
 
 	/** A list of config items this blueprint expects to be available on the ShowStyle */
