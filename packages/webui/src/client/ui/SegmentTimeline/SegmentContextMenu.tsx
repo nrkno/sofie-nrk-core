@@ -18,6 +18,13 @@ import { UserEditOperationMenuItems } from '../UserEditOperations/RenderUserEdit
 import * as RundownResolver from '../../lib/RundownResolver.js'
 import { SelectedElement } from '../RundownView/SelectedElementsContext.js'
 import { PieceExtended } from '../../lib/RundownResolver.js'
+import { DefaultUserOperationsTypes, UserEditingType } from '@sofie-automation/blueprints-integration'
+import { ReadonlyObjectDeep } from 'type-fest/source/readonly-deep.js'
+import {
+	CoreUserEditingDefinitionAction,
+	CoreUserEditingDefinitionForm,
+	CoreUserEditingDefinitionSofie,
+} from '@sofie-automation/corelib/src/dataModel/UserEditingDefinitions.js'
 
 interface IProps {
 	onSetNext: (part: DBPart | undefined, e: any, offset?: number, take?: boolean) => void
@@ -71,6 +78,20 @@ export const SegmentContextMenu = withTranslation()(
 
 			const canSetAsNext = !!this.props.playlist?.activationId
 
+			function doesItemSupportUserEditUpdateProps(
+				userEditOperations:
+					| readonly (
+							| ReadonlyObjectDeep<CoreUserEditingDefinitionAction>
+							| ReadonlyObjectDeep<CoreUserEditingDefinitionForm>
+							| ReadonlyObjectDeep<CoreUserEditingDefinitionSofie>
+					  )[]
+					| undefined
+			) {
+				return userEditOperations?.find(
+					(op) => op.type === UserEditingType.SOFIE && op.id === DefaultUserOperationsTypes.UPDATE_PROPS
+				)
+			}
+
 			return segment?.orphaned !== SegmentOrphanedReason.ADLIB_TESTING ? (
 				<Escape to="document">
 					<ContextMenu id="segment-timeline-context-menu">
@@ -108,16 +129,19 @@ export const SegmentContextMenu = withTranslation()(
 									/>
 								)}
 								<hr />
-								{this.props.enableUserEdits && (
-									<>
-										<hr />
-										<MenuItem
-											onClick={() => this.props.onEditProps({ type: 'segment', elementId: part.instance.segmentId })}
-										>
-											<span>{t('Edit Segment Properties')}</span>
-										</MenuItem>
-									</>
-								)}
+								{this.props.enableUserEdits &&
+									segment &&
+									segment.userEditProperties &&
+									doesItemSupportUserEditUpdateProps(segment.userEditOperations) && (
+										<>
+											<hr />
+											<MenuItem
+												onClick={() => this.props.onEditProps({ type: 'segment', elementId: part.instance.segmentId })}
+											>
+												<span>{t('Edit Segment Properties')}</span>
+											</MenuItem>
+										</>
+									)}
 							</>
 						)}
 						{part && !part.instance.part.invalid && timecode !== null && (
@@ -202,23 +226,35 @@ export const SegmentContextMenu = withTranslation()(
 								{this.props.enableUserEdits && (
 									<>
 										<hr />
-										<MenuItem
-											onClick={() => this.props.onEditProps({ type: 'segment', elementId: part.instance.segmentId })}
-										>
-											<span>{t('Edit Segment Properties')}</span>
-										</MenuItem>
-										<MenuItem
-											onClick={() => this.props.onEditProps({ type: 'part', elementId: part.instance.part._id })}
-										>
-											<span>{t('Edit Part Properties')}</span>
-										</MenuItem>
-										{piece && piece.instance.piece.userEditProperties && (
-											<MenuItem
-												onClick={() => this.props.onEditProps({ type: 'piece', elementId: piece.instance.piece._id })}
-											>
-												<span>{t('Edit Piece Properties')}</span>
-											</MenuItem>
-										)}
+										{segment &&
+											segment.userEditProperties &&
+											doesItemSupportUserEditUpdateProps(segment.userEditOperations) && (
+												<MenuItem
+													onClick={() =>
+														this.props.onEditProps({ type: 'segment', elementId: part.instance.segmentId })
+													}
+												>
+													<span>{t('Edit Segment Properties')}</span>
+												</MenuItem>
+											)}
+										{part &&
+											part.instance.part.userEditProperties &&
+											doesItemSupportUserEditUpdateProps(part.instance.part.userEditOperations) && (
+												<MenuItem
+													onClick={() => this.props.onEditProps({ type: 'part', elementId: part.instance.part._id })}
+												>
+													<span>{t('Edit Part Properties')}</span>
+												</MenuItem>
+											)}
+										{piece &&
+											piece.instance.piece.userEditProperties &&
+											doesItemSupportUserEditUpdateProps(piece.instance.piece.userEditOperations) && (
+												<MenuItem
+													onClick={() => this.props.onEditProps({ type: 'piece', elementId: piece.instance.piece._id })}
+												>
+													<span>{t('Edit Piece Properties')}</span>
+												</MenuItem>
+											)}
 									</>
 								)}
 							</>
