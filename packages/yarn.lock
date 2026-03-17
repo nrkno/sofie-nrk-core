@@ -10720,7 +10720,7 @@ asn1@evs-broadcast/node-asn1:
   languageName: node
   linkType: hard
 
-"casparcg-connection@npm:6.2.0, casparcg-connection@npm:6.3.0":
+"casparcg-connection@npm:6.3.0":
   version: 6.3.0
   resolution: "casparcg-connection@npm:6.3.0"
   dependencies:
@@ -10728,6 +10728,17 @@ asn1@evs-broadcast/node-asn1:
     tslib: "npm:^2.5.0"
     xml2js: "npm:^0.6.2"
   checksum: 10/3734d75ef6330fa21679e967490c561214bc6ad1258cb8114b2d8c4ba4efddfcb28aebf3593d52881d273f8b780f4eb722e7ceefd4fe18b87f0715f43006cd2d
+  languageName: node
+  linkType: hard
+
+"casparcg-connection@patch:casparcg-connection@npm%3A6.3.0#~/.yarn/patches/casparcg-connection-npm-6.3.0-6fe8cb2bcd.patch":
+  version: 6.3.0
+  resolution: "casparcg-connection@patch:casparcg-connection@npm%3A6.3.0#~/.yarn/patches/casparcg-connection-npm-6.3.0-6fe8cb2bcd.patch::version=6.3.0&hash=222e4f"
+  dependencies:
+    eventemitter3: "npm:^5.0.1"
+    tslib: "npm:^2.5.0"
+    xml2js: "npm:^0.6.2"
+  checksum: 10/fd5a24528217208381d5b59f189bf05affc2079106e0e6a2125488ee68ed9ba61e05ee46f76ee25eff6448cc73b7596342a5c108f8dcd60913908e87a7fa9960
   languageName: node
   linkType: hard
 
