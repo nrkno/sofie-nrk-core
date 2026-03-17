@@ -10720,18 +10720,7 @@ asn1@evs-broadcast/node-asn1:
   languageName: node
   linkType: hard
 
-"casparcg-connection@npm:6.2.0":
-  version: 6.2.0
-  resolution: "casparcg-connection@npm:6.2.0"
-  dependencies:
-    eventemitter3: "npm:^5.0.1"
-    tslib: "npm:^2.5.0"
-    xml2js: "npm:^0.6.2"
-  checksum: 10/3f2e06c82616b6922cde308cf1585bd8e56b22911bffcdb4d52772ddf00b6a9771238a5715cb6c3eb79e498d83a470c28b548dc129d4f864bf172b0db8bc3dbe
-  languageName: node
-  linkType: hard
-
-"casparcg-connection@npm:6.3.0":
+"casparcg-connection@npm:6.2.0, casparcg-connection@npm:6.3.0":
   version: 6.3.0
   resolution: "casparcg-connection@npm:6.3.0"
   dependencies:
