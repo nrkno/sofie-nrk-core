@@ -97,7 +97,7 @@ export class CoreConnectionChild<
 
 		return this._sendInit()
 	}
-	async destroy(): Promise<void> {
+	destroy(): void {
 		this._destroyed = true
 
 		this._subscriptions.unsubscribeAll()

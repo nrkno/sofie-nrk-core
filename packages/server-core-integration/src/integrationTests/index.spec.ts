@@ -435,7 +435,7 @@ test('Integration: Parent connections', async () => {
 	})
 
 	await coreParent.destroy()
-	await coreChild.destroy()
+	coreChild.destroy()
 
 	expect(onError).toHaveBeenCalledTimes(0)
 	expect(onChildError).toHaveBeenCalledTimes(0)
@@ -488,7 +488,7 @@ test('Integration: Parent destroy', async () => {
 	expect(coreChild.connected).toEqual(true)
 
 	await coreParent.destroy()
-	await coreChild.destroy()
+	coreChild.destroy()
 
 	expect(onChildError).toHaveBeenCalledTimes(0)
 	expect(onParentError).toHaveBeenCalledTimes(0)
@@ -525,7 +525,7 @@ test('Integration: Child destroy', async () => {
 	expect(coreChild.connected).toEqual(true)
 
 	// Close parent connection:
-	await coreChild.destroy()
+	coreChild.destroy()
 
 	expect(coreChild.connected).toEqual(false)
 

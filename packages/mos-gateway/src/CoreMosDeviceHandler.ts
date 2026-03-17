@@ -4,6 +4,7 @@ import {
 	protectString,
 	Observer,
 	PeripheralDevicePubSub,
+	stringifyError,
 } from '@sofie-automation/server-core-integration'
 import {
 	IMOSConnectionStatus,
@@ -468,13 +469,20 @@ export class CoreMosDeviceHandler {
 	async dispose(subdevice: 'keepSubDevice' | 'removeSubDevice' = 'keepSubDevice'): Promise<void> {
 		this._observers.forEach((obs) => obs.stop())
 
-		await this.core.setStatus({
-			statusCode: StatusCode.BAD,
-			messages: ['Uninitialized'],
-		})
+		this.core
+			.setStatus({
+				statusCode: StatusCode.BAD,
+				messages: ['Uninitialized'],
+			})
+			.catch((e) => this._coreParentHandler.logger.error(`Error when setting status: ${stringifyError(e)}`))
 
-		if (subdevice === 'removeSubDevice') await this.core.unInitialize()
-		await this.core.destroy()
+		if (subdevice === 'removeSubDevice')
+			this.core
+				.unInitialize()
+				.catch((e) =>
+					this._coreParentHandler.logger.error(`Error when uninitializing core: ${stringifyError(e)}`)
+				)
+		this.core.destroy()
 	}
 	killProcess(): void {
 		this._coreParentHandler.killProcess()

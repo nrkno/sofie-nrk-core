@@ -21,6 +21,7 @@ import { MOS_DEVICE_CONFIG_MANIFEST } from './configManifest'
 import { getVersions } from './versions'
 import { CoreMosDeviceHandler, CoreMosDeviceHandlerOptions } from './CoreMosDeviceHandler'
 import { PeripheralDeviceCommandId } from '@sofie-automation/shared-lib/dist/core/model/Ids'
+import { MosDeviceHandler } from './mosDeviceHandler'
 
 export interface CoreConfig {
 	host: string
@@ -119,11 +120,9 @@ export class CoreHandler implements ICoreHandler {
 
 		await this.updateCoreStatus()
 
-		await Promise.all(
-			this._coreMosHandlers.map(async (cmh: CoreMosDeviceHandler) => {
-				return cmh.dispose()
-			})
-		)
+		for (const cmh of this._coreMosHandlers) {
+			cmh.dispose()
+		}
 
 		if (!this.core) {
 			throw Error('core is undefined!')
@@ -175,13 +174,13 @@ export class CoreHandler implements ICoreHandler {
 			return coreMos
 		})
 	}
-	async unRegisterMosDevice(mosDevice: IMOSDevice): Promise<void> {
+	unRegisterMosDevice(mosDevice: MosDeviceHandler): void {
 		let foundI = -1
 		for (let i = 0; i < this._coreMosHandlers.length; i++) {
 			const cmh = this._coreMosHandlers[i]
 			if (
-				cmh._mosDevice.idPrimary === mosDevice.idPrimary ||
-				cmh._mosDevice.idSecondary === mosDevice.idSecondary
+				cmh._mosDevice.idPrimary === mosDevice.options.primary.id ||
+				(cmh._mosDevice.idSecondary && cmh._mosDevice.idSecondary === mosDevice.options.secondary?.id)
 			) {
 				foundI = i
 				break
@@ -190,7 +189,7 @@ export class CoreHandler implements ICoreHandler {
 		const coreMosHandler = this._coreMosHandlers[foundI]
 		if (coreMosHandler) {
 			this._coreMosHandlers.splice(foundI, 1)
-			await coreMosHandler.dispose('removeSubDevice')
+			coreMosHandler.dispose('removeSubDevice')
 		}
 	}
 	onConnectionRestored(): void {

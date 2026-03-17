@@ -456,7 +456,7 @@ describe('coreConnection', () => {
 		})
 
 		await coreParent.destroy()
-		await coreChild.destroy()
+		coreChild.destroy()
 
 		expect(onError).toHaveBeenCalledTimes(0)
 		expect(onChildError).toHaveBeenCalledTimes(0)
@@ -518,7 +518,7 @@ describe('coreConnection', () => {
 		expect(coreChild2.connected).toEqual(true)
 
 		await coreParent.destroy()
-		await coreChild2.destroy()
+		coreChild2.destroy()
 
 		expect(onChildError).toHaveBeenCalledTimes(0)
 		expect(onParentError).toHaveBeenCalledTimes(0)
@@ -555,7 +555,7 @@ describe('coreConnection', () => {
 		expect(coreChild.connected).toEqual(true)
 
 		// Close parent connection:
-		await coreChild.destroy()
+		coreChild.destroy()
 
 		expect(coreChild.connected).toEqual(false)
 

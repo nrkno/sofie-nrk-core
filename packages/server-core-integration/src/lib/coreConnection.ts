@@ -204,7 +204,9 @@ export class CoreConnection<
 			this._timeSync = null
 		}
 
-		await Promise.all(this._children.map(async (child) => child.destroy()))
+		for (const child of this._children) {
+			child.destroy()
+		}
 
 		this._children = []
 	}
