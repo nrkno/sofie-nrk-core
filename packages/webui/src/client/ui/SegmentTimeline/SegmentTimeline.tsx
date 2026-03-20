@@ -59,6 +59,7 @@ import * as RundownResolver from '../../lib/RundownResolver.js'
 import { DBSegment } from '@sofie-automation/corelib/dist/dataModel/Segment'
 import { SelectedElementsContext } from '../RundownView/SelectedElementsContext.js'
 import { BlueprintAssetIcon } from '../../lib/Components/BlueprintAssetIcon.js'
+import { hasUserEditableContent } from '../UserEditOperations/PropertiesPanel.js'
 
 interface IProps {
 	id: string
@@ -1057,8 +1058,14 @@ export class SegmentTimelineClass extends React.Component<Translated<WithTiming<
 							<div
 								onDoubleClick={() => {
 									if (this.props.studio.settings.enableUserEdits) {
-										if (!selectElementContext.isSelected(this.props.segment._id)) {
-											selectElementContext.clearAndSetSelection({ type: 'segment', elementId: this.props.segment._id })
+										const segment = this.props.segment
+
+										const hasEditableContent = hasUserEditableContent(segment)
+										if (!hasEditableContent) return
+
+										if (!selectElementContext.isSelected(segment._id)) {
+											RundownViewEventBus.emit(RundownViewEvents.CLOSE_NOTIFICATIONS)
+											selectElementContext.clearAndSetSelection({ type: 'segment', elementId: segment._id })
 										} else {
 											selectElementContext.clearSelections()
 										}
