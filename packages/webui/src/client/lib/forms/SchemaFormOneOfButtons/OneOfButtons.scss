@@ -1,0 +1,18 @@
+.field-one-of-buttons .field-content {
+	display: flex;
+	flex-direction: row;
+	flex-wrap: wrap;
+	justify-items: flex-start;
+	align-items: flex-start;
+	gap: 0.5em;
+}
+
+.field-one-of-button-complex, .field-one-of-button-complex .field {
+	display: flex;
+	flex-direction: row;
+	gap: 0.5em;
+}
+
+.field-one-of-buttons-complex > button {
+	white-space: nowrap;
+}

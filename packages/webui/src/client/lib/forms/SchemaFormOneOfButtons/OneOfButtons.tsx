@@ -15,7 +15,6 @@ import { hasOpWithPath } from '../../Components/util.js'
 import { SchemaFormCommonProps, translateStringIfHasNamespaces } from '../schemaFormUtil.js'
 import { SchemaFormWithState } from '../SchemaFormWithState.js'
 import { TypeName } from '@sofie-automation/shared-lib/src/lib/JSONSchemaTypes.js'
-import { values } from 'underscore'
 
 export const OneOfButtonsWithOverrides = (
 	props: Readonly<SchemaFormCommonProps> & {
@@ -149,7 +148,7 @@ function OneOfVariantButtonComplex({
 	}, [])
 
 	return (
-		<label>
+		<label className="field-one-of-button-complex">
 			<Button variant="outline-primary">{variantTitle}</Button>
 			<SchemaFormWithState
 				object={editingValue}
@@ -216,7 +215,7 @@ function LabelAndOverridesForOneOfButtons<T extends object, TValue = any>({
 	const value = objectPathGet(item.computed, String(itemKey))
 
 	return (
-		<div className="field">
+		<div className="field field-one-of-buttons">
 			<LabelActual label={label} />
 
 			<div
