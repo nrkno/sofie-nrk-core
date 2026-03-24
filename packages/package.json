@@ -70,9 +70,7 @@
 	"name": "packages",
 	"packageManager": "yarn@4.10.3",
 	"resolutions": {
-		"timecode@0.0.4": "patch:timecode@npm%3A0.0.4#./.yarn/patches/timecode-npm-0.0.4-82bde9e6fe.patch",
-		"casparcg-connection@npm:6.3.0": "patch:casparcg-connection@npm%3A6.3.0#~/.yarn/patches/casparcg-connection-npm-6.3.0-6fe8cb2bcd.patch",
-		"casparcg-connection@npm:6.2.0": "patch:casparcg-connection@npm%3A6.3.0#~/.yarn/patches/casparcg-connection-npm-6.3.0-6fe8cb2bcd.patch"
+		"timecode@0.0.4": "patch:timecode@npm%3A0.0.4#./.yarn/patches/timecode-npm-0.0.4-82bde9e6fe.patch"
 	},
 	"dependenciesMeta": {
 		"esbuild": {
