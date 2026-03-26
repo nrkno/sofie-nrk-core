@@ -10721,12 +10721,13 @@ asn1@evs-broadcast/node-asn1:
   linkType: hard
 
 "casparcg-connection@npm:6.2.0, casparcg-connection@npm:6.3.0":
-  version: 7.0.0-0-nightly-feat-ping-20260324-080738-c0f21b94
-  resolution: "casparcg-connection@npm:7.0.0-0-nightly-feat-ping-20260324-080738-c0f21b94"
+  version: 6.3.4-nightly-test-ping-20260326-081544-b7bbb297.0
+  resolution: "casparcg-connection@npm:6.3.4-nightly-test-ping-20260326-081544-b7bbb297.0"
   dependencies:
-    tslib: "npm:^2.8.1"
+    eventemitter3: "npm:^5.0.1"
+    tslib: "npm:^2.6.3"
     xml2js: "npm:^0.6.2"
-  checksum: 10/80de46217ea44768f0ee3dbb13fea0ccbbd101daffe3bbb84cacf1bc222fe9f4b849015cf5257ddc8869de663a4d55ffceb10d3059552248026096f31cd9d3bf
+  checksum: 10/3b3a6022e2112215f6962a4b72e57d9451ec5af3b75c773dc1c2f6601bca4adb34ef9625f8f9fab7fdca3d23c213d0676d56132b5e8ce15f51caadde28dc2ff7
   languageName: node
   linkType: hard
 
