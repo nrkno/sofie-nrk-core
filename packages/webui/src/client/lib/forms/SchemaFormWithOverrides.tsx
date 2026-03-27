@@ -35,6 +35,7 @@ import { MultiLineIntInputControl } from '../Components/MultiLineIntInput.js'
 import { ToggleSwitchControl } from '../Components/ToggleSwitch.js'
 import { BreadCrumbTextInput } from '../Components/BreadCrumbTextInput.js'
 import { OneOfButtonsWithOverrides } from './SchemaFormOneOfButtons/OneOfButtons.js'
+import { TimeMsInputControl } from '../Components/TimeMsInput.js'
 
 interface SchemaFormWithOverridesProps extends SchemaFormCommonProps {
 	/** Base path of the schema within the document */
@@ -138,7 +139,11 @@ export function SchemaFormWithOverrides(props: Readonly<SchemaFormWithOverridesP
 				return <IntegerFormWithOverrides {...childProps} />
 			}
 		case TypeName.Number:
-			return <NumberFormWithOverrides {...childProps} />
+			if (getSchemaUIField(props.schema, SchemaFormUIField.DisplayType) === 'timeMs') {
+				return <TimeMsFormWithOverrides {...childProps} />
+			} else {
+				return <NumberFormWithOverrides {...childProps} />
+			}
 		case TypeName.Boolean:
 			if (getSchemaUIField(props.schema, SchemaFormUIField.DisplayType) === 'switch') {
 				return <SwitchFormWithOverrides {...childProps} />
@@ -343,6 +348,23 @@ const IntegerFormWithOverrides = ({ schema, commonAttrs }: Readonly<FormComponen
 				/>
 			)}
 		</LabelAndOverridesForInt>
+	)
+}
+
+const TimeMsFormWithOverrides = ({ schema, commonAttrs }: Readonly<FormComponentProps>) => {
+	return (
+		<LabelAndOverrides {...commonAttrs}>
+			{(value, handleUpdate) => (
+				<TimeMsInputControl
+					placeholder={schema.default}
+					value={value}
+					handleUpdate={handleUpdate}
+					min={schema['minimum']}
+					max={schema['maximum']}
+					multipleOf={schema['multipleOf']}
+				/>
+			)}
+		</LabelAndOverrides>
 	)
 }
 
