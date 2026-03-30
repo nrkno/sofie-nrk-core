@@ -23,12 +23,14 @@
 }
 
 .field-one-of-button-complex > .btn-outline-primary {
+	display: flex;
+	align-items: center;
 	white-space: nowrap;
 	background-color: var(--org-color-gray-600);
 	color: var(--org-color-gray-400);
 	box-sizing: border-box;
 	border-bottom: 3px solid transparent;
-	padding-bottom: calc(var(--bs-btn-padding-y) - 3px)
+	padding-bottom: calc(var(--bs-btn-padding-y) - 3px);
 }
 
 .field-one-of-button-complex > .btn-check-checked {

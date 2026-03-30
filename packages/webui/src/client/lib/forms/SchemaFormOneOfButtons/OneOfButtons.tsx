@@ -15,6 +15,7 @@ import { hasOpWithPath } from '../../Components/util.js'
 import { SchemaFormCommonProps, translateStringIfHasNamespaces } from '../schemaFormUtil.js'
 import { SchemaFormWithState } from '../SchemaFormWithState.js'
 import { TypeName } from '@sofie-automation/shared-lib/src/lib/JSONSchemaTypes.js'
+import { BlueprintAssetIcon } from '../../Components/BlueprintAssetIcon.js'
 
 export const OneOfButtonsWithOverrides = (
 	props: Readonly<SchemaFormCommonProps> & {
@@ -28,6 +29,8 @@ export const OneOfButtonsWithOverrides = (
 	}
 ) => {
 	const { t } = useTranslation()
+
+	const discProperty = getSchemaUIField(props.schema, SchemaFormUIField.OneOfDiscriminant)
 
 	const childProps = useMemo(() => {
 		const title = getSchemaUIField(props.schema, SchemaFormUIField.Title) || props.schema.title || props.attr
@@ -56,8 +59,6 @@ export const OneOfButtonsWithOverrides = (
 		props.isRequired,
 		props.showClearButtonForNonRequiredFields,
 	])
-
-	const discProperty = getSchemaUIField(props.schema, SchemaFormUIField.OneOfDiscriminant)
 
 	if (!discProperty) {
 		return (
@@ -96,13 +97,9 @@ export const OneOfButtonsWithOverrides = (
 		)
 	}
 
-	console.log(childProps.commonAttrs.item.computed)
-
 	return (
 		<LabelAndOverridesForOneOfButtons {...childProps.commonAttrs}>
 			{(value, handleUpdate) => {
-
-
 				return props.schema.oneOf &&
 				props.schema.oneOf.map((variant, index) => {
 					const type = variant.properties?.[discProperty]?.const
@@ -127,9 +124,7 @@ export const OneOfButtonsWithOverrides = (
 							selected={value?.[discProperty] === type}
 							schema={variant}
 							translationNamespaces={props.translationNamespaces}
-							onUpdate={(value) => {
-								handleUpdate(value)
-							}}
+							handleUpdate={handleUpdate}
 						/>
 					)
 				})
@@ -144,14 +139,14 @@ function OneOfVariantButtonComplex({
 	discProperty,
 	translationNamespaces,
 	value,
-	onUpdate,
+	handleUpdate,
 }: Readonly<{
 	discProperty: string
 	schema: JSONSchema<any, JSONSchema.TypeValue>
 	translationNamespaces: string[]
 	selected: boolean
 	value: any
-	onUpdate?: (update: Record<string, any>) => void
+	handleUpdate?: (update: Record<string, any>) => void
 }>): JSX.Element {
 	const typeValue = schema.properties?.[discProperty]?.const
 
@@ -176,31 +171,35 @@ function OneOfVariantButtonComplex({
 
 	useEffect(() => {
 		if (selected && value !== undefined && oldValue.current !== value && oldValue.current === undefined) {
-			onUpdate?.(editingValue)
+			handleUpdate?.(editingValue)
 		} else if (selected && value !== undefined && oldValue.current !== value) {
 			setEditingValue(value)
 		}
 
 		oldValue.current = value
-	}, [value, discProperty, typeValue, editingValue, selected, onUpdate])
+	}, [value, discProperty, typeValue, editingValue, selected, handleUpdate])
 
 	const variantTitle = getSchemaUIField(schema, SchemaFormUIField.Title)
+	const variantIcon = getSchemaUIField(schema, SchemaFormUIField.Icon)
 
-	const onUpdateLocal = useCallback((update: Record<string, any>) => {
-		if (!selected) {
-			setEditingValue(() => ({
-				...update,
-			}))
-		} else {
-			onUpdate?.(update)
-		}
-	}, [selected, onUpdate])
+	const onUpdateLocal = useCallback(
+		(update: Record<string, any>) => {
+			if (!selected) {
+				setEditingValue(() => ({
+					...update,
+				}))
+			} else {
+				handleUpdate?.(update)
+			}
+		},
+		[selected, handleUpdate]
+	)
 
 	const handleSelect = useCallback(() => {
 		if (!selected) {
-			onUpdate?.(editingValue)
+			handleUpdate?.(editingValue)
 		}
-	}, [editingValue, discProperty, typeValue, selected, onUpdate])
+	}, [editingValue, discProperty, typeValue, selected, handleUpdate])
 
 	return (
 		<label className="field-one-of-button-complex">
@@ -211,7 +210,8 @@ function OneOfVariantButtonComplex({
 				variant="outline-primary"
 				onClick={handleSelect}
 			>
-				{variantTitle}
+				{variantIcon && <BlueprintAssetIcon src={variantIcon} />}
+				<div>{variantTitle}</div>
 			</Button>
 			<SchemaFormWithState
 				object={editingValue}
