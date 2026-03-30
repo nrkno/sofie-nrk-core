@@ -24,6 +24,7 @@ import {
 	CoreUserEditingDefinitionAction,
 	CoreUserEditingDefinitionForm,
 	CoreUserEditingDefinitionSofie,
+	CoreUserEditingDefinitionState,
 } from '@sofie-automation/corelib/src/dataModel/UserEditingDefinitions.js'
 
 interface IProps {
@@ -81,6 +82,7 @@ export const SegmentContextMenu = withTranslation()(
 			function doesItemSupportUserEditUpdateProps(
 				userEditOperations:
 					| readonly (
+							| ReadonlyObjectDeep<CoreUserEditingDefinitionState>
 							| ReadonlyObjectDeep<CoreUserEditingDefinitionAction>
 							| ReadonlyObjectDeep<CoreUserEditingDefinitionForm>
 							| ReadonlyObjectDeep<CoreUserEditingDefinitionSofie>
