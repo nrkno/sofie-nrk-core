@@ -210,8 +210,8 @@ function OneOfVariantButtonComplex({
 				variant="outline-primary"
 				onClick={handleSelect}
 			>
+				{variantTitle}
 				{variantIcon && <BlueprintAssetIcon src={variantIcon} />}
-				<div>{variantTitle}</div>
 			</Button>
 			<SchemaFormWithState
 				object={editingValue}
