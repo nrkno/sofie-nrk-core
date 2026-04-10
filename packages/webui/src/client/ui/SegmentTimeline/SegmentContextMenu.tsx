@@ -10,7 +10,7 @@ import {
 } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
 import { RundownUtils } from '../../lib/rundown.js'
 import { IContextMenuContext } from '../RundownView.js'
-import { PartInstanceId, SegmentId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import { SegmentId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { SegmentOrphanedReason } from '@sofie-automation/corelib/dist/dataModel/Segment'
 import { UserEditOperationMenuItems } from '../UserEditOperations/RenderUserEditOperations.js'
 import { CoreUserEditingDefinition } from '@sofie-automation/corelib/dist/dataModel/UserEditingDefinitions'
