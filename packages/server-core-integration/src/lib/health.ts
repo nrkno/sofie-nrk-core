@@ -7,6 +7,8 @@ import { IConnector, ICoreHandler } from './gateway-types'
 export interface HealthConfig {
 	/** If set, exposes health HTTP endpoints on the given port */
 	port?: number
+	/** If true, indicates that the application should ask to be shut down using the /healthz endpoint */
+	shutDownUsingHealthEndpoint?: boolean
 }
 
 /**
@@ -21,6 +23,10 @@ export class HealthEndpoints {
 		const router = new Router()
 
 		router.get('/healthz', async (ctx) => {
+			if (this.coreHandler.isShuttingDown) {
+				ctx.status = 500
+				ctx.body = `Please shut me down`
+			}
 			if (this.connector.initializedError !== undefined) {
 				ctx.status = 503
 				ctx.body = `Error during initialization: ${this.connector.initializedError}`

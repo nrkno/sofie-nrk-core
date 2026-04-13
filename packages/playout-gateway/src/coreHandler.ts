@@ -31,6 +31,9 @@ export interface CoreConfig {
 	host: string
 	port: number
 	watchdog: boolean
+
+	/** If true, indicates that the application should ask to be shut down using the /healthz endpoint */
+	shutDownUsingHealthEndpoint?: boolean
 }
 
 export interface MemoryUsageReport {
@@ -49,6 +52,9 @@ export class CoreHandler implements ICoreHandler {
 
 	public multithreading = false
 	public reportAllCommands = false
+
+	/** Indicates that the application is to be shut down */
+	public isShuttingDown = false
 
 	private _deviceOptions: DeviceConfig
 	private _onConnected?: () => any
@@ -314,6 +320,15 @@ export class CoreHandler implements ICoreHandler {
 		})
 	}
 	killProcess(): void {
+		if (
+			this._coreConfig?.shutDownUsingHealthEndpoint &&
+			this.isShuttingDown !== true // If killing twice, kill the process
+		) {
+			// Instead of killing the process, ask the orchestrator to kill it pretty please, by making the healthz endpoint return 500
+			this.isShuttingDown = true
+			this.logger.info('KillProcess command received, asking orchestrator to stop using /healthz endpoint...')
+			return
+		}
 		this.logger.info('KillProcess command received, shutting down in 1000ms!')
 		setTimeout(() => {
 			// eslint-disable-next-line no-process-exit

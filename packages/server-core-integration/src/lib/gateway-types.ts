@@ -8,4 +8,6 @@ export interface IConnector {
 export interface ICoreHandler {
 	getCoreStatus: () => { statusCode: StatusCode; messages: string[] }
 	connectedToCore: boolean
+	/** Indicates that the application is to be shut down */
+	isShuttingDown?: boolean
 }

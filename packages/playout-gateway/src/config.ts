@@ -21,6 +21,7 @@ let influxPassword: string | undefined = process.env.INFLUX_PASSWORD || undefine
 let influxDatabase: string | undefined = process.env.INFLUX_DB || 'sofie'
 
 let healthPort: number | undefined = parseInt(process.env.HEALTH_PORT + '') || undefined
+let shutDownUsingHealthEndpoint: boolean = process.env.SHUTDOWN_USING_HEALTH === '1' || false
 
 let prevProcessArg = ''
 process.argv.forEach((val) => {
@@ -58,6 +59,8 @@ process.argv.forEach((val) => {
 		// arguments with no options:
 	} else if (val.match(/-disableWatchdog/i)) {
 		disableWatchdog = true
+	} else if (val.match(/-shutDownUsingHealthEndpoint/i)) {
+		shutDownUsingHealthEndpoint = true
 	} else if (val.match(/-disableAtemUpload/i)) {
 		disableAtemUpload = true
 	} else if (val.match(/-unsafeSSL/i)) {
@@ -82,6 +85,7 @@ const config: Config = {
 		host: host,
 		port: port,
 		watchdog: !disableWatchdog,
+		shutDownUsingHealthEndpoint: shutDownUsingHealthEndpoint,
 	},
 	tsr: {},
 	influx: {
