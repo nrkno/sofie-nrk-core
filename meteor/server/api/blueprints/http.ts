@@ -204,9 +204,12 @@ blueprintsRouter.get('/assets/:fileId*', async (ctx) => {
 			if (e instanceof Error && 'code' in e && e.code === 'ENOENT') {
 				logger.warn('Blueprint asset not found: ' + e)
 				ctx.statusCode = 404 // Probably
+			} else if (e instanceof Error && e.message.includes('outside of asset storage path')) {
+				logger.warn('Blueprint asset path traversal attempt: ' + e)
+				ctx.statusCode = 400
 			} else {
 				logger.warn('Blueprint asset retrieval failed: ' + e)
-				ctx.statusCode = 501
+				ctx.statusCode = 500
 			}
 		}
 	} else {
