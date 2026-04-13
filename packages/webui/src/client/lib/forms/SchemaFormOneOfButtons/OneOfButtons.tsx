@@ -150,6 +150,12 @@ function OneOfVariantButtonComplex({
 }>): JSX.Element {
 	const typeValue = schema.properties?.[discProperty]?.const
 
+	const handleUpdateRef = useRef(handleUpdate)
+	
+	useEffect(() => {
+		handleUpdateRef.current = handleUpdate
+	}, [handleUpdate])
+
 	const [editingValue, setEditingValue] = useState<Record<string, any>>(
 		selected
 			? (value ?? {
@@ -171,13 +177,13 @@ function OneOfVariantButtonComplex({
 
 	useEffect(() => {
 		if (selected && value !== undefined && oldValue.current !== value && oldValue.current === undefined) {
-			handleUpdate?.(editingValue)
+			handleUpdateRef.current?.(editingValue)
 		} else if (selected && value !== undefined && oldValue.current !== value) {
 			setEditingValue(value)
 		}
 
 		oldValue.current = value
-	}, [value, discProperty, typeValue, editingValue, selected, handleUpdate])
+	}, [value, discProperty, typeValue, editingValue, selected])
 
 	const variantTitle = getSchemaUIField(schema, SchemaFormUIField.Title)
 	const variantIcon = getSchemaUIField(schema, SchemaFormUIField.Icon)
@@ -189,17 +195,17 @@ function OneOfVariantButtonComplex({
 					...update,
 				}))
 			} else {
-				handleUpdate?.(update)
+				handleUpdateRef.current?.(update)
 			}
 		},
-		[selected, handleUpdate]
+		[selected]
 	)
 
 	const handleSelect = useCallback(() => {
 		if (!selected) {
-			handleUpdate?.(editingValue)
+			handleUpdateRef.current?.(editingValue)
 		}
-	}, [editingValue, discProperty, typeValue, selected, handleUpdate])
+	}, [editingValue, discProperty, typeValue, selected])
 
 	return (
 		<label className="field-one-of-button-complex">
