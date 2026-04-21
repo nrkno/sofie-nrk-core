@@ -138,6 +138,10 @@ if (logToFile || logPath !== '') {
 	}
 }
 
+setInterval(() => {
+	logger.warn('Logger ping - time is now: ' + new Date().toISOString())
+}, 30 * 1000)
+
 process.on('exit', (code) => {
 	logger.info(`Process exiting with code: ${code}`)
 })

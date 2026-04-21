@@ -177,6 +177,10 @@ process.on('warning', (e: any) => {
 	logger.error(`Unhandled warning: ${stringifyError(e)}`)
 })
 
+setInterval(() => {
+	logger.warn('Logger ping - time is now: ' + new Date().toISOString())
+}, 30 * 1000)
+
 logger.info('------------------------------------------------------------------')
 logger.info('-----------------------------------')
 logger.info('Statup options:')

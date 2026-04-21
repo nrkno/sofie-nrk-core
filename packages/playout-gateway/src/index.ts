@@ -84,6 +84,10 @@ process.on('warning', (e: any) => {
 	logger.error(`Unhandled warning: ${stringifyError(e)}`)
 })
 
+setInterval(() => {
+	logger.warn('Logger ping - time is now: ' + new Date().toISOString())
+}, 30 * 1000)
+
 logger.info('------------------------------------------------------------------')
 logger.info('Starting Playout Gateway')
 if (disableWatchdog) logger.info('Watchdog is disabled!')
