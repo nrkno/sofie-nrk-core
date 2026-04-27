@@ -55,10 +55,6 @@ export class Connector implements IConnector {
 
 			new HealthEndpoints(this, this.coreHandler, config.health)
 
-			if (!this.coreHandler) throw Error('coreHandler is undefined!')
-
-			new HealthEndpoints(this, this.coreHandler, config.health)
-
 			this._logger.info('Initializing Mos...')
 			this.mosHandler = await MosHandler.create(this._logger, this._config.mos, this.coreHandler)
 
