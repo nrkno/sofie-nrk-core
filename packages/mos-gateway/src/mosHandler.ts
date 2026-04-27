@@ -66,7 +66,7 @@ export class MosHandler {
 	private _openMediaHotStandby: Record<string, boolean>
 	private _coreHandler: CoreHandler | undefined
 	private _observers: Array<Observer<any>> = []
-	private _triggerupdateDevicesTimeout: any = null
+	private _triggerUpdateDevicesTimeout: any = null
 	private mosTypes: MosTypes
 
 	constructor(logger: Winston.Logger) {
@@ -93,9 +93,6 @@ export class MosHandler {
 			}
 		}
 		*/
-		if (!coreHandler) {
-			throw Error('coreHandler is undefined!')
-		}
 
 		if (!coreHandler.core) {
 			throw Error('coreHandler.core is undefined!')
@@ -107,15 +104,14 @@ export class MosHandler {
 
 		this.mosTypes = getMosTypes(this.strict)
 
-		await this._updateDevices()
-
-		if (!this._coreHandler) throw Error('_coreHandler is undefined!')
-		this._coreHandler.onConnected(() => {
+		coreHandler.onConnected(() => {
 			// This is called whenever a connection to Core has been (re-)established
 			this.setupObservers()
 			this.sendStatusOfAllMosDevices()
 		})
 		this.setupObservers()
+
+		this.triggerUpdateDevices()
 	}
 	async dispose(): Promise<void> {
 		this._disposed = true
@@ -191,10 +187,13 @@ export class MosHandler {
 				this._logger.debug('test log debug')
 			}
 		}
-		if (this._triggerupdateDevicesTimeout) {
-			clearTimeout(this._triggerupdateDevicesTimeout)
+		this.triggerUpdateDevices()
+	}
+	private triggerUpdateDevices() {
+		if (this._triggerUpdateDevicesTimeout) {
+			clearTimeout(this._triggerUpdateDevicesTimeout)
 		}
-		this._triggerupdateDevicesTimeout = setTimeout(() => {
+		this._triggerUpdateDevicesTimeout = setTimeout(() => {
 			this._updateDevices().catch((e) => {
 				this._logger.error(e)
 			})
