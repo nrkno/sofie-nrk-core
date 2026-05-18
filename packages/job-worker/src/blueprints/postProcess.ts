@@ -251,6 +251,8 @@ export function postProcessAdLibPieces(
 			_id: protectString(docId),
 			rundownId: rundownId,
 			partId: partId,
+			userEditOperations: translateUserEditsFromBlueprint(orgAdlib.userEditOperations, [blueprintId]),
+			userEditProperties: translateUserEditPropertiesFromBlueprint(orgAdlib.userEditProperties, [blueprintId]),
 			timelineObjectsString: EmptyPieceTimelineObjectsBlob,
 		}
 
@@ -313,6 +315,8 @@ export function postProcessGlobalAdLibActions(
 			_id: protectString(docId),
 			rundownId: rundownId,
 			partId: undefined,
+			userEditOperations: translateUserEditsFromBlueprint(action.userEditOperations, [blueprintId]),
+			userEditProperties: translateUserEditPropertiesFromBlueprint(action.userEditProperties, [blueprintId]),
 			...processAdLibActionITranslatableMessages(action, blueprintId),
 		})
 	})
@@ -354,6 +358,8 @@ export function postProcessAdLibActions(
 			_id: protectString(docId),
 			rundownId: rundownId,
 			partId: partId,
+			userEditOperations: translateUserEditsFromBlueprint(action.userEditOperations, [blueprintId]),
+			userEditProperties: translateUserEditPropertiesFromBlueprint(action.userEditProperties, [blueprintId]),
 			...processAdLibActionITranslatableMessages(action, blueprintId),
 		})
 	})
@@ -502,6 +508,8 @@ export function postProcessBucketAdLib(
 		ingestInfo,
 		_rank: rank || itemOrig._rank,
 		name: name || itemOrig.name,
+		userEditOperations: translateUserEditsFromBlueprint(itemOrig.userEditOperations, [blueprintId]),
+		userEditProperties: translateUserEditPropertiesFromBlueprint(itemOrig.userEditProperties, [blueprintId]),
 		timelineObjectsString: EmptyPieceTimelineObjectsBlob,
 	}
 	// Fill in contentVersionHash of expectedPackages
@@ -550,6 +558,8 @@ export function postProcessBucketAction(
 		bucketId,
 		importVersions,
 		ingestInfo,
+		userEditOperations: translateUserEditsFromBlueprint(itemOrig.userEditOperations, [blueprintId]),
+		userEditProperties: translateUserEditPropertiesFromBlueprint(itemOrig.userEditProperties, [blueprintId]),
 		...processAdLibActionITranslatableMessages(itemOrig, blueprintId, rank, label),
 	}
 

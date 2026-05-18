@@ -2,6 +2,7 @@ import { BucketAdLibActionId, BucketId, StudioId, ShowStyleVariantId, ShowStyleB
 import { RundownImportVersions } from './Rundown.js'
 import { AdLibActionCommon } from './AdlibAction.js'
 import { BucketAdLibIngestInfo } from './BucketAdLibPiece.js'
+import { CoreUserEditingDefinition, CoreUserEditingProperties } from './UserEditingDefinitions.js'
 
 export interface BucketAdLibAction extends Omit<AdLibActionCommon, 'rundownId'> {
 	_id: BucketAdLibActionId
@@ -25,4 +26,15 @@ export interface BucketAdLibAction extends Omit<AdLibActionCommon, 'rundownId'> 
 	/** The following extended interface allows assigning namespace information to the actions as they are stored in the
 	 *  database after being emitted from the blueprints
 	 */
+
+	/**
+	 * User editing definitions for this segment
+	 */
+	userEditOperations?: CoreUserEditingDefinition[]
+
+	/**
+	 * Properties that are user editable from the properties panel in the Sofie UI, if the user saves changes to these
+	 * it will trigger a user edit operation of type DefaultUserOperationEditProperties
+	 */
+	userEditProperties?: CoreUserEditingProperties
 }

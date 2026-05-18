@@ -2,6 +2,7 @@ import { IBlueprintAdLibPiece, IngestAdlib, SomeContent } from '@sofie-automatio
 import { BucketAdLibId, BucketId, StudioId, ShowStyleVariantId, ShowStyleBaseId } from './Ids.js'
 import { PieceTimelineObjectsBlob } from './Piece.js'
 import { RundownImportVersions } from './Rundown.js'
+import { CoreUserEditingDefinition, CoreUserEditingProperties } from './UserEditingDefinitions.js'
 
 /**
  * Information used to 'ingest' a Bucket Adlib item
@@ -40,4 +41,15 @@ export interface BucketAdLib extends Omit<IBlueprintAdLibPiece, 'content'> {
 
 	/** Stringified timelineObjects */
 	timelineObjectsString: PieceTimelineObjectsBlob
+
+	/**
+	 * User editing definitions for this segment
+	 */
+	userEditOperations?: CoreUserEditingDefinition[]
+
+	/**
+	 * Properties that are user editable from the properties panel in the Sofie UI, if the user saves changes to these
+	 * it will trigger a user edit operation of type DefaultUserOperationEditProperties
+	 */
+	userEditProperties?: CoreUserEditingProperties
 }

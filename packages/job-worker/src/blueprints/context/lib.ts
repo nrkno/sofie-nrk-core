@@ -350,6 +350,8 @@ export function convertAdLibPieceToBlueprints(adLib: ReadonlyDeep<AdLibPiece>): 
 		uniquenessId: adLib.uniquenessId,
 		invertOnAirState: adLib.invertOnAirState,
 		hidden: adLib.hidden,
+		userEditOperations: translateUserEditsToBlueprint(adLib.userEditOperations),
+		userEditProperties: translateUserEditPropertiesToBlueprint(adLib.userEditProperties),
 	}
 
 	return obj
@@ -375,6 +377,8 @@ export function convertAdLibActionToBlueprints(action: ReadonlyDeep<AdLibAction>
 		triggerModes: clone<IBlueprintActionTriggerMode[] | undefined>(action.triggerModes), // TODO - type mismatch
 		expectedPlayoutItems: clone<ExpectedPlayoutItemGeneric[] | undefined>(action.expectedPlayoutItems),
 		expectedPackages: clone<ExpectedPackage.Any[] | undefined>(action.expectedPackages),
+		userEditOperations: translateUserEditsToBlueprint(action.userEditOperations),
+		userEditProperties: translateUserEditPropertiesToBlueprint(action.userEditProperties),
 	}
 
 	return obj
