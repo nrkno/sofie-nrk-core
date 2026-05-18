@@ -1,4 +1,4 @@
-import { UserEditingDefinition, UserEditingProperties } from '../userEditing.js'
+import { IUserEditable } from '../userEditing.js'
 import type { NoteSeverity } from '../lib.js'
 import type { ITranslatableMessage } from '../translations.js'
 import type { IngestPartNotifyItemReady } from '@sofie-automation/shared-lib/dist/ingest/rundownStatus'
@@ -25,7 +25,7 @@ export enum PartHoldMode {
 	TO = 2,
 }
 
-export interface IBlueprintMutatablePart<TPrivateData = unknown, TPublicData = unknown> {
+export interface IBlueprintMutatablePart<TPrivateData = unknown, TPublicData = unknown> extends IUserEditable {
 	/** The story title */
 	title: string
 	/**
@@ -93,17 +93,6 @@ export interface IBlueprintMutatablePart<TPrivateData = unknown, TPublicData = u
 
 	/** MediaObjects that when created/updated, should cause the blueprint to be rerun for the Segment of this Part */
 	hackListenToMediaObjectUpdates?: HackPartMediaObjectSubscription[]
-
-	/**
-	 * User editing definitions for this part
-	 */
-	userEditOperations?: UserEditingDefinition[]
-
-	/**
-	 * Properties that are user editable from the properties panel in the Sofie UI, if the user saves changes to these
-	 * it will trigger a user edit operation of type DefaultUserOperationEditProperties
-	 */
-	userEditProperties?: UserEditingProperties
 }
 
 export interface HackPartMediaObjectSubscription {

@@ -4,6 +4,7 @@ import { ITranslatableMessage } from './translations.js'
 import { ExpectedPlayoutItemGeneric } from './documents/index.js'
 import { JSONBlob } from '@sofie-automation/shared-lib/dist/lib/JSONBlob'
 import { JSONSchema } from '@sofie-automation/shared-lib/dist/lib/JSONSchemaTypes'
+import { IUserEditable } from './userEditing.js'
 
 export interface ActionUserData {
 	[key: string]: any
@@ -72,7 +73,7 @@ export interface IBlueprintActionTriggerMode {
 	}
 }
 
-export interface IBlueprintActionManifest<TPrivateData = unknown, TPublicData = unknown> {
+export interface IBlueprintActionManifest<TPrivateData = unknown, TPublicData = unknown> extends IUserEditable {
 	/**
 	 * An identifier for this Action
 	 * It should be unique within the part it belongs to, and consistent across ingest updates

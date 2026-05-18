@@ -1,7 +1,9 @@
+import { IUserEditable } from '../userEditing.js'
 import type { IBlueprintPieceGeneric } from './pieceGeneric.js'
 
 export interface IBlueprintAdLibPiece<TPrivateData = unknown, TPublicData = unknown>
-	extends IBlueprintPieceGeneric<TPrivateData, TPublicData> {
+	extends IBlueprintPieceGeneric<TPrivateData, TPublicData>,
+		IUserEditable {
 	/** Used for sorting in the UI */
 	_rank: number
 	/** When something bad has happened, we can mark the AdLib as invalid, which will prevent the user from TAKE:ing it */

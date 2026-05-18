@@ -1,4 +1,4 @@
-import { UserEditingDefinition, UserEditingProperties } from '../userEditing.js'
+import { IUserEditable } from '../userEditing.js'
 
 export enum SegmentDisplayMode {
 	Timeline = 'timeline',
@@ -28,7 +28,7 @@ export interface SegmentTimingInfo {
 }
 
 /** The Segment generated from Blueprint */
-export interface IBlueprintSegment<TPrivateData = unknown, TPublicData = unknown> {
+export interface IBlueprintSegment<TPrivateData = unknown, TPublicData = unknown> extends IUserEditable {
 	/** User-presentable name (Slug) for the Title */
 	name: string
 	/** Arbitraty data storage for internal use in the blueprints */
@@ -47,17 +47,6 @@ export interface IBlueprintSegment<TPrivateData = unknown, TPublicData = unknown
 
 	/** Contains properties related to the timing of the segment */
 	segmentTiming?: SegmentTimingInfo
-
-	/**
-	 * User editing definitions for this segment
-	 */
-	userEditOperations?: UserEditingDefinition[]
-
-	/**
-	 * Properties that are user editable from the properties panel in the Sofie UI, if the user saves changes to these
-	 * it will trigger a user edit operation of type DefaultUserOperationEditProperties
-	 */
-	userEditProperties?: UserEditingProperties
 }
 /** The Segment sent from Core */
 export interface IBlueprintSegmentDB<TPrivateData = unknown, TPublicData = unknown>

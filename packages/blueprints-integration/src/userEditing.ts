@@ -146,3 +146,16 @@ export interface UserEditingProperties {
 	 */
 	operations?: UserEditingDefinitionAction[]
 }
+
+export interface IUserEditable {
+	/**
+	 * User editing definitions for this piece
+	 */
+	userEditOperations?: UserEditingDefinition[]
+
+	/**
+	 * Properties that are user editable from the properties panel in the Sofie UI, if the user saves changes to these
+	 * it will trigger a user edit operation of type DefaultUserOperationEditProperties
+	 */
+	userEditProperties?: UserEditingProperties
+}

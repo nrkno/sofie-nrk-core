@@ -322,7 +322,14 @@ export interface MutableIngestRundown<TRundownPayload = unknown, TSegmentPayload
 	): void
 
 	/**
-	 * Set a value in the userEditState
+	 * Set a value in the userEditState.
+	 *
+	 * The userEditStates is a key-value store where Blueprints can store persistent data.
+	 *
+	 * Examples of use cases:
+	 * - locks from NRCS updates
+	 * - locks from user changes
+	 * - removedByUser flags
 	 */
 	setUserEditState(key: string, value: boolean): void
 }
