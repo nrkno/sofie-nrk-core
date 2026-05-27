@@ -67,7 +67,7 @@
 			margin-top: 2rem;
 
 			.afterbroadcastform-bubble {
-				background-color: #fff;
+				background-color: #D0CDCD;
 				width: 70%;
 				margin-left: auto;
 				padding: 1.2rem 1.5rem;
@@ -95,6 +95,10 @@
 				float: right;
 				margin-top: -1px;
 				right: 50%;
+
+				> path {
+					fill: #D0CDCD;
+				}
 			}
 		}
 	}
