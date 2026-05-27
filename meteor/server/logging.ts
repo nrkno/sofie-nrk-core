@@ -1,5 +1,6 @@
 import * as Winston from 'winston'
 import * as fs from 'fs'
+import * as path from 'path'
 import { getAbsolutePath } from './lib'
 import { LogLevel } from './lib/tempLib'
 import { stringifyError } from '@sofie-automation/shared-lib/dist/lib/stringifyError'
@@ -108,7 +109,7 @@ if (logToFile || logPath !== '') {
 	}
 	logger = Winston.createLogger({
 		format: Winston.format.json(),
-		transports: [transportConsole, transportFile],
+		transports: Object.values<Winston.transport>(transports),
 	})
 	console.log('Logging to ' + logPath)
 } else {
@@ -120,10 +121,24 @@ if (logToFile || logPath !== '') {
 	transports = {
 		console: transportConsole,
 	}
+
+	if (process.env.ALSO_LOG_TO_FILE) {
+		const filename = path.resolve(process.env.ALSO_LOG_TO_FILE)
+		const transportFile = new Winston.transports.File({
+			level: getEnvLogLevel() ?? 'silly',
+			handleExceptions: true,
+			handleRejections: true,
+			filename,
+			// If the max size is exceeded then a new file is created, a counter will become a suffix of the log file.
+			maxsize: 10 * 1024 * 1024, // 10MB
+		})
+		transports.file = transportFile
+		console.log(`Also logging to ${filename}`)
+	}
 	if (Meteor.isProduction) {
 		logger = Winston.createLogger({
 			format: Winston.format.json(),
-			transports: [transportConsole],
+			transports: Object.values<Winston.transport>(transports),
 		})
 	} else {
 		const customFormat = Winston.format.printf((o) => {
@@ -133,7 +148,7 @@ if (logToFile || logPath !== '') {
 
 		logger = Winston.createLogger({
 			format: Winston.format.combine(Winston.format.timestamp(), customFormat),
-			transports: [transportConsole],
+			transports: Object.values<Winston.transport>(transports),
 		})
 	}
 }
@@ -142,4 +157,4 @@ process.on('exit', (code) => {
 	logger.info(`Process exiting with code: ${code}`)
 })
 
-export { logger, transports, LogLevel }
+export { logger, LogLevel }

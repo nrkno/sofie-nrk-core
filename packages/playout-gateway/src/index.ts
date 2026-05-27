@@ -2,6 +2,7 @@ import { Connector } from './connector'
 import { config, logPath, disableWatchdog, logLevel } from './config'
 
 import * as Winston from 'winston'
+import * as path from 'path'
 import { stringifyError } from '@sofie-automation/server-core-integration'
 
 console.log('process started') // This is a message all Sofie processes log upon startup
@@ -65,9 +66,23 @@ if (logPath) {
 		format: myFormat,
 	})
 
-	logger = Winston.createLogger({
-		transports: [transportConsole],
-	})
+	const transports: Winston.transport[] = [transportConsole]
+
+	if (process.env.ALSO_LOG_TO_FILE) {
+		const filename = path.resolve(process.env.ALSO_LOG_TO_FILE)
+		const transportFile = new Winston.transports.File({
+			level: logLevel || 'silly',
+			handleExceptions: true,
+			handleRejections: true,
+			filename,
+			// If the max size is exceeded then a new file is created, a counter will become a suffix of the log file.
+			maxsize: 10 * 1024 * 1024, // 10MB
+		})
+		transports.push(transportFile)
+		console.log(`Also logging to ${filename}`)
+	}
+
+	logger = Winston.createLogger({ transports })
 	logger.info('Logging to Console')
 
 	// Hijack console.log:
