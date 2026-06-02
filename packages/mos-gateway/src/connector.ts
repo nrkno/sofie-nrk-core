@@ -7,7 +7,6 @@ import {
 	CertificatesConfig,
 	stringifyError,
 	HealthConfig,
-	HealthEndpoints,
 	IConnector,
 } from '@sofie-automation/server-core-integration'
 
@@ -45,10 +44,6 @@ export class Connector implements IConnector {
 
 			this._logger.info('Initializing Core...')
 			await this.initCore(certificates)
-
-			if (!this.coreHandler) throw Error('coreHandler is undefined!')
-
-			new HealthEndpoints(this, this.coreHandler, config.health)
 
 			this._logger.info('Initializing Mos...')
 			await this.initMos()
