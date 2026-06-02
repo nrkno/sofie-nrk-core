@@ -7,7 +7,6 @@ import {
 	CertificatesConfig,
 	stringifyError,
 	HealthConfig,
-	HealthEndpoints,
 	IConnector,
 } from '@sofie-automation/server-core-integration'
 
