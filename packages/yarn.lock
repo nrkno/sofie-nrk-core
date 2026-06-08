@@ -6542,7 +6542,7 @@ __metadata:
   resolution: "@sofie-automation/shared-lib@workspace:shared-lib"
   dependencies:
     "@mos-connection/model": "npm:^4.3.1"
-    timeline-state-resolver-types: "npm:10.0.0-nightly-main-20260324-124919-d70070e4e.0"
+    timeline-state-resolver-types: "npm:10.0.0-nightly-fix-kairos-sceneLayer-dissolve-20260608-145401-6d4a8c815.0"
     tslib: "npm:^2.8.1"
     type-fest: "npm:^4.33.0"
   languageName: unknown
@@ -10731,14 +10731,15 @@ asn1@evs-broadcast/node-asn1:
   languageName: node
   linkType: hard
 
-"casparcg-state@npm:3.0.4":
-  version: 3.0.4
-  resolution: "casparcg-state@npm:3.0.4"
+"casparcg-state@npm:4.0.0-0-nightly-main-20260325-112946-587df8a":
+  version: 4.0.0-0-nightly-main-20260325-112946-587df8a
+  resolution: "casparcg-state@npm:4.0.0-0-nightly-main-20260325-112946-587df8a"
   dependencies:
-    casparcg-connection: "npm:6.2.0"
-    fast-clone: "npm:^1.5.13"
-    underscore: "npm:^1.13.6"
-  checksum: 10/6832057e2fc3f322c74144d78eb9e81538cf6cea411a1c518584df7cf4a08cf3f4c1344ecee0d671440afedb0f4936ac01a9bc53916f98e52a267dd620c77459
+    casparcg-connection: "npm:7.0.0-0-nightly-main-20260323-110534-d8f740e6"
+    rfdc: "npm:^1.4.1"
+    tslib: "npm:^2.8.1"
+    underscore: "npm:^1.13.8"
+  checksum: 10/63527086c1ecfaf3c590f3e5fe0f14914da0077a40945c70db09ccfe88d9d9d93b3aa9697d374b94929d8f75e2b21048361bbbe6004fe4864874c6c21f2c8b38
   languageName: node
   linkType: hard
 
@@ -23979,7 +23980,7 @@ asn1@evs-broadcast/node-asn1:
     "@types/koa__router": "npm:^12.0.4"
     debug: "npm:^4.4.0"
     influx: "npm:^5.9.7"
-    timeline-state-resolver: "npm:10.0.0-nightly-main-20260324-124919-d70070e4e.0"
+    timeline-state-resolver: "npm:10.0.0-nightly-fix-kairos-sceneLayer-dissolve-20260608-145401-6d4a8c815.0"
     tslib: "npm:^2.8.1"
     underscore: "npm:^1.13.7"
     winston: "npm:^3.17.0"
@@ -26699,6 +26700,13 @@ asn1@evs-broadcast/node-asn1:
   languageName: node
   linkType: hard
 
+"rfdc@npm:^1.4.1":
+  version: 1.4.1
+  resolution: "rfdc@npm:1.4.1"
+  checksum: 10/2f3d11d3d8929b4bfeefc9acb03aae90f971401de0add5ae6c5e38fec14f0405e6a4aad8fdb76344bfdd20c5193110e3750cbbd28ba86d73729d222b6cf4a729
+  languageName: node
+  linkType: hard
+
 "rimraf@npm:3.0.2, rimraf@npm:^3.0.0, rimraf@npm:^3.0.2":
   version: 3.0.2
   resolution: "rimraf@npm:3.0.2"
@@ -28780,37 +28788,37 @@ asn1@evs-broadcast/node-asn1:
   languageName: node
   linkType: hard
 
-"timeline-state-resolver-api@npm:10.0.0-nightly-main-20260324-124919-d70070e4e.0":
-  version: 10.0.0-nightly-main-20260324-124919-d70070e4e.0
-  resolution: "timeline-state-resolver-api@npm:10.0.0-nightly-main-20260324-124919-d70070e4e.0"
+"timeline-state-resolver-api@npm:10.0.0-nightly-fix-kairos-sceneLayer-dissolve-20260608-145401-6d4a8c815.0":
+  version: 10.0.0-nightly-fix-kairos-sceneLayer-dissolve-20260608-145401-6d4a8c815.0
+  resolution: "timeline-state-resolver-api@npm:10.0.0-nightly-fix-kairos-sceneLayer-dissolve-20260608-145401-6d4a8c815.0"
   dependencies:
     tslib: "npm:^2.8.1"
   peerDependencies:
-    timeline-state-resolver-types: 10.0.0-nightly-main-20260324-124919-d70070e4e.0
-  checksum: 10/526d47a01c22444cf916413aef6c2994fb913e9e472553383341493547b345b2afb6e361ebed8edd5702c33970f43ad8fd3f6dae00a90490efc00a0ef0d0cd0b
+    timeline-state-resolver-types: 10.0.0-nightly-fix-kairos-sceneLayer-dissolve-20260608-145401-6d4a8c815.0
+  checksum: 10/40a20fbb5d6caa81f7bb6fdfc1a6c5524a62465cc1eb3343073b70cc57434ffab0ac0eaf530afa53f927b6e60238abe3f5c0bfca6e4a6255f06d86282d65f949
   languageName: node
   linkType: hard
 
-"timeline-state-resolver-types@npm:10.0.0-nightly-main-20260324-124919-d70070e4e.0":
-  version: 10.0.0-nightly-main-20260324-124919-d70070e4e.0
-  resolution: "timeline-state-resolver-types@npm:10.0.0-nightly-main-20260324-124919-d70070e4e.0"
+"timeline-state-resolver-types@npm:10.0.0-nightly-fix-kairos-sceneLayer-dissolve-20260608-145401-6d4a8c815.0":
+  version: 10.0.0-nightly-fix-kairos-sceneLayer-dissolve-20260608-145401-6d4a8c815.0
+  resolution: "timeline-state-resolver-types@npm:10.0.0-nightly-fix-kairos-sceneLayer-dissolve-20260608-145401-6d4a8c815.0"
   dependencies:
     kairos-lib: "npm:1.0.0"
     tslib: "npm:^2.8.1"
-  checksum: 10/50e8b0286f60f97fb351c95f6b6c0942f655962f6a5be54f2a6a29e7b771d66f29ca8e74023135388801a4b2a7991b5bc790c8b3b4a05dfe867f789795ee4b7c
+  checksum: 10/5ede3cb344d4f3c78d3929dd95422951610eeab9f5da9fec2b56780aaa27dafa5e61b79b7b6d3494d030325a4b626dcd41e14da08e769c7dfed131e3f5644a8e
   languageName: node
   linkType: hard
 
-"timeline-state-resolver@npm:10.0.0-nightly-main-20260324-124919-d70070e4e.0":
-  version: 10.0.0-nightly-main-20260324-124919-d70070e4e.0
-  resolution: "timeline-state-resolver@npm:10.0.0-nightly-main-20260324-124919-d70070e4e.0"
+"timeline-state-resolver@npm:10.0.0-nightly-fix-kairos-sceneLayer-dissolve-20260608-145401-6d4a8c815.0":
+  version: 10.0.0-nightly-fix-kairos-sceneLayer-dissolve-20260608-145401-6d4a8c815.0
+  resolution: "timeline-state-resolver@npm:10.0.0-nightly-fix-kairos-sceneLayer-dissolve-20260608-145401-6d4a8c815.0"
   dependencies:
     "@tv2media/v-connection": "npm:^7.3.4"
     atem-connection: "npm:3.7.0"
     atem-state: "npm:1.3.0"
     cacheable-lookup: "npm:^5.0.4"
-    casparcg-connection: "npm:6.3.3"
-    casparcg-state: "npm:3.0.4"
+    casparcg-connection: "npm:7.0.0-0-nightly-main-20260323-110534-d8f740e6"
+    casparcg-state: "npm:4.0.0-0-nightly-main-20260325-112946-587df8a"
     debug: "npm:^4.4.3"
     deepmerge: "npm:^4.3.1"
     emberplus-connection: "npm:^0.3.1"
@@ -28828,16 +28836,16 @@ asn1@evs-broadcast/node-asn1:
     sprintf-js: "npm:^1.1.3"
     superfly-timeline: "npm:^9.2.0"
     threadedclass: "npm:^1.4.0"
-    timeline-state-resolver-api: "npm:10.0.0-nightly-main-20260324-124919-d70070e4e.0"
-    timeline-state-resolver-types: "npm:10.0.0-nightly-main-20260324-124919-d70070e4e.0"
+    timeline-state-resolver-api: "npm:10.0.0-nightly-fix-kairos-sceneLayer-dissolve-20260608-145401-6d4a8c815.0"
+    timeline-state-resolver-types: "npm:10.0.0-nightly-fix-kairos-sceneLayer-dissolve-20260608-145401-6d4a8c815.0"
     tslib: "npm:^2.8.1"
     tv-automation-quantel-gateway-client: "npm:^3.1.7"
     type-fest: "npm:^3.13.1"
     underscore: "npm:^1.13.8"
     utf-8-validate: "npm:^6.0.6"
-    ws: "npm:^8.19.0"
+    ws: "npm:^8.21.0"
     xml-js: "npm:^1.6.11"
-  checksum: 10/0096c4599521f4b0cba23752ca53a65b263f401c93e80dfa7be7e90c0436b80bab779ba8fa9f13c6aeb87997f9b77173dbe5333901957ad38d013de1baf1fb27
+  checksum: 10/cd6390f5783f7fe50efc33b5e8f197aa501a99f3dd67225491cb06decbc8bcdfa9fa3fabb02f88127137576fb650fbabe01c6fcb8482fa82b0370567272c52b1
   languageName: node
   linkType: hard
 
@@ -29682,7 +29690,7 @@ asn1@evs-broadcast/node-asn1:
   languageName: node
   linkType: hard
 
-"underscore@npm:^1.13.6, underscore@npm:^1.13.7":
+"underscore@npm:^1.13.7":
   version: 1.13.7
   resolution: "underscore@npm:1.13.7"
   checksum: 10/1ce3368dbe73d1e99678fa5d341a9682bd27316032ad2de7883901918f0f5d50e80320ccc543f53c1862ab057a818abc560462b5f83578afe2dd8dd7f779766c
@@ -31189,9 +31197,9 @@ asn1@evs-broadcast/node-asn1:
   languageName: node
   linkType: hard
 
-"ws@npm:^8.19.0":
-  version: 8.19.0
-  resolution: "ws@npm:8.19.0"
+"ws@npm:^8.21.0":
+  version: 8.21.0
+  resolution: "ws@npm:8.21.0"
   peerDependencies:
     bufferutil: ^4.0.1
     utf-8-validate: ">=5.0.2"
@@ -31200,7 +31208,7 @@ asn1@evs-broadcast/node-asn1:
       optional: true
     utf-8-validate:
       optional: true
-  checksum: 10/26e4901e93abaf73af9f26a93707c95b4845e91a7a347ec8c569e6e9be7f9df066f6c2b817b2d685544e208207898a750b78461e6e8d810c11a370771450c31b
+  checksum: 10/088411956432c8f876158409d5a285cb9ad1382f593391f51d3a599bd0a5b277f876609ebd00fc3596321c4a4c9064d6fffe1ebad960e8ea7fd9ae25324f35c2
   languageName: node
   linkType: hard
 
