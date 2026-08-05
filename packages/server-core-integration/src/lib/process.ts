@@ -1,5 +1,6 @@
 // eslint-disable-next-line node/no-extraneous-import
 import * as fs from 'fs'
+import { SomeLogger } from './types'
 
 export interface CertificatesConfig {
 	/** Will cause the Node applocation to blindly accept all certificates. Not recommenced unless in local, controlled networks. */
@@ -30,12 +31,4 @@ export function loadCertificatesFromDisk(logger: SomeLogger, certConfig: Certifi
 	}
 
 	return certificates
-}
-
-interface SomeLogger {
-	info(message: string, ...meta: any[]): void
-	error(message: string, ...meta: any[]): void
-	warn(message: string, ...meta: any[]): void
-	log(message: string, ...meta: any[]): void
-	debug(message: string, ...meta: any[]): void
 }

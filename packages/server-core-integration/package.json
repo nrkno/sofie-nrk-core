@@ -75,6 +75,7 @@
 	},
 	"dependencies": {
 		"@koa/router": "^14.0.0",
+		"@kubernetes/client-node": "^0.22.3",
 		"@sofie-automation/shared-lib": "1.52.18-nrk",
 		"ejson": "^2.2.3",
 		"faye-websocket": "^0.11.4",

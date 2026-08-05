@@ -11,6 +11,7 @@ import {
 	PeripheralDevicePubSub,
 	PeripheralDevicePubSubCollectionsNames,
 	ICoreHandler,
+	KubernetesRestarter,
 } from '@sofie-automation/server-core-integration'
 import * as Winston from 'winston'
 
@@ -43,10 +44,14 @@ export class CoreHandler implements ICoreHandler {
 	private _executedFunctions = new Set<PeripheralDeviceCommandId>()
 	private _coreConfig?: CoreConfig
 	private _certificates?: Buffer[]
+	private _k8sRestarter?: KubernetesRestarter
 
 	constructor(logger: Winston.Logger, deviceOptions: DeviceConfig) {
 		this.logger = logger
 		this._deviceOptions = deviceOptions
+		if (KubernetesRestarter.canUseK8sRestarter()) {
+			this._k8sRestarter = new KubernetesRestarter(this.logger, 'sofie-mos-gateway')
+		}
 	}
 
 	async init(config: CoreConfig, certificates: Buffer[]): Promise<void> {
@@ -316,12 +321,19 @@ export class CoreHandler implements ICoreHandler {
 			}
 		})
 	}
-	killProcess(): void {
-		this.logger.info('KillProcess command received, shutting down in 1000ms!')
-		setTimeout(() => {
-			// eslint-disable-next-line no-process-exit
-			process.exit(0)
-		}, 1000)
+	async killProcess(): Promise<boolean> {
+		this.logger.debug('KillProcess command received for mos-gateway')
+		if (this._k8sRestarter) {
+			this.logger.debug('Running on kubernetes was true, restarting deployment')
+			return await this._k8sRestarter.restartKube()
+		} else {
+			this.logger.debug('killing process in 1000ms!')
+			setTimeout(() => {
+				// eslint-disable-next-line no-process-exit
+				process.exit(0)
+			}, 1000)
+			return true
+		}
 	}
 	pingResponse(message: string): true {
 		if (!this.core) {
