@@ -6,6 +6,7 @@ export * from './lib/health'
 export * from './lib/methods'
 export * from './lib/process'
 export { SubscriptionId } from './lib/subscriptions'
+export { KubernetesRestarter } from './lib/KubernetesRestarter'
 
 // Re-export some util from shared-lib
 export * from '@sofie-automation/shared-lib/dist/lib/lib'
