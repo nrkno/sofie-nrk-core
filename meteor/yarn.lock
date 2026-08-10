@@ -1191,7 +1191,7 @@ __metadata:
   resolution: "@sofie-automation/shared-lib@portal:../packages/shared-lib::locator=automation-core%40workspace%3A."
   dependencies:
     "@mos-connection/model": "npm:^4.3.1"
-    timeline-state-resolver-types: "npm:10.0.0-nightly-fix-kairos-sceneLayer-dissolve-20260608-145401-6d4a8c815.0"
+    timeline-state-resolver-types: "npm:10.0.0-nightly-fix-black-frame-in-prod-2-20260810-101707-88b865e50.0"
     tslib: "npm:^2.8.1"
     type-fest: "npm:^4.33.0"
   languageName: node
@@ -10243,13 +10243,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"timeline-state-resolver-types@npm:10.0.0-nightly-fix-kairos-sceneLayer-dissolve-20260608-145401-6d4a8c815.0":
-  version: 10.0.0-nightly-fix-kairos-sceneLayer-dissolve-20260608-145401-6d4a8c815.0
-  resolution: "timeline-state-resolver-types@npm:10.0.0-nightly-fix-kairos-sceneLayer-dissolve-20260608-145401-6d4a8c815.0"
+"timeline-state-resolver-types@npm:10.0.0-nightly-fix-black-frame-in-prod-2-20260810-101707-88b865e50.0":
+  version: 10.0.0-nightly-fix-black-frame-in-prod-2-20260810-101707-88b865e50.0
+  resolution: "timeline-state-resolver-types@npm:10.0.0-nightly-fix-black-frame-in-prod-2-20260810-101707-88b865e50.0"
   dependencies:
     kairos-lib: "npm:1.0.0"
     tslib: "npm:^2.8.1"
-  checksum: 10/5ede3cb344d4f3c78d3929dd95422951610eeab9f5da9fec2b56780aaa27dafa5e61b79b7b6d3494d030325a4b626dcd41e14da08e769c7dfed131e3f5644a8e
+  checksum: 10/9af75f6924e36aa15de5eca3a78b6a1d5169b13685cef19bcc6ecda841227592216f4843f6de88e117d4aa3bdd6a322aaa8d021d514f0d3fd6f74b5cb8336717
   languageName: node
   linkType: hard
 

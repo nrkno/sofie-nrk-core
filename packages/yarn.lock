@@ -6565,7 +6565,7 @@ __metadata:
   resolution: "@sofie-automation/shared-lib@workspace:shared-lib"
   dependencies:
     "@mos-connection/model": "npm:^4.3.1"
-    timeline-state-resolver-types: "npm:10.0.0-nightly-fix-kairos-sceneLayer-dissolve-20260608-145401-6d4a8c815.0"
+    timeline-state-resolver-types: "npm:10.0.0-nightly-fix-black-frame-in-prod-2-20260810-101707-88b865e50.0"
     tslib: "npm:^2.8.1"
     type-fest: "npm:^4.33.0"
   languageName: unknown
@@ -24248,7 +24248,7 @@ asn1@evs-broadcast/node-asn1:
     "@types/koa__router": "npm:^12.0.4"
     debug: "npm:^4.4.0"
     influx: "npm:^5.9.7"
-    timeline-state-resolver: "npm:10.0.0-nightly-fix-kairos-sceneLayer-dissolve-20260608-145401-6d4a8c815.0"
+    timeline-state-resolver: "npm:10.0.0-nightly-fix-black-frame-in-prod-2-20260810-101707-88b865e50.0"
     tslib: "npm:^2.8.1"
     underscore: "npm:^1.13.7"
     winston: "npm:^3.17.0"
@@ -29148,30 +29148,30 @@ asn1@evs-broadcast/node-asn1:
   languageName: node
   linkType: hard
 
-"timeline-state-resolver-api@npm:10.0.0-nightly-fix-kairos-sceneLayer-dissolve-20260608-145401-6d4a8c815.0":
-  version: 10.0.0-nightly-fix-kairos-sceneLayer-dissolve-20260608-145401-6d4a8c815.0
-  resolution: "timeline-state-resolver-api@npm:10.0.0-nightly-fix-kairos-sceneLayer-dissolve-20260608-145401-6d4a8c815.0"
+"timeline-state-resolver-api@npm:10.0.0-nightly-fix-black-frame-in-prod-2-20260810-101707-88b865e50.0":
+  version: 10.0.0-nightly-fix-black-frame-in-prod-2-20260810-101707-88b865e50.0
+  resolution: "timeline-state-resolver-api@npm:10.0.0-nightly-fix-black-frame-in-prod-2-20260810-101707-88b865e50.0"
   dependencies:
     tslib: "npm:^2.8.1"
   peerDependencies:
-    timeline-state-resolver-types: 10.0.0-nightly-fix-kairos-sceneLayer-dissolve-20260608-145401-6d4a8c815.0
-  checksum: 10/40a20fbb5d6caa81f7bb6fdfc1a6c5524a62465cc1eb3343073b70cc57434ffab0ac0eaf530afa53f927b6e60238abe3f5c0bfca6e4a6255f06d86282d65f949
+    timeline-state-resolver-types: 10.0.0-nightly-fix-black-frame-in-prod-2-20260810-101707-88b865e50.0
+  checksum: 10/4cdcc3475ec68f8b4f9d96aa9bf831f4be56a94a95735189e958f51fdc2b3ad718e46b409201c7c96a551d20835e055f38f8f7a2866397943dee0e0c898bf23e
   languageName: node
   linkType: hard
 
-"timeline-state-resolver-types@npm:10.0.0-nightly-fix-kairos-sceneLayer-dissolve-20260608-145401-6d4a8c815.0":
-  version: 10.0.0-nightly-fix-kairos-sceneLayer-dissolve-20260608-145401-6d4a8c815.0
-  resolution: "timeline-state-resolver-types@npm:10.0.0-nightly-fix-kairos-sceneLayer-dissolve-20260608-145401-6d4a8c815.0"
+"timeline-state-resolver-types@npm:10.0.0-nightly-fix-black-frame-in-prod-2-20260810-101707-88b865e50.0":
+  version: 10.0.0-nightly-fix-black-frame-in-prod-2-20260810-101707-88b865e50.0
+  resolution: "timeline-state-resolver-types@npm:10.0.0-nightly-fix-black-frame-in-prod-2-20260810-101707-88b865e50.0"
   dependencies:
     kairos-lib: "npm:1.0.0"
     tslib: "npm:^2.8.1"
-  checksum: 10/5ede3cb344d4f3c78d3929dd95422951610eeab9f5da9fec2b56780aaa27dafa5e61b79b7b6d3494d030325a4b626dcd41e14da08e769c7dfed131e3f5644a8e
+  checksum: 10/9af75f6924e36aa15de5eca3a78b6a1d5169b13685cef19bcc6ecda841227592216f4843f6de88e117d4aa3bdd6a322aaa8d021d514f0d3fd6f74b5cb8336717
   languageName: node
   linkType: hard
 
-"timeline-state-resolver@npm:10.0.0-nightly-fix-kairos-sceneLayer-dissolve-20260608-145401-6d4a8c815.0":
-  version: 10.0.0-nightly-fix-kairos-sceneLayer-dissolve-20260608-145401-6d4a8c815.0
-  resolution: "timeline-state-resolver@npm:10.0.0-nightly-fix-kairos-sceneLayer-dissolve-20260608-145401-6d4a8c815.0"
+"timeline-state-resolver@npm:10.0.0-nightly-fix-black-frame-in-prod-2-20260810-101707-88b865e50.0":
+  version: 10.0.0-nightly-fix-black-frame-in-prod-2-20260810-101707-88b865e50.0
+  resolution: "timeline-state-resolver@npm:10.0.0-nightly-fix-black-frame-in-prod-2-20260810-101707-88b865e50.0"
   dependencies:
     "@tv2media/v-connection": "npm:^7.3.4"
     atem-connection: "npm:3.7.0"
@@ -29196,8 +29196,8 @@ asn1@evs-broadcast/node-asn1:
     sprintf-js: "npm:^1.1.3"
     superfly-timeline: "npm:^9.2.0"
     threadedclass: "npm:^1.4.0"
-    timeline-state-resolver-api: "npm:10.0.0-nightly-fix-kairos-sceneLayer-dissolve-20260608-145401-6d4a8c815.0"
-    timeline-state-resolver-types: "npm:10.0.0-nightly-fix-kairos-sceneLayer-dissolve-20260608-145401-6d4a8c815.0"
+    timeline-state-resolver-api: "npm:10.0.0-nightly-fix-black-frame-in-prod-2-20260810-101707-88b865e50.0"
+    timeline-state-resolver-types: "npm:10.0.0-nightly-fix-black-frame-in-prod-2-20260810-101707-88b865e50.0"
     tslib: "npm:^2.8.1"
     tv-automation-quantel-gateway-client: "npm:^3.1.7"
     type-fest: "npm:^3.13.1"
@@ -29205,7 +29205,7 @@ asn1@evs-broadcast/node-asn1:
     utf-8-validate: "npm:^6.0.6"
     ws: "npm:^8.21.0"
     xml-js: "npm:^1.6.11"
-  checksum: 10/cd6390f5783f7fe50efc33b5e8f197aa501a99f3dd67225491cb06decbc8bcdfa9fa3fabb02f88127137576fb650fbabe01c6fcb8482fa82b0370567272c52b1
+  checksum: 10/aec35d5291c9883bc1df5383bd029ea8b546ad6e06e1d8f786cc083a3471cbf7abe372e9eb58acee2f380860f314252fa5ce6f6225b2c8a86c3be7c748bb004c
   languageName: node
   linkType: hard
 
