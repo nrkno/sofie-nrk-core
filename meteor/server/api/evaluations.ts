@@ -1,26 +1,25 @@
-import { EvaluationBase } from '../../lib/collections/Evaluations'
-import { deferAsync, getCurrentTime, getRandomId, getSofieHostUrl } from '../../lib/lib'
+import { EvaluationBase } from '@sofie-automation/meteor-lib/dist/collections/Evaluations'
+import { getRandomId, getSofieHostUrl } from '@sofie-automation/corelib/dist/lib'
+import { getCurrentTime } from '../lib/lib'
+import { deferAsync } from '../lib/lib'
 import { logger } from '../logging'
 import { Meteor } from 'meteor/meteor'
-import * as _ from 'underscore'
+import _ from 'underscore'
 import { fetchStudioLight } from '../optimizations'
 import { sendSlackMessageToWebhook } from './integration/slack'
-import { OrganizationId, UserId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import { Evaluations, RundownPlaylists } from '../collections'
+import { applyAndValidateOverrides } from '@sofie-automation/corelib/dist/settings/objectWithOverrides'
+import { VerifiedRundownPlaylistForUserAction } from '../security/check'
 
 export async function saveEvaluation(
-	credentials: {
-		userId: UserId | null
-		organizationId: OrganizationId | null
-	},
+	_playlist: VerifiedRundownPlaylistForUserAction,
 	evaluation: EvaluationBase
 ): Promise<void> {
 	await Evaluations.insertAsync({
 		...evaluation,
 		_id: getRandomId(),
-		organizationId: credentials.organizationId,
-		userId: credentials.userId,
+		userId: null,
 		timestamp: getCurrentTime(),
 	})
 	logger.info({
@@ -31,8 +30,9 @@ export async function saveEvaluation(
 	deferAsync(async () => {
 		const studio = await fetchStudioLight(evaluation.studioId)
 		if (!studio) throw new Meteor.Error(500, `Studio ${evaluation.studioId} not found!`)
+		const studioSettings = applyAndValidateOverrides(studio.settingsWithOverrides).obj
 
-		const webhookUrls = _.compact((studio.settings.slackEvaluationUrls || '').split(','))
+		const webhookUrls = _.compact((studioSettings.slackEvaluationUrls || '').split(','))
 
 		if (webhookUrls.length) {
 			// Only send notes if not everything is OK
@@ -62,7 +62,7 @@ export async function saveEvaluation(
 			// only send message for evaluations with content
 			if (evaluationMessage) {
 				const playlist = (await RundownPlaylists.findOneAsync(evaluation.playlistId, {
-					fields: {
+					projection: {
 						_id: 1,
 						name: 1,
 					},

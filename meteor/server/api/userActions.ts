@@ -1,38 +1,32 @@
-import { check, Match } from '../../lib/check'
+import { check, Match } from '../lib/check'
 import { Meteor } from 'meteor/meteor'
-import { ClientAPI } from '../../lib/api/client'
-import { Time } from '../../lib/lib'
+import { ClientAPI } from '@sofie-automation/meteor-lib/dist/api/client'
+import type { Time } from '@sofie-automation/shared-lib/dist/lib/lib'
 import { ServerPlayoutAPI } from './playout/playout'
-import { NewUserActionAPI, UserActionAPIMethods } from '../../lib/api/userActions'
-import { EvaluationBase } from '../../lib/collections/Evaluations'
-import { IngestPart, IngestAdlib, ActionUserData } from '@sofie-automation/blueprints-integration'
+import { NewUserActionAPI, UserActionAPIMethods } from '@sofie-automation/meteor-lib/dist/api/userActions'
+import { EvaluationBase } from '@sofie-automation/meteor-lib/dist/collections/Evaluations'
+import { IngestPart, IngestAdlib, ActionUserData, UserOperationTarget } from '@sofie-automation/blueprints-integration'
 import { storeRundownPlaylistSnapshot } from './snapshot'
 import { registerClassToMeteorMethods, ReplaceOptionalWithNullInMethodArguments } from '../methods'
 import { ServerRundownAPI } from './rundown'
 import { saveEvaluation } from './evaluations'
-import { MediaManagerAPI } from './mediaManager'
 import { MOSDeviceActions } from './ingest/mosDevice/actions'
-import { MethodContextAPI } from '../../lib/api/methods'
+import { MethodContextAPI } from './methodContext'
 import { ServerClientAPI } from './client'
-import { OrganizationContentWriteAccess } from '../security/organization'
-import { SystemWriteAccess } from '../security/system'
-import { triggerWriteAccessBecauseNoCheckNecessary } from '../security/lib/securityVerify'
-import { Bucket } from '../../lib/collections/Buckets'
+import { triggerWriteAccessBecauseNoCheckNecessary } from '../security/securityVerify'
+import { Bucket } from '@sofie-automation/corelib/dist/dataModel/Bucket'
 import { BucketsAPI } from './buckets'
 import { BucketAdLib } from '@sofie-automation/corelib/dist/dataModel/BucketAdLibPiece'
 import { AdLibActionCommon } from '@sofie-automation/corelib/dist/dataModel/AdlibAction'
 import { BucketAdLibAction } from '@sofie-automation/corelib/dist/dataModel/BucketAdLibAction'
-import { VerifiedRundownPlaylistContentAccess } from './lib'
-import { PackageManagerAPI } from './packageManager'
+import * as PackageManagerAPI from './packageManager'
 import { ServerPeripheralDeviceAPI } from './peripheralDevice'
 import { StudioJobs } from '@sofie-automation/corelib/dist/worker/studio'
-import { PeripheralDeviceContentWriteAccess } from '../security/peripheralDevice'
-import { StudioContentWriteAccess } from '../security/studio'
-import { BucketSecurity } from '../security/buckets'
 import {
 	AdLibActionId,
+	BucketAdLibActionId,
+	BucketAdLibId,
 	BucketId,
-	MediaWorkFlowId,
 	PartId,
 	PartInstanceId,
 	PeripheralDeviceId,
@@ -46,14 +40,24 @@ import {
 	ShowStyleVariantId,
 	StudioId,
 } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { IngestDataCache, Parts, Pieces, Rundowns } from '../collections'
-import { IngestCacheType } from '@sofie-automation/corelib/dist/dataModel/IngestDataCache'
+import { NrcsIngestDataCache, Parts, Pieces, Rundowns } from '../collections'
+import { NrcsIngestCacheType } from '@sofie-automation/corelib/dist/dataModel/NrcsIngestDataCache'
 import { verifyHashedToken } from './singleUseTokens'
+import { QuickLoopMarker } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import { runIngestOperation } from './ingest/lib'
 import { IngestJobs } from '@sofie-automation/corelib/dist/worker/ingest'
+import { UserPermissions } from '@sofie-automation/meteor-lib/dist/userPermissions'
+import { assertConnectionHasOneOfPermissions } from '../security/auth'
+import { checkAccessToRundown } from '../security/check'
+import { protectString, unprotectString } from '@sofie-automation/corelib/dist/protectedString'
+
+const PERMISSIONS_FOR_PLAYOUT_USERACTION: Array<keyof UserPermissions> = ['studio']
+const PERMISSIONS_FOR_BUCKET_MODIFICATION: Array<keyof UserPermissions> = ['studio']
+const PERMISSIONS_FOR_MEDIA_MANAGEMENT: Array<keyof UserPermissions> = ['studio', 'service', 'configure']
+const PERMISSIONS_FOR_SYSTEM_ACTION: Array<keyof UserPermissions> = ['service', 'configure']
 
 async function pieceSetInOutPoints(
-	access: VerifiedRundownPlaylistContentAccess,
+	playlistId: RundownPlaylistId,
 	partId: PartId,
 	pieceId: PieceId,
 	inPoint: number,
@@ -64,14 +68,14 @@ async function pieceSetInOutPoints(
 
 	const rundown = await Rundowns.findOneAsync({
 		_id: part.rundownId,
-		playlistId: access.playlist._id,
+		playlistId: playlistId,
 	})
 	if (!rundown) throw new Meteor.Error(501, `Rundown "${part.rundownId}" not found!`)
 
-	const partCache = await IngestDataCache.findOneAsync({
+	const partCache = await NrcsIngestDataCache.findOneAsync({
 		rundownId: rundown._id,
 		partId: part._id,
-		type: IngestCacheType.PART,
+		type: NrcsIngestCacheType.PART,
 	})
 	if (!partCache) throw new Meteor.Error(404, `Part Cache for "${partId}" not found!`)
 	const piece = await Pieces.findOneAsync(pieceId)
@@ -118,8 +122,9 @@ class ServerUserActionAPI
 		userEvent: string,
 		eventTime: Time,
 		rundownPlaylistId: RundownPlaylistId,
-		nextPartId: PartId,
-		timeOffset: number | null
+		nextPartOrInstanceId: PartId | PartInstanceId,
+		timeOffset: number | null,
+		isInstance: boolean | null
 	) {
 		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
 			this,
@@ -128,12 +133,15 @@ class ServerUserActionAPI
 			rundownPlaylistId,
 			() => {
 				check(rundownPlaylistId, String)
-				check(nextPartId, String)
+				check(nextPartOrInstanceId, String)
 			},
 			StudioJobs.SetNextPart,
 			{
 				playlistId: rundownPlaylistId,
-				nextPartId,
+				nextPartId: isInstance ? undefined : protectString<PartId>(unprotectString(nextPartOrInstanceId)),
+				nextPartInstanceId: isInstance
+					? protectString<PartInstanceId>(unprotectString(nextPartOrInstanceId))
+					: undefined,
 				setManually: true,
 				nextTimeOffset: timeOffset ?? undefined,
 			}
@@ -188,7 +196,8 @@ class ServerUserActionAPI
 		eventTime: Time,
 		rundownPlaylistId: RundownPlaylistId,
 		partDelta: number,
-		segmentDelta: number
+		segmentDelta: number,
+		ignoreQuickLoop: boolean | null
 	) {
 		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
 			this,
@@ -205,6 +214,7 @@ class ServerUserActionAPI
 				playlistId: rundownPlaylistId,
 				partDelta: partDelta,
 				segmentDelta: segmentDelta,
+				ignoreQuickLoop: ignoreQuickLoop ?? undefined,
 			}
 		)
 	}
@@ -385,8 +395,8 @@ class ServerUserActionAPI
 			},
 			'pieceSetInOutPoints',
 			{ rundownPlaylistId, partId, pieceId, inPoint, duration },
-			async (access) => {
-				return pieceSetInOutPoints(access, partId, pieceId, inPoint, duration)
+			async (playlist) => {
+				return pieceSetInOutPoints(playlist._id, partId, pieceId, inPoint, duration)
 			}
 		)
 	}
@@ -394,9 +404,9 @@ class ServerUserActionAPI
 		userEvent: string,
 		eventTime: Time,
 		rundownPlaylistId: RundownPlaylistId,
-		actionDocId: AdLibActionId | RundownBaselineAdLibActionId,
+		actionDocId: AdLibActionId | RundownBaselineAdLibActionId | BucketAdLibActionId | null,
 		actionId: string,
-		userData: ActionUserData,
+		userData: ActionUserData | null,
 		triggerMode: string | null
 	) {
 		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
@@ -406,7 +416,7 @@ class ServerUserActionAPI
 			rundownPlaylistId,
 			() => {
 				check(rundownPlaylistId, String)
-				check(actionDocId, String)
+				check(actionDocId, Match.Maybe(String))
 				check(actionId, String)
 				check(userData, Match.Any)
 				check(triggerMode, Match.Maybe(String))
@@ -544,8 +554,8 @@ class ServerUserActionAPI
 				check(showStyleBaseId, String)
 				check(ingestItem, Object)
 
-				const access = await BucketSecurity.allowWriteAccess(this, bucketId)
-				return BucketsAPI.importAdlibToBucket(access, showStyleBaseId, undefined, ingestItem)
+				assertConnectionHasOneOfPermissions(this.connection, ...PERMISSIONS_FOR_BUCKET_MODIFICATION)
+				return BucketsAPI.importAdlibToBucket(bucketId, showStyleBaseId, undefined, ingestItem)
 			}
 		)
 	}
@@ -554,7 +564,7 @@ class ServerUserActionAPI
 		eventTime: Time,
 		rundownPlaylistId: RundownPlaylistId,
 		partInstanceId: PartInstanceId,
-		bucketAdlibId: PieceId,
+		bucketAdlibId: BucketAdLibId,
 		queue: boolean | null
 	) {
 		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
@@ -620,8 +630,8 @@ class ServerUserActionAPI
 			},
 			'saveEvaluation',
 			{ evaluation },
-			async (access) => {
-				return saveEvaluation(access, evaluation)
+			async (playlist) => {
+				return saveEvaluation(playlist, evaluation)
 			}
 		)
 	}
@@ -633,6 +643,9 @@ class ServerUserActionAPI
 		reason: string,
 		full: boolean
 	) {
+		if (!verifyHashedToken(hashedToken)) {
+			throw new Meteor.Error(401, `Idempotency token is invalid or has expired`)
+		}
 		return ServerClientAPI.runUserActionInLogForPlaylist(
 			this,
 			userEvent,
@@ -644,8 +657,8 @@ class ServerUserActionAPI
 			},
 			'storeRundownSnapshot',
 			{ playlistId, reason, full },
-			async (access) => {
-				return storeRundownPlaylistSnapshot(access, hashedToken, reason, full)
+			async (playlist) => {
+				return storeRundownPlaylistSnapshot(playlist, { withArchivedDocuments: full }, reason)
 			}
 		)
 	}
@@ -693,8 +706,8 @@ class ServerUserActionAPI
 			},
 			'resyncRundownPlaylist',
 			{ playlistId },
-			async (access) => {
-				return ServerRundownAPI.resyncRundownPlaylist(access)
+			async (playlist) => {
+				return ServerRundownAPI.resyncRundownPlaylist(playlist)
 			}
 		)
 	}
@@ -709,8 +722,8 @@ class ServerUserActionAPI
 			},
 			'unsyncRundown',
 			{ rundownId },
-			async (access) => {
-				return ServerRundownAPI.unsyncRundown(access)
+			async (rundown) => {
+				return ServerRundownAPI.unsyncRundown(rundown)
 			}
 		)
 	}
@@ -725,8 +738,8 @@ class ServerUserActionAPI
 			},
 			'removeRundown',
 			{ rundownId },
-			async (access) => {
-				return ServerRundownAPI.removeRundown(access)
+			async (rundown) => {
+				return ServerRundownAPI.removeRundown(rundown)
 			}
 		)
 	}
@@ -741,79 +754,8 @@ class ServerUserActionAPI
 			},
 			'resyncRundown',
 			{ rundownId },
-			async (access) => {
-				return ServerRundownAPI.resyncRundown(access)
-			}
-		)
-	}
-	async mediaRestartWorkflow(userEvent: string, eventTime: Time, workflowId: MediaWorkFlowId) {
-		return ServerClientAPI.runUserActionInLog(
-			this,
-			userEvent,
-			eventTime,
-			'mediaRestartWorkflow',
-			{ workflowId },
-			async () => {
-				check(workflowId, String)
-
-				const access = await PeripheralDeviceContentWriteAccess.mediaWorkFlow(this, workflowId)
-				return MediaManagerAPI.restartWorkflow(access)
-			}
-		)
-	}
-	async mediaAbortWorkflow(userEvent: string, eventTime: Time, workflowId: MediaWorkFlowId) {
-		return ServerClientAPI.runUserActionInLog(
-			this,
-			userEvent,
-			eventTime,
-			'mediaAbortWorkflow',
-			{ workflowId },
-			async () => {
-				check(workflowId, String)
-
-				const access = await PeripheralDeviceContentWriteAccess.mediaWorkFlow(this, workflowId)
-				return MediaManagerAPI.abortWorkflow(access)
-			}
-		)
-	}
-	async mediaPrioritizeWorkflow(userEvent: string, eventTime: Time, workflowId: MediaWorkFlowId) {
-		return ServerClientAPI.runUserActionInLog(
-			this,
-			userEvent,
-			eventTime,
-			'mediaPrioritizeWorkflow',
-			{ workflowId },
-			async () => {
-				check(workflowId, String)
-
-				const access = await PeripheralDeviceContentWriteAccess.mediaWorkFlow(this, workflowId)
-				return MediaManagerAPI.prioritizeWorkflow(access)
-			}
-		)
-	}
-	async mediaRestartAllWorkflows(userEvent: string, eventTime: Time) {
-		return ServerClientAPI.runUserActionInLog(
-			this,
-			userEvent,
-			eventTime,
-			'mediaRestartAllWorkflows',
-			{},
-			async () => {
-				const access = await OrganizationContentWriteAccess.mediaWorkFlows(this)
-				return MediaManagerAPI.restartAllWorkflows(access)
-			}
-		)
-	}
-	async mediaAbortAllWorkflows(userEvent: string, eventTime: Time) {
-		return ServerClientAPI.runUserActionInLog(
-			this,
-			userEvent,
-			eventTime,
-			'mediaAbortAllWorkflows',
-			{},
-			async () => {
-				const access = await OrganizationContentWriteAccess.mediaWorkFlows(this)
-				return MediaManagerAPI.abortAllWorkflows(access)
+			async (rundown) => {
+				return ServerRundownAPI.resyncRundown(rundown)
 			}
 		)
 	}
@@ -833,8 +775,9 @@ class ServerUserActionAPI
 				check(deviceId, String)
 				check(workId, String)
 
-				const access = await PeripheralDeviceContentWriteAccess.executeFunction(this, deviceId)
-				return PackageManagerAPI.restartExpectation(access, workId)
+				assertConnectionHasOneOfPermissions(this.connection, ...PERMISSIONS_FOR_MEDIA_MANAGEMENT)
+
+				return PackageManagerAPI.restartExpectation(deviceId, workId)
 			}
 		)
 	}
@@ -848,8 +791,9 @@ class ServerUserActionAPI
 			async () => {
 				check(studioId, String)
 
-				const access = await StudioContentWriteAccess.executeFunction(this, studioId)
-				return PackageManagerAPI.restartAllExpectationsInStudio(access)
+				assertConnectionHasOneOfPermissions(this.connection, ...PERMISSIONS_FOR_MEDIA_MANAGEMENT)
+
+				return PackageManagerAPI.restartAllExpectationsInStudio(studioId)
 			}
 		)
 	}
@@ -869,8 +813,9 @@ class ServerUserActionAPI
 				check(deviceId, String)
 				check(workId, String)
 
-				const access = await PeripheralDeviceContentWriteAccess.executeFunction(this, deviceId)
-				return PackageManagerAPI.abortExpectation(access, workId)
+				assertConnectionHasOneOfPermissions(this.connection, ...PERMISSIONS_FOR_MEDIA_MANAGEMENT)
+
+				return PackageManagerAPI.abortExpectation(deviceId, workId)
 			}
 		)
 	}
@@ -890,8 +835,9 @@ class ServerUserActionAPI
 				check(deviceId, String)
 				check(containerId, String)
 
-				const access = await PeripheralDeviceContentWriteAccess.executeFunction(this, deviceId)
-				return PackageManagerAPI.restartPackageContainer(access, containerId)
+				assertConnectionHasOneOfPermissions(this.connection, ...PERMISSIONS_FOR_MEDIA_MANAGEMENT)
+
+				return PackageManagerAPI.restartPackageContainer(deviceId, containerId)
 			}
 		)
 	}
@@ -920,14 +866,14 @@ class ServerUserActionAPI
 			async () => {
 				check(hashedToken, String)
 
-				await SystemWriteAccess.systemActions(this)
+				assertConnectionHasOneOfPermissions(this.connection, ...PERMISSIONS_FOR_SYSTEM_ACTION)
 
 				if (!verifyHashedToken(hashedToken)) {
 					throw new Meteor.Error(401, `Restart token is invalid or has expired`)
 				}
 
 				setTimeout(() => {
-					// eslint-disable-next-line no-process-exit
+					// eslint-disable-next-line n/no-process-exit
 					process.exit(0)
 				}, 3000)
 				return `Restarting Core in 3s.`
@@ -956,8 +902,8 @@ class ServerUserActionAPI
 			async () => {
 				check(bucketId, String)
 
-				const access = await BucketSecurity.allowWriteAccess(this, bucketId)
-				return BucketsAPI.removeBucket(access)
+				assertConnectionHasOneOfPermissions(this.connection, ...PERMISSIONS_FOR_BUCKET_MODIFICATION)
+				return BucketsAPI.removeBucket(bucketId)
 			}
 		)
 	}
@@ -977,8 +923,8 @@ class ServerUserActionAPI
 				check(bucketId, String)
 				check(bucketProps, Object)
 
-				const access = await BucketSecurity.allowWriteAccess(this, bucketId)
-				return BucketsAPI.modifyBucket(access, bucketProps)
+				assertConnectionHasOneOfPermissions(this.connection, ...PERMISSIONS_FOR_BUCKET_MODIFICATION)
+				return BucketsAPI.modifyBucket(bucketId, bucketProps)
 			}
 		)
 	}
@@ -992,8 +938,8 @@ class ServerUserActionAPI
 			async () => {
 				check(bucketId, String)
 
-				const access = await BucketSecurity.allowWriteAccess(this, bucketId)
-				return BucketsAPI.emptyBucket(access)
+				assertConnectionHasOneOfPermissions(this.connection, ...PERMISSIONS_FOR_BUCKET_MODIFICATION)
+				return BucketsAPI.emptyBucket(bucketId)
 			}
 		)
 	}
@@ -1008,12 +954,12 @@ class ServerUserActionAPI
 				check(studioId, String)
 				check(name, String)
 
-				const access = await StudioContentWriteAccess.bucket(this, studioId)
-				return BucketsAPI.createNewBucket(access, name)
+				assertConnectionHasOneOfPermissions(this.connection, ...PERMISSIONS_FOR_BUCKET_MODIFICATION)
+				return BucketsAPI.createNewBucket(studioId, name)
 			}
 		)
 	}
-	async bucketsRemoveBucketAdLib(userEvent: string, eventTime: Time, adlibId: PieceId) {
+	async bucketsRemoveBucketAdLib(userEvent: string, eventTime: Time, adlibId: BucketAdLibId) {
 		check(adlibId, String)
 
 		return ServerClientAPI.runUserActionInLog(
@@ -1023,12 +969,12 @@ class ServerUserActionAPI
 			'bucketsRemoveBucketAdLib',
 			{ adlibId },
 			async () => {
-				const access = await BucketSecurity.allowWriteAccessPiece(this, adlibId)
-				return BucketsAPI.removeBucketAdLib(access)
+				assertConnectionHasOneOfPermissions(this.connection, ...PERMISSIONS_FOR_BUCKET_MODIFICATION)
+				return BucketsAPI.removeBucketAdLib(adlibId)
 			}
 		)
 	}
-	async bucketsRemoveBucketAdLibAction(userEvent: string, eventTime: Time, actionId: AdLibActionId) {
+	async bucketsRemoveBucketAdLibAction(userEvent: string, eventTime: Time, actionId: BucketAdLibActionId) {
 		return ServerClientAPI.runUserActionInLog(
 			this,
 			userEvent,
@@ -1038,15 +984,15 @@ class ServerUserActionAPI
 			async () => {
 				check(actionId, String)
 
-				const access = await BucketSecurity.allowWriteAccessAction(this, actionId)
-				return BucketsAPI.removeBucketAdLibAction(access)
+				assertConnectionHasOneOfPermissions(this.connection, ...PERMISSIONS_FOR_BUCKET_MODIFICATION)
+				return BucketsAPI.removeBucketAdLibAction(actionId)
 			}
 		)
 	}
 	async bucketsModifyBucketAdLib(
 		userEvent: string,
 		eventTime: Time,
-		adlibId: PieceId,
+		adlibId: BucketAdLibId,
 		adlibProps: Partial<Omit<BucketAdLib, '_id'>>
 	) {
 		return ServerClientAPI.runUserActionInLog(
@@ -1059,15 +1005,15 @@ class ServerUserActionAPI
 				check(adlibId, String)
 				check(adlibProps, Object)
 
-				const access = await BucketSecurity.allowWriteAccessPiece(this, adlibId)
-				return BucketsAPI.modifyBucketAdLib(access, adlibProps)
+				assertConnectionHasOneOfPermissions(this.connection, ...PERMISSIONS_FOR_BUCKET_MODIFICATION)
+				return BucketsAPI.modifyBucketAdLib(adlibId, adlibProps)
 			}
 		)
 	}
 	async bucketsModifyBucketAdLibAction(
 		userEvent: string,
 		eventTime: Time,
-		actionId: AdLibActionId,
+		actionId: BucketAdLibActionId,
 		actionProps: Partial<Omit<BucketAdLibAction, '_id'>>
 	) {
 		return ServerClientAPI.runUserActionInLog(
@@ -1080,8 +1026,8 @@ class ServerUserActionAPI
 				check(actionId, String)
 				check(actionProps, Object)
 
-				const access = await BucketSecurity.allowWriteAccessAction(this, actionId)
-				return BucketsAPI.modifyBucketAdLibAction(access, actionProps)
+				assertConnectionHasOneOfPermissions(this.connection, ...PERMISSIONS_FOR_BUCKET_MODIFICATION)
+				return BucketsAPI.modifyBucketAdLibAction(actionId, actionProps)
 			}
 		)
 	}
@@ -1103,8 +1049,8 @@ class ServerUserActionAPI
 				check(bucketId, String)
 				check(action, Object)
 
-				const access = await BucketSecurity.allowWriteAccess(this, bucketId)
-				return BucketsAPI.saveAdLibActionIntoBucket(access, action)
+				assertConnectionHasOneOfPermissions(this.connection, ...PERMISSIONS_FOR_BUCKET_MODIFICATION)
+				return BucketsAPI.saveAdLibActionIntoBucket(bucketId, action)
 			}
 		)
 	}
@@ -1113,21 +1059,22 @@ class ServerUserActionAPI
 		eventTime: Time,
 		studioId: StudioId,
 		routeSetId: string,
-		state: boolean
+		state: boolean | 'toggle'
 	): Promise<ClientAPI.ClientResponse<void>> {
 		return ServerClientAPI.runUserActionInLog(
 			this,
 			userEvent,
 			eventTime,
-			'packageManagerRestartAllExpectations',
+			'switchRouteSet',
 			{ studioId, routeSetId, state },
 			async () => {
 				check(studioId, String)
 				check(routeSetId, String)
-				check(state, Boolean)
+				check(state, Match.OneOf('toggle', Boolean))
 
-				const access = await StudioContentWriteAccess.routeSet(this, studioId)
-				return ServerPlayoutAPI.switchRouteSet(access, routeSetId, state)
+				assertConnectionHasOneOfPermissions(this.connection, ...PERMISSIONS_FOR_PLAYOUT_USERACTION)
+
+				return ServerPlayoutAPI.switchRouteSet(studioId, routeSetId, state)
 			}
 		)
 	}
@@ -1193,8 +1140,13 @@ class ServerUserActionAPI
 				check(subDeviceId, String)
 				check(disable, Boolean)
 
-				const access = await PeripheralDeviceContentWriteAccess.peripheralDevice(this, peripheralDeviceId)
-				return ServerPeripheralDeviceAPI.disableSubDevice(access, subDeviceId, disable)
+				assertConnectionHasOneOfPermissions(
+					this.connection,
+					...PERMISSIONS_FOR_PLAYOUT_USERACTION,
+					...PERMISSIONS_FOR_SYSTEM_ACTION
+				)
+
+				return ServerPeripheralDeviceAPI.disableSubDevice(peripheralDeviceId, subDeviceId, disable)
 			}
 		)
 	}
@@ -1222,6 +1174,96 @@ class ServerUserActionAPI
 		)
 	}
 
+	async setQuickLoopStart(
+		userEvent: string,
+		eventTime: number,
+		playlistId: RundownPlaylistId,
+		marker: QuickLoopMarker | null
+	): Promise<ClientAPI.ClientResponse<void>> {
+		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
+			this,
+			userEvent,
+			eventTime,
+			playlistId,
+			() => {
+				check(playlistId, String)
+			},
+			StudioJobs.SetQuickLoopMarker,
+			{
+				playlistId,
+				marker,
+				type: 'start',
+			}
+		)
+	}
+
+	async setQuickLoopEnd(
+		userEvent: string,
+		eventTime: number,
+		playlistId: RundownPlaylistId,
+		marker: QuickLoopMarker | null
+	): Promise<ClientAPI.ClientResponse<void>> {
+		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
+			this,
+			userEvent,
+			eventTime,
+			playlistId,
+			() => {
+				check(playlistId, String)
+			},
+			StudioJobs.SetQuickLoopMarker,
+			{
+				playlistId,
+				marker,
+				type: 'end',
+			}
+		)
+	}
+
+	async executeUserChangeOperation(
+		userEvent: string,
+		eventTime: Time,
+		rundownId: RundownId,
+		operationTarget: UserOperationTarget,
+		operation: { id: string; [key: string]: any }
+	): Promise<ClientAPI.ClientResponse<void>> {
+		return ServerClientAPI.runUserActionInLog(
+			this,
+			userEvent,
+			eventTime,
+			'executeUserChangeOperation',
+			{ operationTarget, operation },
+			async () => {
+				const rundown = await checkAccessToRundown(this.connection, rundownId)
+
+				await runIngestOperation(rundown.studioId, IngestJobs.UserExecuteChangeOperation, {
+					rundownExternalId: rundown.externalId,
+					operationTarget,
+					operation,
+				})
+			}
+		)
+	}
+	async clearQuickLoop(
+		userEvent: string,
+		eventTime: number,
+		playlistId: RundownPlaylistId
+	): Promise<ClientAPI.ClientResponse<void>> {
+		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
+			this,
+			userEvent,
+			eventTime,
+			playlistId,
+			() => {
+				check(playlistId, String)
+			},
+			StudioJobs.ClearQuickLoopMarkers,
+			{
+				playlistId,
+			}
+		)
+	}
+
 	async createAdlibTestingRundownForShowStyleVariant(
 		userEvent: string,
 		eventTime: number,
@@ -1239,7 +1281,8 @@ class ServerUserActionAPI
 				check(studioId, String)
 				check(showStyleVariantId, String)
 
-				// TODO - checkAccessToStudio?
+				assertConnectionHasOneOfPermissions(this.connection, ...PERMISSIONS_FOR_PLAYOUT_USERACTION)
+
 				return runIngestOperation(studioId, IngestJobs.CreateAdlibTestingRundownForShowStyleVariant, {
 					showStyleVariantId,
 				})

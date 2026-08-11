@@ -1,5 +1,7 @@
-import type { NoteSeverity } from '../lib'
-import type { ITranslatableMessage } from '../translations'
+import { UserEditingDefinition, UserEditingProperties } from '../userEditing.js'
+import type { NoteSeverity } from '../lib.js'
+import type { ITranslatableMessage } from '../translations.js'
+import type { IngestPartNotifyItemReady } from '@sofie-automation/shared-lib/dist/ingest/rundownStatus'
 
 /** Timings for the inTransition, when supported and allowed */
 export interface IBlueprintPartInTransition {
@@ -54,14 +56,27 @@ export interface IBlueprintMutatablePart<TPrivateData = unknown, TPublicData = u
 	/** Expected duration of the line, in milliseconds */
 	expectedDuration?: number
 
-	/** Budget duration of this part, in milliseconds */
-	budgetDuration?: number
+	/**
+	 * How long this Part may continue after its `expectedDuration` when transitions/keepalive require overlap.
+	 *
+	 * If omitted, this is treated as `0`, so transitions/keepalive must complete by `expectedDuration`.
+	 */
+	availablePostrollDuration?: number
 
 	/** Whether this segment line supports being used in HOLD */
 	holdMode?: PartHoldMode
 
+	/** The externalId of the part as expected by the NRCS. If not set, the externalId property will be used */
+	ingestNotifyPartExternalId?: string
+
 	/** Set to true if ingest-device should be notified when this part starts playing */
 	shouldNotifyCurrentPlayingPart?: boolean
+
+	/** Whether part should be reported as ready to the ingest-device. Set to undefined/null to disable this reporting */
+	ingestNotifyPartReady?: boolean | null
+
+	/** Report items as ready to the ingest-device. Only named items will be reported, using the boolean value provided */
+	ingestNotifyItemsReady?: IngestPartNotifyItemReady[]
 
 	/** Classes to set on the TimelineGroupObj for this part */
 	classes?: string[]
@@ -85,6 +100,17 @@ export interface IBlueprintMutatablePart<TPrivateData = unknown, TPublicData = u
 
 	/** MediaObjects that when created/updated, should cause the blueprint to be rerun for the Segment of this Part */
 	hackListenToMediaObjectUpdates?: HackPartMediaObjectSubscription[]
+
+	/**
+	 * User editing definitions for this part
+	 */
+	userEditOperations?: UserEditingDefinition[]
+
+	/**
+	 * Properties that are user editable from the properties panel in the Sofie UI, if the user saves changes to these
+	 * it will trigger a user edit operation of type DefaultUserOperationEditProperties
+	 */
+	userEditProperties?: UserEditingProperties
 }
 
 export interface HackPartMediaObjectSubscription {
@@ -93,8 +119,10 @@ export interface HackPartMediaObjectSubscription {
 }
 
 /** The Part generated from Blueprint */
-export interface IBlueprintPart<TPrivateData = unknown, TPublicData = unknown>
-	extends IBlueprintMutatablePart<TPrivateData, TPublicData> {
+export interface IBlueprintPart<TPrivateData = unknown, TPublicData = unknown> extends IBlueprintMutatablePart<
+	TPrivateData,
+	TPublicData
+> {
 	/** Id of the part from the gateway if this part does not map directly to an IngestPart. This must be unique for each part */
 	externalId: string
 
@@ -154,9 +182,12 @@ export interface IBlueprintPart<TPrivateData = unknown, TPublicData = unknown>
 	/** When this part is just a filler to fill space in a segment. Generally, used with invalid: true */
 	gap?: boolean
 }
+
 /** The Part sent from Core */
-export interface IBlueprintPartDB<TPrivateData = unknown, TPublicData = unknown>
-	extends IBlueprintPart<TPrivateData, TPublicData> {
+export interface IBlueprintPartDB<TPrivateData = unknown, TPublicData = unknown> extends IBlueprintPart<
+	TPrivateData,
+	TPublicData
+> {
 	_id: string
 	/** The segment ("Title") this line belongs to */
 	segmentId: string

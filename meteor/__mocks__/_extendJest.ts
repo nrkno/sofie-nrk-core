@@ -2,9 +2,8 @@ import { UserError, UserErrorMessage } from '@sofie-automation/corelib/dist/erro
 import { Meteor } from 'meteor/meteor'
 import { clone } from '@sofie-automation/corelib/dist/lib'
 import { stringifyError } from '@sofie-automation/shared-lib/dist/lib/stringifyError'
-import '../server/api/logger'
 import _ from 'underscore'
-import { ClientAPI } from '../lib/api/client'
+import { ClientAPI } from '@sofie-automation/meteor-lib/dist/api/client'
 
 // Include this file in to get access to the extended functions
 
@@ -43,7 +42,7 @@ expect.extend({
 			received = received.error
 		}
 
-		if (UserError.isUserError(received)) {
+		if (received instanceof UserError) {
 			const expected = UserError.create(msg, args)
 			const received2 = clone(received)
 
@@ -69,10 +68,11 @@ expect.extend({
 			received = received.error
 		}
 
-		if (UserError.isUserError(received)) {
-			const pass = !!received.rawError.toString().match(regexp)
+		if (UserError.isSerializedUserErrorObject(received)) {
+			received = UserError.fromUnknown(received)
+			const pass = !!received.toString().match(regexp)
 			return {
-				message: () => `expected ${received} to match ${regexp}`,
+				message: () => `expected ${stringifyError(received)} to match ${regexp}`,
 				pass: pass,
 			}
 		} else {

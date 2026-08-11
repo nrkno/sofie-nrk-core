@@ -1,0 +1,124 @@
+/**
+ * This file contains or exports all of the 'client-side' mongo collections.
+ * Note: This includes a re-export of some collections defined in `lib` which are used by `lib` code.
+ * These are sync only and often read-only collections, for convenient use in client (minimongo) logic
+ * where async is a burden and not a benefit.
+ * The definitions must match the publications and server-collections (if applicable) that back them,
+ * and will be stronger typed in the future.
+ */
+
+import type { Blueprint } from '@sofie-automation/corelib/dist/dataModel/Blueprint'
+import type { BucketAdLibAction } from '@sofie-automation/corelib/dist/dataModel/BucketAdLibAction'
+import type { BucketAdLib } from '@sofie-automation/corelib/dist/dataModel/BucketAdLibPiece'
+import { CollectionName } from '@sofie-automation/corelib/dist/dataModel/Collections'
+import type { ExpectedPackageWorkStatus } from '@sofie-automation/corelib/dist/dataModel/ExpectedPackageWorkStatuses'
+import type { ExternalMessageQueueObj } from '@sofie-automation/corelib/dist/dataModel/ExternalMessageQueue'
+import type { PackageContainerStatusDB } from '@sofie-automation/corelib/dist/dataModel/PackageContainerStatus'
+import type { Bucket } from '@sofie-automation/corelib/dist/dataModel/Bucket'
+import { type ICoreSystem, SYSTEM_ID } from '@sofie-automation/meteor-lib/dist/collections/CoreSystem'
+import type { ICoreSystemSettings } from '@sofie-automation/shared-lib/dist/core/model/CoreSystemSettings'
+import { applyAndValidateOverrides } from '@sofie-automation/corelib/dist/settings/objectWithOverrides'
+import type { Evaluation } from '@sofie-automation/meteor-lib/dist/collections/Evaluations'
+import type { ExpectedPackageDB } from '@sofie-automation/corelib/dist/dataModel/ExpectedPackages'
+import { createSyncMongoCollection, createSyncReadOnlyMongoCollection } from './lib.js'
+import type { PeripheralDevice } from '@sofie-automation/corelib/dist/dataModel/PeripheralDevice'
+import type { RundownLayoutBase } from '@sofie-automation/meteor-lib/dist/collections/RundownLayouts'
+import type { DBShowStyleBase } from '@sofie-automation/corelib/dist/dataModel/ShowStyleBase'
+import type { DBShowStyleVariant } from '@sofie-automation/corelib/dist/dataModel/ShowStyleVariant'
+import type { SnapshotItem } from '@sofie-automation/meteor-lib/dist/collections/Snapshots'
+import type { DBStudio } from '@sofie-automation/corelib/dist/dataModel/Studio'
+import type { TranslationsBundle } from '@sofie-automation/meteor-lib/dist/collections/TranslationsBundles'
+import type { DBTriggeredActions } from '@sofie-automation/meteor-lib/dist/collections/TriggeredActions'
+import type { UserActionsLogItem } from '@sofie-automation/meteor-lib/dist/collections/UserActionsLog'
+import type { AdLibAction } from '@sofie-automation/corelib/dist/dataModel/AdlibAction'
+import type { AdLibPiece } from '@sofie-automation/corelib/dist/dataModel/AdLibPiece'
+import type { Piece } from '@sofie-automation/corelib/dist/dataModel/Piece'
+import type { PieceInstance } from '@sofie-automation/corelib/dist/dataModel/PieceInstance'
+import type { DBRundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
+import type { RundownBaselineAdLibAction } from '@sofie-automation/corelib/dist/dataModel/RundownBaselineAdLibAction'
+import type { RundownBaselineAdLibItem } from '@sofie-automation/corelib/dist/dataModel/RundownBaselineAdLibPiece'
+import type { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
+import type { DBSegment } from '@sofie-automation/corelib/dist/dataModel/Segment'
+import type { DBNotificationObj } from '@sofie-automation/corelib/dist/dataModel/Notifications'
+
+export const AdLibActions = createSyncReadOnlyMongoCollection<AdLibAction>(CollectionName.AdLibActions)
+
+export const AdLibPieces = createSyncReadOnlyMongoCollection<AdLibPiece>(CollectionName.AdLibPieces)
+
+export const Blueprints = createSyncMongoCollection<Blueprint>(CollectionName.Blueprints)
+
+export const BucketAdLibActions = createSyncReadOnlyMongoCollection<BucketAdLibAction>(
+	CollectionName.BucketAdLibActions
+)
+
+export const BucketAdLibs = createSyncReadOnlyMongoCollection<BucketAdLib>(CollectionName.BucketAdLibPieces)
+
+export const Buckets = createSyncReadOnlyMongoCollection<Bucket>(CollectionName.Buckets)
+
+export const CoreSystem = createSyncMongoCollection<ICoreSystem>(CollectionName.CoreSystem)
+
+export const Evaluations = createSyncReadOnlyMongoCollection<Evaluation>(CollectionName.Evaluations)
+
+export const ExpectedPackages = createSyncReadOnlyMongoCollection<ExpectedPackageDB>(CollectionName.ExpectedPackages)
+
+export const ExpectedPackageWorkStatuses = createSyncReadOnlyMongoCollection<ExpectedPackageWorkStatus>(
+	CollectionName.ExpectedPackageWorkStatuses
+)
+
+export const ExternalMessageQueue = createSyncReadOnlyMongoCollection<ExternalMessageQueueObj>(
+	CollectionName.ExternalMessageQueue
+)
+
+export const Notifications = createSyncReadOnlyMongoCollection<DBNotificationObj>(CollectionName.Notifications)
+
+export const PackageContainerStatuses = createSyncReadOnlyMongoCollection<PackageContainerStatusDB>(
+	CollectionName.PackageContainerStatuses
+)
+
+export const PeripheralDevices = createSyncMongoCollection<PeripheralDevice>(CollectionName.PeripheralDevices)
+
+export const PieceInstances = createSyncReadOnlyMongoCollection<PieceInstance>(CollectionName.PieceInstances)
+
+export const Pieces = createSyncReadOnlyMongoCollection<Piece>(CollectionName.Pieces)
+
+export const RundownBaselineAdLibActions = createSyncReadOnlyMongoCollection<RundownBaselineAdLibAction>(
+	CollectionName.RundownBaselineAdLibActions
+)
+
+export const RundownBaselineAdLibPieces = createSyncReadOnlyMongoCollection<RundownBaselineAdLibItem>(
+	CollectionName.RundownBaselineAdLibPieces
+)
+
+export const RundownLayouts = createSyncMongoCollection<RundownLayoutBase>(CollectionName.RundownLayouts)
+
+export const RundownPlaylists = createSyncReadOnlyMongoCollection<DBRundownPlaylist>(CollectionName.RundownPlaylists)
+
+export const Rundowns = createSyncReadOnlyMongoCollection<DBRundown>(CollectionName.Rundowns)
+
+export const Segments = createSyncReadOnlyMongoCollection<DBSegment>(CollectionName.Segments)
+
+export const ShowStyleBases = createSyncMongoCollection<DBShowStyleBase>(CollectionName.ShowStyleBases)
+
+export const ShowStyleVariants = createSyncMongoCollection<DBShowStyleVariant>(CollectionName.ShowStyleVariants)
+
+export const Snapshots = createSyncMongoCollection<SnapshotItem>(CollectionName.Snapshots)
+
+export const Studios = createSyncMongoCollection<DBStudio>(CollectionName.Studios)
+
+export const TranslationsBundles = createSyncReadOnlyMongoCollection<TranslationsBundle>(
+	CollectionName.TranslationsBundles
+)
+
+export const TriggeredActions = createSyncMongoCollection<DBTriggeredActions>(CollectionName.TriggeredActions)
+
+export const UserActionsLog = createSyncReadOnlyMongoCollection<UserActionsLogItem>(CollectionName.UserActionsLog)
+
+export function getCoreSystem(): ICoreSystem | undefined {
+	return CoreSystem.findOne(SYSTEM_ID)
+}
+
+/** Returns the resolved (overrides applied) CoreSystem settings, or undefined if the CoreSystem document is not available. */
+export function getCoreSystemSettings(): ICoreSystemSettings | undefined {
+	const core = CoreSystem.findOne(SYSTEM_ID, { projection: { settingsWithOverrides: 1 } })
+	return core && applyAndValidateOverrides(core.settingsWithOverrides).obj
+}

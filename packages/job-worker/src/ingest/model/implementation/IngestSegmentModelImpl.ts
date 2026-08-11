@@ -1,17 +1,24 @@
-import { PartId, SegmentId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import { PartId, RundownId, SegmentId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { ReadonlyDeep } from 'type-fest'
 import { DBSegment, SegmentOrphanedReason } from '@sofie-automation/corelib/dist/dataModel/Segment'
-import { IngestReplacePartType, IngestSegmentModel } from '../IngestSegmentModel'
-import _ = require('underscore')
-import { IngestPartModelImpl } from './IngestPartModelImpl'
-import { IngestPartModel } from '../IngestPartModel'
+import { IngestReplacePartType, IngestSegmentModel } from '../IngestSegmentModel.js'
+import _ from 'underscore'
+import { IngestPartModelImpl } from './IngestPartModelImpl.js'
+import { IngestPartModel } from '../IngestPartModel.js'
 import { AdLibAction } from '@sofie-automation/corelib/dist/dataModel/AdlibAction'
 import { AdLibPiece } from '@sofie-automation/corelib/dist/dataModel/AdLibPiece'
 import { DBPart } from '@sofie-automation/corelib/dist/dataModel/Part'
 import { Piece } from '@sofie-automation/corelib/dist/dataModel/Piece'
 import { calculatePartExpectedDurationWithTransition } from '@sofie-automation/corelib/dist/playout/timings'
 import { clone } from '@sofie-automation/corelib/dist/lib'
-import { getPartId } from '../../lib'
+import { getPartId } from '../../lib.js'
+import {
+	ExpectedPackageDBType,
+	ExpectedPackageIngestSourceAdlibAction,
+	ExpectedPackageIngestSourcePart,
+	ExpectedPackageIngestSourcePiece,
+} from '@sofie-automation/corelib/dist/dataModel/ExpectedPackages'
+import { ExpectedPackageCollector, type IngestExpectedPackage } from '../IngestExpectedPackage.js'
 
 /**
  * A light wrapper around the IngestPartModel, so that we can track the deletions while still accessing the contents
@@ -207,7 +214,7 @@ export class IngestSegmentModelImpl implements IngestSegmentModel {
 	replacePart(
 		rawPart: IngestReplacePartType,
 		pieces: Piece[],
-		adLibPiece: AdLibPiece[],
+		adLibPieces: AdLibPiece[],
 		adLibActions: AdLibAction[]
 	): IngestPartModel {
 		const part: DBPart = {
@@ -224,15 +231,23 @@ export class IngestSegmentModelImpl implements IngestSegmentModel {
 
 		const oldPart = this.partsImpl.get(part._id)
 
+		const expectedPackages = generateExpectedPackagesForPart(
+			part.rundownId,
+			part.segmentId,
+			part._id,
+			pieces,
+			adLibPieces,
+			adLibActions
+		)
+
 		const partModel = new IngestPartModelImpl(
 			!oldPart,
 			clone(part),
 			clone(pieces),
-			clone(adLibPiece),
+			clone(adLibPieces),
 			clone(adLibActions),
 			[],
-			[],
-			[]
+			expectedPackages
 		)
 		partModel.setOwnerIds(this.segment.rundownId, this.segment._id)
 
@@ -242,4 +257,49 @@ export class IngestSegmentModelImpl implements IngestSegmentModel {
 
 		return partModel
 	}
+}
+
+function generateExpectedPackagesForPart(
+	rundownId: RundownId,
+	segmentId: SegmentId,
+	partId: PartId,
+	pieces: Piece[],
+	adLibPieces: AdLibPiece[],
+	adLibActions: AdLibAction[]
+): IngestExpectedPackage<ExpectedPackageIngestSourcePart>[] {
+	const collector = new ExpectedPackageCollector<ExpectedPackageIngestSourcePart>(rundownId)
+
+	// This expects to generate multiple documents with the same packageId, these get deduplicated during saving.
+	// This should only concern itself with avoiding duplicates with the same source
+
+	// Populate the ingestSources
+	for (const piece of pieces) {
+		if (piece.expectedPackages)
+			collector.addPackagesWithSource<ExpectedPackageIngestSourcePiece>(piece.expectedPackages, {
+				fromPieceType: ExpectedPackageDBType.PIECE,
+				pieceId: piece._id,
+				partId: partId,
+				segmentId: segmentId,
+			})
+	}
+	for (const piece of adLibPieces) {
+		if (piece.expectedPackages)
+			collector.addPackagesWithSource<ExpectedPackageIngestSourcePiece>(piece.expectedPackages, {
+				fromPieceType: ExpectedPackageDBType.ADLIB_PIECE,
+				pieceId: piece._id,
+				partId: partId,
+				segmentId: segmentId,
+			})
+	}
+	for (const piece of adLibActions) {
+		if (piece.expectedPackages)
+			collector.addPackagesWithSource<ExpectedPackageIngestSourceAdlibAction>(piece.expectedPackages, {
+				fromPieceType: ExpectedPackageDBType.ADLIB_ACTION,
+				pieceId: piece._id,
+				partId: partId,
+				segmentId: segmentId,
+			})
+	}
+
+	return collector.finish()
 }

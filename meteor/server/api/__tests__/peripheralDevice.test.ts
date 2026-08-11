@@ -6,25 +6,14 @@ import {
 	PeripheralDeviceType,
 } from '@sofie-automation/corelib/dist/dataModel/PeripheralDevice'
 import { EmptyPieceTimelineObjectsBlob } from '@sofie-automation/corelib/dist/dataModel/Piece'
-import {
-	getCurrentTime,
-	literal,
-	protectString,
-	ProtectedString,
-	getRandomId,
-	LogLevel,
-	getRandomString,
-} from '../../../lib/lib'
-import { testInFiber, waitUntil } from '../../../__mocks__/helpers/jest'
+import { literal, getRandomId, getRandomString } from '@sofie-automation/corelib/dist/lib'
+import { LogLevel } from '@sofie-automation/meteor-lib/dist/lib'
+import { protectString, ProtectedString } from '@sofie-automation/corelib/dist/protectedString'
+import { getCurrentTime } from '../../lib/lib'
+import { waitUntil } from '../../../__mocks__/helpers/jest'
 import { setupDefaultStudioEnvironment, DefaultEnvironment } from '../../../__mocks__/helpers/database'
 import { setLogLevel } from '../../logging'
-import {
-	IngestDeviceSettings,
-	IngestDeviceSecretSettings,
-} from '@sofie-automation/corelib/dist/dataModel/PeripheralDeviceSettings/ingestDevice'
-import { MediaWorkFlow } from '@sofie-automation/shared-lib/dist/core/model/MediaWorkFlows'
-import { MediaWorkFlowStep } from '@sofie-automation/shared-lib/dist/core/model/MediaWorkFlowSteps'
-import { MediaManagerAPI } from '../../../lib/api/mediaManager'
+import { IngestDeviceSecretSettings } from '@sofie-automation/corelib/dist/dataModel/PeripheralDeviceSettings/ingestDevice'
 import { MediaObject } from '@sofie-automation/shared-lib/dist/core/model/MediaObjects'
 import {
 	IBlueprintPieceType,
@@ -38,7 +27,7 @@ jest.mock('../../api/deviceTriggers/observer')
 
 import '../peripheralDevice'
 import { OnTimelineTriggerTimeProps, StudioJobFunc, StudioJobs } from '@sofie-automation/corelib/dist/worker/studio'
-import { MeteorCall } from '../../../lib/api/methods'
+import { MeteorCall } from '../methods'
 import { PeripheralDeviceForDevice } from '@sofie-automation/shared-lib/dist/core/model/peripheralDevice'
 import {
 	PeripheralDeviceInitOptions,
@@ -49,8 +38,6 @@ import { RundownId, RundownPlaylistId, SegmentId } from '@sofie-automation/corel
 import { PeripheralDeviceAPIMethods } from '@sofie-automation/shared-lib/dist/peripheralDevice/methodsAPI'
 import {
 	MediaObjects,
-	MediaWorkFlows,
-	MediaWorkFlowSteps,
 	Parts,
 	PeripheralDeviceCommands,
 	PeripheralDevices,
@@ -91,6 +78,7 @@ describe('test peripheralDevice general API methods', () => {
 				type: PlaylistTimingType.None,
 			},
 			rundownIdsInOrder: [rundownID],
+			tTimers: [] as any,
 		})
 		await Rundowns.mutableCollection.insertAsync({
 			_id: rundownID,
@@ -114,7 +102,6 @@ describe('test peripheralDevice general API methods', () => {
 				peripheralDeviceId: env.ingestDevice._id,
 				nrcsName: 'mockNRCS',
 			},
-			organizationId: protectString(''),
 			timing: {
 				type: PlaylistTimingType.None,
 			},
@@ -127,7 +114,6 @@ describe('test peripheralDevice general API methods', () => {
 			_rank: 0,
 			rundownId: rundownID,
 			name: 'Fire',
-			externalModified: 1,
 		})
 		await Parts.mutableCollection.insertAsync({
 			_id: protectString('part000'),
@@ -171,7 +157,6 @@ describe('test peripheralDevice general API methods', () => {
 			externalId: 'segment01',
 			rundownId: rundownID,
 			name: 'Water',
-			externalModified: 1,
 		})
 		await Segments.mutableCollection.insertAsync({
 			_id: protectString('segment2'),
@@ -179,7 +164,6 @@ describe('test peripheralDevice general API methods', () => {
 			externalId: 'segment02',
 			rundownId: rundownID,
 			name: 'Earth',
-			externalModified: 1,
 		})
 	})
 	beforeEach(async () => {
@@ -187,7 +171,7 @@ describe('test peripheralDevice general API methods', () => {
 		QueueStudioJobSpy.mockClear()
 	})
 
-	testInFiber('initialize', async () => {
+	test('initialize', async () => {
 		if (DEBUG) setLogLevel(LogLevel.DEBUG)
 
 		expect(await PeripheralDevices.findOneAsync(device._id)).toBeTruthy()
@@ -212,14 +196,14 @@ describe('test peripheralDevice general API methods', () => {
 		expect(initDevice.subType).toBe(options.subType)
 	})
 
-	testInFiber('setStatus', async () => {
+	test('setStatus', async () => {
 		expect(await PeripheralDevices.findOneAsync(device._id)).toBeTruthy()
 		expect(((await PeripheralDevices.findOneAsync(device._id)) as PeripheralDevice).status).toMatchObject({
 			statusCode: StatusCode.GOOD,
 		})
 		await MeteorCall.peripheralDevice.setStatus(device._id, device.token, {
 			statusCode: StatusCode.WARNING_MINOR,
-			messages: ["Something's not right"],
+			statusDetails: [{ message: "Something's not right" }],
 		})
 		expect(((await PeripheralDevices.findOneAsync(device._id)) as PeripheralDevice).status).toMatchObject({
 			statusCode: StatusCode.WARNING_MINOR,
@@ -227,7 +211,7 @@ describe('test peripheralDevice general API methods', () => {
 		})
 	})
 
-	testInFiber('getPeripheralDevice', async () => {
+	test('getPeripheralDevice', async () => {
 		const gotDevice: PeripheralDeviceForDevice = await MeteorCall.peripheralDevice.getPeripheralDevice(
 			device._id,
 			device.token
@@ -236,7 +220,7 @@ describe('test peripheralDevice general API methods', () => {
 		expect(gotDevice._id).toBe(device._id)
 	})
 
-	testInFiber('ping', async () => {
+	test('ping', async () => {
 		jest.useFakeTimers()
 		const EPOCH = 10000
 		jest.setSystemTime(EPOCH)
@@ -263,7 +247,7 @@ describe('test peripheralDevice general API methods', () => {
 		jest.useRealTimers()
 	})
 
-	testInFiber('determineDiffTime', async () => {
+	test('determineDiffTime', async () => {
 		const response = await MeteorCall.peripheralDevice.determineDiffTime()
 		expect(response).toBeTruthy()
 		expect(Math.abs(response.mean - 400)).toBeLessThan(10) // be about 400
@@ -271,7 +255,7 @@ describe('test peripheralDevice general API methods', () => {
 		expect(response.stdDev).toBeGreaterThan(0.1)
 	})
 
-	testInFiber('getTimeDiff', async () => {
+	test('getTimeDiff', async () => {
 		const response = await MeteorCall.peripheralDevice.getTimeDiff()
 		const now = getCurrentTime()
 		expect(response).toBeTruthy()
@@ -283,14 +267,14 @@ describe('test peripheralDevice general API methods', () => {
 		expect(response.good).toBeDefined()
 	})
 
-	testInFiber('getTime', async () => {
+	test('getTime', async () => {
 		const response = await MeteorCall.peripheralDevice.getTime()
 		const now = getCurrentTime()
 		expect(response).toBeGreaterThan(now - 30)
 		expect(response).toBeLessThan(now + 30)
 	})
 
-	testInFiber('pingWithCommand and functionReply', async () => {
+	test('pingWithCommand and functionReply', async () => {
 		jest.useFakeTimers()
 		const EPOCH = 10000
 		jest.setSystemTime(EPOCH)
@@ -339,7 +323,7 @@ describe('test peripheralDevice general API methods', () => {
 		expect(resultMessage).toBeUndefined()
 
 		const replyMessage = 'Waving back!'
-		Meteor.call(
+		await Meteor.callAsync(
 			PeripheralDeviceAPIMethods.functionReply,
 			device._id,
 			device.token,
@@ -367,7 +351,7 @@ describe('test peripheralDevice general API methods', () => {
 		jest.useRealTimers()
 	})
 
-	testInFiber('playoutPlaybackChanged', async () => {
+	test('playoutPlaybackChanged', async () => {
 		if (DEBUG) setLogLevel(LogLevel.DEBUG)
 
 		QueueStudioJobSpy.mockImplementation(async () => CreateFakeResult(Promise.resolve(null)))
@@ -422,7 +406,7 @@ describe('test peripheralDevice general API methods', () => {
 		expect(QueueStudioJobSpy).toHaveBeenNthCalledWith(
 			1,
 			StudioJobs.OnPlayoutPlaybackChanged,
-			device.studioId,
+			device.studioAndConfigId!.studioId,
 			literal<Parameters<StudioJobFunc[StudioJobs.OnPlayoutPlaybackChanged]>[0]>({
 				playlistId: rundownPlaylistID,
 				changes: [
@@ -465,7 +449,7 @@ describe('test peripheralDevice general API methods', () => {
 		)
 	})
 
-	testInFiber('timelineTriggerTime', async () => {
+	test('timelineTriggerTime', async () => {
 		if (DEBUG) setLogLevel(LogLevel.DEBUG)
 
 		QueueStudioJobSpy.mockImplementation(async () => CreateFakeResult(Promise.resolve(null)))
@@ -484,14 +468,14 @@ describe('test peripheralDevice general API methods', () => {
 		expect(QueueStudioJobSpy).toHaveBeenNthCalledWith(
 			1,
 			StudioJobs.OnTimelineTriggerTime,
-			device.studioId,
+			device.studioAndConfigId!.studioId,
 			literal<OnTimelineTriggerTimeProps>({
 				results: timelineTriggerTimeResult,
 			})
 		)
 	})
 
-	testInFiber('killProcess with a rundown present', async () => {
+	test('killProcess with a rundown present', async () => {
 		// test this does not shutdown because Rundown stored
 		if (DEBUG) setLogLevel(LogLevel.DEBUG)
 		SupressLogMessages.suppressLogMessage(/Unable to run killProcess/i)
@@ -501,7 +485,7 @@ describe('test peripheralDevice general API methods', () => {
 		)
 	})
 
-	testInFiber('testMethod', async () => {
+	test('testMethod', async () => {
 		if (DEBUG) setLogLevel(LogLevel.DEBUG)
 		const result = await MeteorCall.peripheralDevice.testMethod(device._id, device.token, 'european')
 		expect(result).toBe('european')
@@ -512,7 +496,7 @@ describe('test peripheralDevice general API methods', () => {
 	})
 
 	/*
-	testInFiber('timelineTriggerTime', () => {
+	test('timelineTriggerTime', () => {
 		if (DEBUG) setLogLevel(LogLevel.DEBUG)
 		let timelineTriggerTimeResult: PeripheralDeviceAPI.TimelineTriggerTimeResult = [
 			{ id: 'wibble', time: getCurrentTime() }, { id: 'wobble', time: getCurrentTime() - 100 }]
@@ -520,7 +504,7 @@ describe('test peripheralDevice general API methods', () => {
 	})
 	*/
 
-	testInFiber('requestUserAuthToken', async () => {
+	test('requestUserAuthToken', async () => {
 		if (DEBUG) setLogLevel(LogLevel.DEBUG)
 
 		SupressLogMessages.suppressLogMessage(/can only request user auth token/i)
@@ -546,7 +530,7 @@ describe('test peripheralDevice general API methods', () => {
 	})
 
 	// Should only really work for SpreadsheetDevice
-	testInFiber('storeAccessToken', async () => {
+	test('storeAccessToken', async () => {
 		if (DEBUG) setLogLevel(LogLevel.DEBUG)
 		SupressLogMessages.suppressLogMessage(/can only store access token/i)
 		await expect(
@@ -566,10 +550,10 @@ describe('test peripheralDevice general API methods', () => {
 		expect((deviceWithSecretToken.secretSettings as IngestDeviceSecretSettings).accessToken).toBe(
 			'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 		)
-		expect((deviceWithSecretToken.settings as IngestDeviceSettings).secretAccessToken).toBe(true)
+		expect(deviceWithSecretToken.secretSettingsStatus?.accessToken).toBe(true)
 	})
 
-	testInFiber('uninitialize', async () => {
+	test('uninitialize', async () => {
 		if (DEBUG) setLogLevel(LogLevel.DEBUG)
 		await MeteorCall.peripheralDevice.unInitialize(device._id, device.token)
 		expect(await PeripheralDevices.findOneAsync({})).toBeFalsy()
@@ -579,7 +563,7 @@ describe('test peripheralDevice general API methods', () => {
 	})
 
 	// Note: this test fails, due to a backwards-compatibility hack in #c579c8f0
-	// testInFiber('initialize with bad arguments', () => {
+	// test('initialize with bad arguments', () => {
 	// 	let options: PeripheralDeviceInitOptions = {
 	// 		category: PeripheralDeviceCategory.INGEST,
 	// 		type: PeripheralDeviceType.MOS,
@@ -600,7 +584,7 @@ describe('test peripheralDevice general API methods', () => {
 	// 	}
 	// })
 
-	// testInFiber('setStatus with bad arguments', () => {
+	// test('setStatus with bad arguments', () => {
 	// 	try {
 	// 		Meteor.call(PeripheralDeviceAPIMethods.setStatus, 'wibbly', device.token, { statusCode: 0 })
 	// 		fail('expected to throw')
@@ -623,176 +607,18 @@ describe('test peripheralDevice general API methods', () => {
 	// 	}
 	// })
 
-	testInFiber('removePeripheralDevice', async () => {
+	test('removePeripheralDevice', async () => {
 		{
 			const deviceObj = await PeripheralDevices.findOneAsync(device?._id)
 			expect(deviceObj).toBeDefined()
 
-			await MeteorCall.peripheralDevice.removePeripheralDevice(device?._id)
+			await MeteorCall.peripheralDevice.removePeripheralDevice(device._id)
 		}
 
 		{
 			const deviceObj = await PeripheralDevices.findOneAsync(device?._id)
 			expect(deviceObj).toBeUndefined()
 		}
-	})
-
-	// test MediaManagerIntegration API
-	describe('Media Manager API', () => {
-		let workFlowId: ProtectedString<any>
-		let workStepIds: ProtectedString<any>[]
-		let deviceId: ProtectedString<any>
-		let device: PeripheralDevice
-		beforeEach(async () => {
-			workFlowId = getRandomId()
-			workStepIds = [getRandomId(), getRandomId()]
-			deviceId = getRandomId()
-			env = await setupDefaultStudioEnvironment()
-			await PeripheralDevices.insertAsync({
-				_id: deviceId,
-				organizationId: null,
-				name: 'Mock Media Manager',
-				deviceName: 'Media Manager',
-				studioId: env.studio._id,
-				settings: {},
-				category: PeripheralDeviceCategory.MEDIA_MANAGER,
-				configManifest: {
-					deviceConfigSchema: JSONBlobStringify({}),
-					subdeviceManifest: {},
-				},
-				connected: true,
-				connectionId: '0',
-				created: 0,
-				lastConnected: 0,
-				lastSeen: 0,
-				status: {
-					statusCode: StatusCode.GOOD,
-				},
-				subType: '_process',
-				token: 'MockToken',
-				type: PeripheralDeviceType.MEDIA_MANAGER,
-			})
-			device = (await PeripheralDevices.findOneAsync(deviceId))!
-			await MediaWorkFlows.insertAsync({
-				_id: workFlowId,
-				_rev: '1',
-				created: 0,
-				deviceId: device._id,
-				priority: 1,
-				source: 'MockSource',
-				studioId: device.studioId!,
-				finished: false,
-				success: false,
-			})
-			await MediaWorkFlowSteps.insertAsync({
-				_id: workStepIds[0],
-				_rev: '1',
-				criticalStep: false,
-				action: MediaManagerAPI.WorkStepAction.COPY,
-				deviceId: device._id,
-				priority: 2,
-				status: MediaManagerAPI.WorkStepStatus.IDLE,
-				studioId: device.studioId!,
-				workFlowId: workFlowId,
-			})
-			await MediaWorkFlowSteps.insertAsync({
-				_id: workStepIds[1],
-				_rev: '1',
-				criticalStep: false,
-				action: MediaManagerAPI.WorkStepAction.GENERATE_METADATA,
-				deviceId: device._id,
-				priority: 1,
-				status: MediaManagerAPI.WorkStepStatus.IDLE,
-				studioId: device.studioId!,
-				workFlowId: workFlowId,
-			})
-		})
-		testInFiber('getMediaWorkFlowRevisions', async () => {
-			const workFlows = (
-				await MediaWorkFlows.findFetchAsync({
-					studioId: device.studioId,
-				})
-			).map((wf) => ({
-				_id: wf._id,
-				_rev: wf._rev,
-			}))
-			expect(workFlows.length).toBeGreaterThan(0)
-			const res = await MeteorCall.peripheralDevice.getMediaWorkFlowRevisions(device._id, device.token)
-			expect(res).toHaveLength(workFlows.length)
-			expect(res).toMatchObject(workFlows)
-		})
-		testInFiber('getMediaWorkFlowStepRevisions', async () => {
-			const workFlowSteps = (
-				await MediaWorkFlowSteps.findFetchAsync({
-					studioId: device.studioId,
-				})
-			).map((wf) => ({
-				_id: wf._id,
-				_rev: wf._rev,
-			}))
-			expect(workFlowSteps.length).toBeGreaterThan(0)
-			const res = await MeteorCall.peripheralDevice.getMediaWorkFlowStepRevisions(device._id, device.token)
-			expect(res).toHaveLength(workFlowSteps.length)
-			expect(res).toMatchObject(workFlowSteps)
-		})
-		describe('updateMediaWorkFlow', () => {
-			testInFiber('update', async () => {
-				const workFlow = await MediaWorkFlows.findOneAsync(workFlowId)
-
-				expect(workFlow).toBeTruthy()
-				const newWorkFlow = Object.assign({}, workFlow)
-				newWorkFlow._rev = '2'
-				newWorkFlow.comment = 'New comment'
-
-				await MeteorCall.peripheralDevice.updateMediaWorkFlow(
-					device._id,
-					device.token,
-					newWorkFlow._id,
-					newWorkFlow
-				)
-
-				const updatedWorkFlow = await MediaWorkFlows.findOneAsync(workFlowId)
-				expect(updatedWorkFlow).toMatchObject(newWorkFlow)
-			})
-			testInFiber('remove', async () => {
-				const workFlow = (await MediaWorkFlows.findOneAsync(workFlowId)) as MediaWorkFlow
-				expect(workFlow).toBeTruthy()
-
-				await MeteorCall.peripheralDevice.updateMediaWorkFlow(device._id, device.token, workFlow._id, null)
-
-				const updatedWorkFlow = await MediaWorkFlows.findOneAsync(workFlowId)
-				expect(updatedWorkFlow).toBeFalsy()
-			})
-		})
-		describe('updateMediaWorkFlowStep', () => {
-			testInFiber('update', async () => {
-				const workStep = await MediaWorkFlowSteps.findOneAsync(workStepIds[0])
-
-				expect(workStep).toBeTruthy()
-				const newWorkStep = Object.assign({}, workStep)
-				newWorkStep._rev = '2'
-				newWorkStep.status = MediaManagerAPI.WorkStepStatus.WORKING
-
-				await MeteorCall.peripheralDevice.updateMediaWorkFlowStep(
-					device._id,
-					device.token,
-					newWorkStep._id,
-					newWorkStep
-				)
-
-				const updatedWorkFlow = await MediaWorkFlowSteps.findOneAsync(workStepIds[0])
-				expect(updatedWorkFlow).toMatchObject(newWorkStep)
-			})
-			testInFiber('remove', async () => {
-				const workStep = (await MediaWorkFlowSteps.findOneAsync(workStepIds[0])) as MediaWorkFlowStep
-				expect(workStep).toBeTruthy()
-
-				await MeteorCall.peripheralDevice.updateMediaWorkFlowStep(device._id, device.token, workStep._id, null)
-
-				const updatedWorkFlow = await MediaWorkFlowSteps.findOneAsync(workStepIds[0])
-				expect(updatedWorkFlow).toBeFalsy()
-			})
-		})
 	})
 
 	// test Media Scanner API
@@ -806,12 +632,13 @@ describe('test peripheralDevice general API methods', () => {
 			env = await setupDefaultStudioEnvironment()
 			await PeripheralDevices.insertAsync({
 				_id: deviceId,
-				organizationId: null,
 				name: 'Mock Media Manager',
 				deviceName: 'Media Manager',
-				studioId: env.studio._id,
-				settings: {},
-				category: PeripheralDeviceCategory.MEDIA_MANAGER,
+				studioAndConfigId: {
+					studioId: env.studio._id,
+					configId: 'test',
+				},
+				category: PeripheralDeviceCategory.PLAYOUT,
 				configManifest: {
 					deviceConfigSchema: JSONBlobStringify({}),
 					subdeviceManifest: {},
@@ -823,10 +650,11 @@ describe('test peripheralDevice general API methods', () => {
 				lastSeen: 0,
 				status: {
 					statusCode: StatusCode.GOOD,
+					statusDetails: [],
 				},
 				subType: '_process',
 				token: 'MockToken',
-				type: PeripheralDeviceType.MEDIA_MANAGER,
+				type: PeripheralDeviceType.PLAYOUT,
 			})
 			device = (await PeripheralDevices.findOneAsync(deviceId))!
 
@@ -844,16 +672,16 @@ describe('test peripheralDevice general API methods', () => {
 				mediaSize: 10,
 				mediaTime: 0,
 				objId: MOCK_OBJID,
-				studioId: device.studioId!,
+				studioId: device.studioAndConfigId!.studioId,
 				thumbSize: 0,
 				thumbTime: 0,
 				tinf: '',
 			})
 		})
-		testInFiber('getMediaObjectRevisions', async () => {
+		test('getMediaObjectRevisions', async () => {
 			const mobjects = (
 				await MediaObjects.findFetchAsync({
-					studioId: device.studioId,
+					studioId: device.studioAndConfigId!.studioId,
 				})
 			).map((mo) => ({
 				_id: mo._id,
@@ -871,10 +699,10 @@ describe('test peripheralDevice general API methods', () => {
 			expect(mobjects).toMatchObject(mobjects)
 		})
 		describe('updateMediaObject', () => {
-			testInFiber('update', async () => {
+			test('update', async () => {
 				const mo = (await MediaObjects.findOneAsync({
 					collectionId: MOCK_COLLECTION,
-					studioId: device.studioId!,
+					studioId: device.studioAndConfigId!.studioId,
 				})) as MediaObject
 				expect(mo).toBeTruthy()
 
@@ -892,14 +720,14 @@ describe('test peripheralDevice general API methods', () => {
 
 				const updateMo = await MediaObjects.findOneAsync({
 					collectionId: MOCK_COLLECTION,
-					studioId: device.studioId!,
+					studioId: device.studioAndConfigId!.studioId,
 				})
 				expect(updateMo).toMatchObject(newMo)
 			})
-			testInFiber('remove', async () => {
+			test('remove', async () => {
 				const mo = (await MediaObjects.findOneAsync({
 					collectionId: MOCK_COLLECTION,
-					studioId: device.studioId!,
+					studioId: device.studioAndConfigId!.studioId,
 				})) as MediaObject
 				expect(mo).toBeTruthy()
 
@@ -913,7 +741,7 @@ describe('test peripheralDevice general API methods', () => {
 
 				const updateMo = await MediaObjects.findOneAsync({
 					collectionId: MOCK_COLLECTION,
-					studioId: device.studioId!,
+					studioId: device.studioAndConfigId!.studioId,
 				})
 				expect(updateMo).toBeFalsy()
 			})

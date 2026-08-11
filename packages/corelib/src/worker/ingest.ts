@@ -1,19 +1,25 @@
 import {
-	AdLibActionId,
 	BucketAdLibActionId,
+	BucketAdLibId,
 	BucketId,
 	ExpectedPackageId,
-	PieceId,
+	PartId,
 	RundownId,
 	SegmentId,
 	ShowStyleBaseId,
 	ShowStyleVariantId,
 	StudioId,
-} from '../dataModel/Ids'
+} from '../dataModel/Ids.js'
 import type { MOS } from '@sofie-automation/shared-lib/dist/mos'
-import { IngestAdlib, IngestPart, IngestRundown, IngestSegment } from '@sofie-automation/blueprints-integration'
-import { BucketAdLibAction } from '../dataModel/BucketAdLibAction'
-import { RundownSource } from '../dataModel/Rundown'
+import {
+	IngestAdlib,
+	IngestPart,
+	IngestRundown,
+	IngestSegment,
+	UserOperationTarget,
+} from '@sofie-automation/blueprints-integration'
+import { BucketAdLibAction } from '../dataModel/BucketAdLibAction.js'
+import { RundownSource } from '../dataModel/Rundown.js'
 
 export enum IngestJobs {
 	/**
@@ -100,10 +106,6 @@ export enum IngestJobs {
 	MosSwapStory = 'mosSwapStory',
 
 	/**
-	 * Debug: Regenerate ExpectedPackages for a Rundown
-	 */
-	ExpectedPackagesRegenerate = 'expectedPackagesRegenerate',
-	/**
 	 * Some PackageInfos have been updated, regenerate any Parts which depend on these PackageInfos
 	 */
 	PackageInfosUpdatedRundown = 'packageInfosUpdatedRundown',
@@ -116,6 +118,16 @@ export enum IngestJobs {
 	 * User requested unsyncing a rundown
 	 */
 	UserUnsyncRundown = 'userUnsyncRundown',
+
+	/**
+	 * User executed a change operation
+	 */
+	UserExecuteChangeOperation = 'userExecuteChangeOperation',
+
+	/**
+	 * Playout executed a change operation
+	 */
+	PlayoutExecuteChangeOperation = 'playoutExecuteChangeOperation',
 
 	// For now these are in this queue, but if this gets split up to be per rundown, then a single bucket queue will be needed
 	BucketItemImport = 'bucketItemImport',
@@ -219,9 +231,6 @@ export interface MosSwapStoryProps extends IngestPropsBase {
 	story1: MOS.IMOSString128
 }
 
-export interface ExpectedPackagesRegenerateProps {
-	rundownId: RundownId
-}
 export interface PackageInfosUpdatedRundownProps extends IngestPropsBase {
 	packageIds: ExpectedPackageId[]
 }
@@ -233,6 +242,17 @@ export interface UserRemoveRundownProps extends UserRundownPropsBase {
 	force?: boolean
 }
 export type UserUnsyncRundownProps = UserRundownPropsBase
+
+export interface UserExecuteChangeOperationProps extends IngestPropsBase {
+	operationTarget: UserOperationTarget
+	operation: { id: string; [key: string]: any }
+}
+
+export interface PlayoutExecuteChangeOperationProps extends IngestPropsBase {
+	segmentId: SegmentId | null
+	partId: PartId | null
+	operation: unknown
+}
 
 export interface BucketItemImportProps {
 	bucketId: BucketId
@@ -252,14 +272,14 @@ export interface BucketActionModifyProps {
 	props: Partial<Omit<BucketAdLibAction, '_id'>>
 }
 export interface BucketPieceModifyProps {
-	pieceId: PieceId
+	pieceId: BucketAdLibId
 	props: Partial<Omit<BucketAdLibAction, '_id'>>
 }
 export interface BucketRemoveAdlibPieceProps {
-	pieceId: PieceId
+	pieceId: BucketAdLibId
 }
 export interface BucketRemoveAdlibActionProps {
-	actionId: AdLibActionId
+	actionId: BucketAdLibActionId
 }
 export interface BucketEmptyProps {
 	bucketId: BucketId
@@ -275,7 +295,7 @@ export interface CreateAdlibTestingRundownForShowStyleVariantProps {
  */
 export type IngestJobFunc = {
 	[IngestJobs.RemoveRundown]: (data: IngestRemoveRundownProps) => void
-	[IngestJobs.UpdateRundown]: (data: IngestUpdateRundownProps) => RundownId
+	[IngestJobs.UpdateRundown]: (data: IngestUpdateRundownProps) => void
 	[IngestJobs.UpdateRundownMetaData]: (data: IngestUpdateRundownMetaDataProps) => void
 	[IngestJobs.RemoveSegment]: (data: IngestRemoveSegmentProps) => void
 	[IngestJobs.UpdateSegment]: (data: IngestUpdateSegmentProps) => void
@@ -297,11 +317,12 @@ export type IngestJobFunc = {
 	[IngestJobs.MosMoveStory]: (data: MosMoveStoryProps) => void
 	[IngestJobs.MosSwapStory]: (data: MosSwapStoryProps) => void
 
-	[IngestJobs.ExpectedPackagesRegenerate]: (data: ExpectedPackagesRegenerateProps) => void
 	[IngestJobs.PackageInfosUpdatedRundown]: (data: PackageInfosUpdatedRundownProps) => void
 
 	[IngestJobs.UserRemoveRundown]: (data: UserRemoveRundownProps) => void
 	[IngestJobs.UserUnsyncRundown]: (data: UserUnsyncRundownProps) => void
+	[IngestJobs.UserExecuteChangeOperation]: (data: UserExecuteChangeOperationProps) => void
+	[IngestJobs.PlayoutExecuteChangeOperation]: (data: PlayoutExecuteChangeOperationProps) => void
 
 	[IngestJobs.BucketItemImport]: (data: BucketItemImportProps) => void
 	[IngestJobs.BucketItemRegenerate]: (data: BucketItemRegenerateProps) => void

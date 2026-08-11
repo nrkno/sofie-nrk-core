@@ -5,8 +5,11 @@ import {
 	TimelineObjectCoreExt,
 	SomeContent,
 } from '@sofie-automation/blueprints-integration'
-import { ProtectedString, protectString, unprotectString } from '../protectedString'
-import { PieceId, RundownId, SegmentId, PartId } from './Ids'
+import { ProtectedString, protectString, unprotectString } from '../protectedString.js'
+import { PieceId, RundownId, SegmentId, PartId } from './Ids.js'
+import { CoreUserEditingDefinition, CoreUserEditingProperties } from './UserEditingDefinitions.js'
+import { IOutputLayerExtended, ISourceLayerExtended } from './ShowStyleBase.js'
+import { PieceInstanceWithTimings } from '../playout/processAndPrune.js'
 
 /** A generic list of playback availability statuses for a Piece */
 export enum PieceStatusCode {
@@ -49,8 +52,17 @@ export interface PieceGeneric extends Omit<IBlueprintPieceGeneric, 'content'> {
 	/** Stringified timelineObjects */
 	timelineObjectsString: PieceTimelineObjectsBlob
 }
+export interface Piece
+	extends PieceGeneric, Omit<IBlueprintPieceDB, '_id' | 'content' | 'userEditOperations' | 'userEditProperties'> {
+	/** Timeline enabler. When the piece should be active on the timeline. */
+	enable: {
+		start: number | 'now' // TODO - now will be removed from this eventually, but as it is not an acceptable value 99% of the time, that is not really breaking
+		duration?: number
 
-export interface Piece extends PieceGeneric, Omit<IBlueprintPieceDB, '_id' | 'content'> {
+		// Some pieces can be timed to be absolute (using wall time) rather than relative to the part
+		isAbsolute?: boolean
+	}
+
 	/**
 	 * This is the id of the rundown this piece starts playing in.
 	 * Currently this is the only rundown the piece could be playing in
@@ -60,18 +72,53 @@ export interface Piece extends PieceGeneric, Omit<IBlueprintPieceDB, '_id' | 'co
 	 * This is the id of the segment this piece starts playing in.
 	 * It is the only segment the piece could be playing in, unless the piece has a lifespan which spans beyond the segment
 	 */
-	startSegmentId: SegmentId
+	startSegmentId: SegmentId | null
 	/**
 	 * This is the id of the part this piece starts playing in.
 	 * If the lifespan is WithinPart, it is the only part the piece could be playing in.
 	 */
-	startPartId: PartId
+	startPartId: PartId | null
 
 	/** Whether this piece is a special piece */
 	pieceType: IBlueprintPieceType
 
 	/** This is set when the part is invalid and these pieces should be ignored */
 	invalid: boolean
+
+	/**
+	 * User editing definitions for this piece
+	 */
+	userEditOperations?: CoreUserEditingDefinition[]
+
+	/**
+	 * Properties that are user editable from the properties panel in the Sofie UI, if the user saves changes to these
+	 * it will trigger a user edit operation of type DefaultUserOperationEditProperties
+	 */
+	userEditProperties?: CoreUserEditingProperties
+}
+
+export interface PieceExtended {
+	instance: PieceInstanceWithTimings
+
+	/** Source layer that this piece belongs to */
+	sourceLayer?: ISourceLayerExtended
+	/** Output layer that this part uses */
+	outputLayer?: IOutputLayerExtended
+	/** Position in timeline, relative to the beginning of the Part */
+	renderedInPoint: number | null
+	/** Duration in timeline */
+	renderedDuration: number | null
+	/** If set, the item was cropped in runtime by another item following it */
+	cropped?: boolean
+	/** Maximum width of a label so as not to appear underneath the following item */
+	maxLabelWidth?: number
+	/** If this piece has a "buddy" piece in the preceeding part, then it's not neccessary to display it's left label */
+	hasOriginInPreceedingPart?: boolean
+}
+
+export interface PieceUi extends PieceExtended {
+	/** This item has already been linked to the parent item of the spanning item group */
+	linked?: boolean
 }
 
 export type PieceTimelineObjectsBlob = ProtectedString<'PieceTimelineObjectsBlob'>

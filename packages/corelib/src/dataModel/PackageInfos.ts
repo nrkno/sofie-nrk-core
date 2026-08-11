@@ -1,7 +1,6 @@
 import { PackageInfo, Time } from '@sofie-automation/blueprints-integration'
-import { protectString } from '../protectedString'
-import { ExpectedPackageDB } from './ExpectedPackages'
-import { ExpectedPackageId, PackageInfoId, PeripheralDeviceId, StudioId } from './Ids'
+import { protectString } from '../protectedString.js'
+import { ExpectedPackageId, PackageInfoId, PeripheralDeviceId, StudioId } from './Ids.js'
 
 /**
  * The PackageInfos collection contains information related to Packages.
@@ -14,7 +13,7 @@ export interface PackageInfoDB extends PackageInfo.Base {
 	/** Reference to the Package this document has info about */
 	packageId: ExpectedPackageId
 	/** Reference to the contentVersionHash of the ExpectedPackage, used to reference the expected content+version of the Package */
-	expectedContentVersionHash: ExpectedPackageDB['contentVersionHash']
+	expectedContentVersionHash: string
 	/** Referring to the actual contentVersionHash of the Package, used to reference the exact content+version of the Package */
 	actualContentVersionHash: string
 

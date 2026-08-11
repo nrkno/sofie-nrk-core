@@ -2,6 +2,7 @@ import {
 	IActionExecutionContext,
 	IDataStoreActionExecutionContext,
 	IBlueprintMutatablePart,
+	IBlueprintMutatablePartInstance,
 	IBlueprintPart,
 	IBlueprintPartInstance,
 	IBlueprintPiece,
@@ -13,22 +14,34 @@ import {
 	Time,
 	TSR,
 	IBlueprintPlayoutDevice,
+	StudioRouteSet,
+	IBlueprintSegmentDB,
 } from '@sofie-automation/blueprints-integration'
 import { PartInstanceId, PeripheralDeviceId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { ReadonlyDeep } from 'type-fest'
-import { PlayoutModel } from '../../playout/model/PlayoutModel'
-import { UserContextInfo } from './CommonContext'
-import { ShowStyleUserContext } from './ShowStyleUserContext'
-import { WatchedPackagesHelper } from './watchedPackages'
-import { getCurrentTime } from '../../lib'
-import { protectString } from '@sofie-automation/corelib/dist/protectedString'
-import { JobContext, ProcessedShowStyleCompound } from '../../jobs'
-import { moveNextPart } from '../../playout/moveNextPart'
-import { ProcessedShowStyleConfig } from '../config'
+import { PlayoutModel } from '../../playout/model/PlayoutModel.js'
+import { ContextInfo } from './CommonContext.js'
+import { ShowStyleUserContext } from './ShowStyleUserContext.js'
+import { WatchedPackagesHelper } from './watchedPackages.js'
+import { getCurrentTime } from '../../lib/index.js'
+import { JobContext, ProcessedShowStyleCompound } from '../../jobs/index.js'
+import { selectNewPartWithOffsets } from '../../playout/moveNextPart.js'
+import { ProcessedShowStyleConfig } from '../config.js'
 import { DatastorePersistenceMode } from '@sofie-automation/shared-lib/dist/core/model/TimelineDatastore'
-import { getDatastoreId } from '../../playout/datastore'
-import { executePeripheralDeviceAction, listPlayoutDevices } from '../../peripheralDevice'
-import { ActionPartChange, PartAndPieceInstanceActionService } from './services/PartAndPieceInstanceActionService'
+import { removeTimelineDatastoreValue, setTimelineDatastoreValue } from '../../playout/datastore.js'
+import { executePeripheralDeviceAction, listPlayoutDevices } from '../../peripheralDevice.js'
+import {
+	ActionPartChange,
+	PartAndPieceInstanceActionService,
+	QueueablePartAndPieces,
+} from './services/PartAndPieceInstanceActionService.js'
+import { BlueprintQuickLookInfo } from '@sofie-automation/blueprints-integration/dist/context/quickLoopInfo'
+import { setNextPartFromPart } from '../../playout/setNext.js'
+import { getOrderedPartsAfterPlayhead } from '../../playout/lookahead/util.js'
+import { convertPartToBlueprints, emitIngestOperation } from './lib.js'
+import { IPlaylistTTimer } from '@sofie-automation/blueprints-integration/dist/context/tTimersContext'
+import { TTimersService } from './services/TTimersService.js'
+import type { RundownTTimerIndex } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/TTimers'
 
 export class DatastoreActionExecutionContext
 	extends ShowStyleUserContext
@@ -37,7 +50,7 @@ export class DatastoreActionExecutionContext
 	protected readonly _context: JobContext
 
 	constructor(
-		contextInfo: UserContextInfo,
+		contextInfo: ContextInfo,
 		context: JobContext,
 		showStyle: ReadonlyDeep<ProcessedShowStyleCompound>,
 		watchedPackages: WatchedPackagesHelper
@@ -47,28 +60,11 @@ export class DatastoreActionExecutionContext
 	}
 
 	async setTimelineDatastoreValue(key: string, value: unknown, mode: DatastorePersistenceMode): Promise<void> {
-		const studioId = this._context.studioId
-		const id = protectString(`${studioId}_${key}`)
-		const collection = this._context.directCollections.TimelineDatastores
-
-		await collection.replace({
-			_id: id,
-			studioId: studioId,
-
-			key,
-			value,
-
-			modified: Date.now(),
-			mode,
-		})
+		await setTimelineDatastoreValue(this._context, key, value, mode)
 	}
 
 	async removeTimelineDatastoreValue(key: string): Promise<void> {
-		const studioId = this._context.studioId
-		const id = getDatastoreId(studioId, key)
-		const collection = this._context.directCollections.TimelineDatastores
-
-		await collection.remove({ _id: id })
+		await removeTimelineDatastoreValue(this._context, key)
 	}
 
 	getCurrentTime(): number {
@@ -78,7 +74,27 @@ export class DatastoreActionExecutionContext
 
 /** Actions */
 export class ActionExecutionContext extends ShowStyleUserContext implements IActionExecutionContext, IEventContext {
-	public takeAfterExecute: boolean
+	readonly #tTimersService: TTimersService
+
+	/**
+	 * Whether the blueprints requested a take to be performed at the end of this action
+	 * */
+	public takeAfterExecute = false
+	/**
+	 * Whether the blueprints performed an action that explicitly requires the timeline to be regenerated
+	 * This isn't the only indicator that it should be regenerated
+	 */
+	public forceRegenerateTimeline = false
+
+	public partToQueueAfterTake: QueueablePartAndPieces | undefined
+
+	public get quickLoopInfo(): BlueprintQuickLookInfo | null {
+		return this.partAndPieceInstanceService.quickLoopInfo
+	}
+
+	public get isRehearsal(): boolean {
+		return this._playoutModel.playlist.rehearsal ?? false
+	}
 
 	public get currentPartState(): ActionPartChange {
 		return this.partAndPieceInstanceService.currentPartState
@@ -93,7 +109,7 @@ export class ActionExecutionContext extends ShowStyleUserContext implements IAct
 	}
 
 	constructor(
-		contextInfo: UserContextInfo,
+		contextInfo: ContextInfo,
 		private readonly _context: JobContext,
 		private readonly _playoutModel: PlayoutModel,
 		showStyle: ReadonlyDeep<ProcessedShowStyleCompound>,
@@ -102,7 +118,11 @@ export class ActionExecutionContext extends ShowStyleUserContext implements IAct
 		private readonly partAndPieceInstanceService: PartAndPieceInstanceActionService
 	) {
 		super(contextInfo, _context, showStyle, watchedPackages)
-		this.takeAfterExecute = false
+		this.#tTimersService = TTimersService.withPlayoutModel(_playoutModel, _context)
+	}
+
+	async getUpcomingParts(limit: number = 5): Promise<ReadonlyDeep<IBlueprintPart[]>> {
+		return getOrderedPartsAfterPlayhead(this._context, this._playoutModel, limit).map(convertPartToBlueprints)
 	}
 
 	async getPartInstance(part: 'current' | 'next'): Promise<IBlueprintPartInstance | undefined> {
@@ -115,6 +135,10 @@ export class ActionExecutionContext extends ShowStyleUserContext implements IAct
 
 	async getResolvedPieceInstances(part: 'current' | 'next'): Promise<IBlueprintResolvedPieceInstance[]> {
 		return this.partAndPieceInstanceService.getResolvedPieceInstances(part)
+	}
+
+	async getSegment(segment: 'current' | 'next'): Promise<IBlueprintSegmentDB | undefined> {
+		return this.partAndPieceInstanceService.getSegment(segment)
 	}
 
 	async findLastPieceOnLayer(
@@ -161,26 +185,51 @@ export class ActionExecutionContext extends ShowStyleUserContext implements IAct
 		return this.partAndPieceInstanceService.queuePart(rawPart, rawPieces)
 	}
 
-	async moveNextPart(partDelta: number, segmentDelta: number): Promise<void> {
-		await moveNextPart(this._context, this._playoutModel, partDelta, segmentDelta)
+	queuePartAfterTake(rawPart: IBlueprintPart, rawPieces: IBlueprintPiece[]): void {
+		const currentPartInstance = this._playoutModel.currentPartInstance
+		if (!currentPartInstance) {
+			throw new Error('Cannot queue part when no current partInstance')
+		}
+		this.partToQueueAfterTake = this.partAndPieceInstanceService.processPartAndPiecesToQueueOrFail(
+			rawPart,
+			rawPieces,
+			this._playoutModel.currentPartInstance.partInstance.rundownId,
+			this._playoutModel.currentPartInstance.partInstance.segmentId
+		)
+	}
+
+	async moveNextPart(partDelta: number, segmentDelta: number, ignoreQuickloop?: boolean): Promise<boolean> {
+		const selectedPart = selectNewPartWithOffsets(
+			this._context,
+			this._playoutModel,
+			partDelta,
+			segmentDelta,
+			ignoreQuickloop
+		)
+		if (selectedPart) {
+			await setNextPartFromPart(this._context, this._playoutModel, selectedPart, true)
+			return true
+		}
+		return false
 	}
 
 	async updatePartInstance(
 		part: 'current' | 'next',
-		props: Partial<IBlueprintMutatablePart>
+		props: Partial<IBlueprintMutatablePart>,
+		instanceProps: Partial<IBlueprintMutatablePartInstance> = {}
 	): Promise<IBlueprintPartInstance> {
-		return this.partAndPieceInstanceService.updatePartInstance(part, props)
+		return this.partAndPieceInstanceService.updatePartInstance(part, props, instanceProps)
 	}
 
-	async stopPiecesOnLayers(sourceLayerIds: string[], timeOffset?: number | undefined): Promise<string[]> {
+	async stopPiecesOnLayers(sourceLayerIds: string[], timeOffset?: number): Promise<string[]> {
 		return this.partAndPieceInstanceService.stopPiecesOnLayers(sourceLayerIds, timeOffset)
 	}
 
-	async stopPieceInstances(pieceInstanceIds: string[], timeOffset?: number | undefined): Promise<string[]> {
+	async stopPieceInstances(pieceInstanceIds: string[], timeOffset?: number): Promise<string[]> {
 		return this.partAndPieceInstanceService.stopPieceInstances(pieceInstanceIds, timeOffset)
 	}
 
-	async removePieceInstances(part: 'next', pieceInstanceIds: string[]): Promise<string[]> {
+	async removePieceInstances(part: 'current' | 'next', pieceInstanceIds: string[]): Promise<string[]> {
 		return this.partAndPieceInstanceService.removePieceInstances(part, pieceInstanceIds)
 	}
 
@@ -202,6 +251,16 @@ export class ActionExecutionContext extends ShowStyleUserContext implements IAct
 		partInstance.blockTakeUntil(time)
 	}
 
+	async listRouteSets(): Promise<Record<string, StudioRouteSet>> {
+		// Discard ReadonlyDeep wrapper
+		return this._context.studio.routeSets as Record<string, StudioRouteSet>
+	}
+
+	async switchRouteSet(routeSetId: string, state: boolean | 'toggle'): Promise<void> {
+		const affectsTimeline = this._playoutModel.switchRouteSet(routeSetId, state)
+		this.forceRegenerateTimeline = this.forceRegenerateTimeline || affectsTimeline
+	}
+
 	async hackGetMediaObjectDuration(mediaId: string): Promise<number | undefined> {
 		return this.partAndPieceInstanceService.hackGetMediaObjectDuration(mediaId)
 	}
@@ -213,41 +272,36 @@ export class ActionExecutionContext extends ShowStyleUserContext implements IAct
 	async executeTSRAction(
 		deviceId: PeripheralDeviceId,
 		actionId: string,
-		payload: Record<string, any>
+		payload: Record<string, any>,
+		timeoutMs?: number
 	): Promise<TSR.ActionExecutionResult> {
-		return executePeripheralDeviceAction(this._context, deviceId, null, actionId, payload)
+		return executePeripheralDeviceAction(this._context, deviceId, timeoutMs ?? null, actionId, payload)
 	}
 
 	async setTimelineDatastoreValue(key: string, value: unknown, mode: DatastorePersistenceMode): Promise<void> {
-		const studioId = this._context.studioId
-		const id = protectString(`${studioId}_${key}`)
-		const collection = this._context.directCollections.TimelineDatastores
-
 		this._playoutModel.deferAfterSave(async () => {
-			await collection.replace({
-				_id: id,
-				studioId: studioId,
-
-				key,
-				value,
-
-				modified: Date.now(),
-				mode,
-			})
+			await setTimelineDatastoreValue(this._context, key, value, mode)
 		})
 	}
 
 	async removeTimelineDatastoreValue(key: string): Promise<void> {
-		const studioId = this._context.studioId
-		const id = getDatastoreId(studioId, key)
-		const collection = this._context.directCollections.TimelineDatastores
-
 		this._playoutModel.deferAfterSave(async () => {
-			await collection.remove({ _id: id })
+			await removeTimelineDatastoreValue(this._context, key)
 		})
+	}
+
+	async emitIngestOperation(operation: unknown): Promise<void> {
+		await emitIngestOperation(this._context, this._playoutModel, operation)
 	}
 
 	getCurrentTime(): number {
 		return getCurrentTime()
+	}
+
+	getTimer(index: RundownTTimerIndex): IPlaylistTTimer {
+		return this.#tTimersService.getTimer(index)
+	}
+	clearAllTimers(): void {
+		this.#tTimersService.clearAllTimers()
 	}
 }

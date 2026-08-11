@@ -17,6 +17,7 @@ import {
 	ShowStyleBlueprintManifest,
 	StudioBlueprintManifest,
 } from '@sofie-automation/blueprints-integration'
+import type { IStudioSettings } from '@sofie-automation/shared-lib/dist/core/model/StudioSettings'
 import {
 	RundownId,
 	RundownPlaylistId,
@@ -29,35 +30,41 @@ import { clone } from '@sofie-automation/corelib/dist/lib'
 import { protectString } from '@sofie-automation/corelib/dist/protectedString'
 import { EventsJobFunc } from '@sofie-automation/corelib/dist/worker/events'
 import { IngestJobFunc } from '@sofie-automation/corelib/dist/worker/ingest'
-import { StudioJobFunc } from '@sofie-automation/corelib/dist/worker/studio'
+import { StudioJobFunc, StudioJobs } from '@sofie-automation/corelib/dist/worker/studio'
 import { ReadonlyDeep } from 'type-fest'
-import { WrappedShowStyleBlueprint, WrappedStudioBlueprint } from '../blueprints/cache'
+import { WrappedShowStyleBlueprint, WrappedStudioBlueprint } from '../blueprints/cache.js'
 import {
 	ProcessedShowStyleConfig,
 	ProcessedStudioConfig,
 	preprocessShowStyleConfig,
 	preprocessStudioConfig,
-} from '../blueprints/config'
-import { IDirectCollections } from '../db'
+} from '../blueprints/config.js'
+import { IDirectCollections } from '../db/index.js'
 import {
 	ApmSpan,
 	JobContext,
+	JobStudio,
 	ProcessedShowStyleBase,
 	ProcessedShowStyleCompound,
 	ProcessedShowStyleVariant,
-} from '../jobs'
-import { PlaylistLock, RundownLock } from '../jobs/lock'
-import { BaseModel } from '../modelBase'
-import { createShowStyleCompound } from '../showStyles'
-import { IMockCollections, getMockCollections } from './collection'
-// import _ = require('underscore')
+	QueueJobOptions,
+} from '../jobs/index.js'
+import { PlaylistLock, RundownLock } from '../jobs/lock.js'
+import { BaseModel } from '../modelBase.js'
+import { createShowStyleCompound } from '../showStyles.js'
+import { IMockCollections, getMockCollections } from './collection.js'
+// import _ from 'underscore'
 import { TimelineComplete } from '@sofie-automation/corelib/dist/dataModel/Timeline'
 import { JSONBlobStringify } from '@sofie-automation/shared-lib/dist/lib/JSONBlob'
-import { removeRundownPlaylistFromDb } from '../ingest/__tests__/lib'
-import { processShowStyleBase, processShowStyleVariant } from '../jobs/showStyle'
-import { defaultStudio } from './defaultCollectionObjects'
+import { removeRundownPlaylistFromDb } from '../ingest/__tests__/lib.js'
+import { processShowStyleBase, processShowStyleVariant } from '../jobs/showStyle.js'
+import { defaultStudio } from './defaultCollectionObjects.js'
+import { convertStudioToJobStudio } from '../jobs/studio.js'
 
-export function setupDefaultJobEnvironment(studioId?: StudioId): MockJobContext {
+export function setupDefaultJobEnvironment(
+	studioId?: StudioId,
+	studioSettings?: Partial<IStudioSettings>
+): MockJobContext {
 	const { mockCollections, jobCollections } = getMockCollections()
 
 	// We don't bother 'saving' this to the db, as usually nothing will load it
@@ -68,6 +75,16 @@ export function setupDefaultJobEnvironment(studioId?: StudioId): MockJobContext 
 		blueprintId: protectString('studioBlueprint0'),
 	}
 
+	if (studioSettings) {
+		studio.settingsWithOverrides = {
+			...studio.settingsWithOverrides,
+			defaults: {
+				...studio.settingsWithOverrides.defaults,
+				...studioSettings,
+			},
+		}
+	}
+
 	return new MockJobContext(jobCollections, mockCollections, studio)
 }
 
@@ -75,6 +92,7 @@ export class MockJobContext implements JobContext {
 	#jobCollections: Readonly<IDirectCollections>
 	#mockCollections: Readonly<IMockCollections>
 	#studio: ReadonlyDeep<DBStudio>
+	#jobStudio: ReadonlyDeep<JobStudio>
 
 	#studioBlueprint: ReadonlyDeep<StudioBlueprintManifest>
 	#showStyleBlueprint: ReadonlyDeep<ShowStyleBlueprintManifest>
@@ -87,6 +105,7 @@ export class MockJobContext implements JobContext {
 		this.#jobCollections = jobCollections
 		this.#mockCollections = mockCollections
 		this.#studio = studio
+		this.#jobStudio = convertStudioToJobStudio(clone<DBStudio>(studio))
 
 		this.#studioBlueprint = MockStudioBlueprint()
 		this.#showStyleBlueprint = MockShowStyleBlueprint()
@@ -103,7 +122,10 @@ export class MockJobContext implements JobContext {
 	get studioId(): StudioId {
 		return this.#studio._id
 	}
-	get studio(): ReadonlyDeep<DBStudio> {
+	get studio(): ReadonlyDeep<JobStudio> {
+		return this.#jobStudio
+	}
+	get rawStudio(): ReadonlyDeep<DBStudio> {
 		return this.#studio
 	}
 
@@ -146,9 +168,14 @@ export class MockJobContext implements JobContext {
 		throw new Error('Method not implemented.')
 	}
 	async queueStudioJob<T extends keyof StudioJobFunc>(
-		_name: T,
-		_data: Parameters<StudioJobFunc[T]>[0]
+		name: T,
+		_data: Parameters<StudioJobFunc[T]>[0],
+		_options?: QueueJobOptions
 	): Promise<void> {
+		// Silently ignore the cleanup job - it's a background task that doesn't need to run in tests
+		if (name === StudioJobs.CleanupOrphanedExpectedPackageReferences) {
+			return
+		}
 		throw new Error('Method not implemented.')
 	}
 	async queueEventJob<T extends keyof EventsJobFunc>(
@@ -219,10 +246,22 @@ export class MockJobContext implements JobContext {
 		}
 	}
 	getShowStyleBlueprintConfig(showStyle: ReadonlyDeep<ProcessedShowStyleCompound>): ProcessedShowStyleConfig {
-		return preprocessShowStyleConfig(showStyle, this.#showStyleBlueprint, this.#studio.settings)
+		return preprocessShowStyleConfig(showStyle, this.#showStyleBlueprint, this.studio.settings)
 	}
 
 	hackPublishTimelineToFastTrack(_newTimeline: TimelineComplete): void {
+		// throw new Error('Method not implemented.')
+	}
+
+	setRouteSetActive(_routeSetId: string, _isActive: boolean | 'toggle'): boolean {
+		throw new Error('Method not implemented.')
+	}
+
+	async saveRouteSetChanges(): Promise<void> {
+		// throw new Error('Method not implemented.')
+	}
+
+	discardRouteSetChanges(): void {
 		// throw new Error('Method not implemented.')
 	}
 
@@ -232,6 +271,7 @@ export class MockJobContext implements JobContext {
 
 	setStudio(studio: ReadonlyDeep<DBStudio>): void {
 		this.#studio = clone(studio)
+		this.#jobStudio = convertStudioToJobStudio(clone<DBStudio>(studio))
 	}
 	setShowStyleBlueprint(blueprint: ReadonlyDeep<ShowStyleBlueprintManifest>): void {
 		this.#showStyleBlueprint = blueprint
@@ -276,7 +316,6 @@ const MockStudioBlueprint: () => StudioBlueprintManifest = () => ({
 	},
 
 	studioConfigSchema: JSONBlobStringify({}),
-	studioMigrations: [],
 	getBaseline: () => {
 		return {
 			timelineObjects: [],
@@ -308,11 +347,13 @@ const MockShowStyleBlueprint: () => ShowStyleBlueprintManifest = () => ({
 	},
 
 	showStyleConfigSchema: JSONBlobStringify({}),
-	showStyleMigrations: [],
 	getShowStyleVariantId: (_context, variants): string | null => {
 		return variants[0]._id
 	},
-	getRundown: (_context: IShowStyleContext, ingestRundown: ExtendedIngestRundown): BlueprintResultRundown => {
+	getRundown: (
+		_context: IShowStyleContext,
+		ingestRundown: ExtendedIngestRundown<any, any, any>
+	): BlueprintResultRundown => {
 		const rundown: IBlueprintRundown = {
 			externalId: ingestRundown.externalId,
 			name: ingestRundown.name,
@@ -335,10 +376,11 @@ const MockShowStyleBlueprint: () => ShowStyleBlueprintManifest = () => ({
 			rundown,
 			globalAdLibPieces: [],
 			globalActions: [],
+			globalPieces: [],
 			baseline: { timelineObjects: [] },
 		}
 	},
-	getSegment: (_context: ISegmentUserContext, ingestSegment: IngestSegment): BlueprintResultSegment => {
+	getSegment: (_context: ISegmentUserContext, ingestSegment: IngestSegment<any, any>): BlueprintResultSegment => {
 		const segment: IBlueprintSegment = {
 			name: ingestSegment.name ? ingestSegment.name : ingestSegment.externalId,
 			privateData: ingestSegment.payload,

@@ -4,13 +4,13 @@ import {
 	DevicesRestAPI,
 	PeripheralDeviceActionRestart,
 	PeripheralDeviceActionType,
-} from '../../../../lib/api/rest/v1'
+} from '../../../lib/rest/v1'
 import { logger } from '../../../logging'
 import { APIFactory, APIRegisterHook, ServerAPIContext } from './types'
 import { PeripheralDeviceId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { check } from '../../../../lib/check'
+import { check } from '../../../lib/check'
 import { Meteor } from 'meteor/meteor'
-import { ClientAPI } from '../../../../lib/api/client'
+import { ClientAPI } from '@sofie-automation/meteor-lib/dist/api/client'
 import { PeripheralDevices } from '../../../collections'
 import { PeripheralDevice } from '@sofie-automation/corelib/dist/dataModel/PeripheralDevice'
 import { UserError, UserErrorMessage } from '@sofie-automation/corelib/dist/error'
@@ -39,9 +39,10 @@ class DevicesServerAPI implements DevicesRestAPI {
 			return ClientAPI.responseError(
 				UserError.from(
 					new Error(`Device ${deviceId} does not exist`),
-					UserErrorMessage.PeripheralDeviceNotFound
-				),
-				404
+					UserErrorMessage.PeripheralDeviceNotFound,
+					undefined,
+					404
+				)
 			)
 		return ClientAPI.responseSuccess(APIPeripheralDeviceFrom(device))
 	}
@@ -57,9 +58,10 @@ class DevicesServerAPI implements DevicesRestAPI {
 			return ClientAPI.responseError(
 				UserError.from(
 					new Error(`Device ${deviceId} does not exist`),
-					UserErrorMessage.PeripheralDeviceNotFound
-				),
-				404
+					UserErrorMessage.PeripheralDeviceNotFound,
+					undefined,
+					404
+				)
 			)
 
 		switch (action.type) {

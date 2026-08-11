@@ -5,10 +5,15 @@ on:
   schedule:
     - cron: "12 14 * * *"
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
-  prune-container-images-sofie:
+  prune-container-images:
     if: ${{ github.repository_owner == 'nrkno' }}
-    uses: Sofie-Automation/sofie-github-workflows/.github/workflows/prune-container-images.yml@main
+    
+    uses: nrkno/sofie-nrk-github-workflows/.github/workflows/prune-container-images.yml@main
     strategy:
       max-parallel: 1
       matrix:

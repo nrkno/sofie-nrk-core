@@ -1,19 +1,18 @@
 import { Meteor } from 'meteor/meteor'
 import { CustomPublish, meteorCustomPublish } from '../lib/customPublication'
 import { PeripheralDeviceId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { PeripheralDeviceReadAccess } from '../security/peripheralDevice'
 import { logger } from '../logging'
 import { DeviceTriggerMountedActionAdlibsPreview, DeviceTriggerMountedActions } from '../api/deviceTriggers/observer'
 import { Mongo } from 'meteor/mongo'
 import { ProtectedString } from '@sofie-automation/corelib/dist/protectedString'
 import _ from 'underscore'
-import { PeripheralDevices } from '../collections'
 import { check } from 'meteor/check'
 import {
 	PeripheralDevicePubSub,
 	PeripheralDevicePubSubCollectionsNames,
 } from '@sofie-automation/shared-lib/dist/pubsub/peripheralDevice'
 import { stringifyError } from '@sofie-automation/shared-lib/dist/lib/stringifyError'
+import { checkAccessAndGetPeripheralDevice } from '../security/check'
 
 const PUBLICATION_DEBOUNCE = 20
 
@@ -24,26 +23,21 @@ meteorCustomPublish(
 		check(deviceId, String)
 		check(deviceIds, [String])
 
-		if (await PeripheralDeviceReadAccess.peripheralDeviceContent(deviceId, { userId: this.userId, token })) {
-			const peripheralDevice = await PeripheralDevices.findOneAsync(deviceId)
+		const peripheralDevice = await checkAccessAndGetPeripheralDevice(deviceId, token, this)
 
-			if (!peripheralDevice) throw new Meteor.Error(404, `PeripheralDevice "${deviceId}" not found`)
+		const studioId = peripheralDevice.studioAndConfigId?.studioId
+		if (!studioId) throw new Meteor.Error(400, `Peripheral Device "${deviceId}" not attached to a studio`)
 
-			const studioId = peripheralDevice.studioId
-			if (!studioId) throw new Meteor.Error(400, `Peripheral Device "${deviceId}" not attached to a studio`)
-
-			cursorCustomPublish(
-				pub,
-				DeviceTriggerMountedActions.find({
-					studioId,
-					deviceId: {
-						$in: deviceIds,
-					},
-				})
-			)
-		} else {
-			logger.warn(`Pub.mountedTriggersForDevice: Not allowed: "${deviceId}"`)
-		}
+		cursorCustomPublish(
+			pub,
+			DeviceTriggerMountedActions.find({
+				studioId,
+				deviceId: {
+					$in: deviceIds,
+				},
+			}),
+			PeripheralDevicePubSub.mountedTriggersForDevice
+		)
 	}
 )
 
@@ -53,23 +47,18 @@ meteorCustomPublish(
 	async function (pub, deviceId: PeripheralDeviceId, token: string | undefined) {
 		check(deviceId, String)
 
-		if (await PeripheralDeviceReadAccess.peripheralDeviceContent(deviceId, { userId: this.userId, token })) {
-			const peripheralDevice = await PeripheralDevices.findOneAsync(deviceId)
+		const peripheralDevice = await checkAccessAndGetPeripheralDevice(deviceId, token, this)
 
-			if (!peripheralDevice) throw new Meteor.Error(404, `PeripheralDevice "${deviceId}" not found`)
+		const studioId = peripheralDevice.studioAndConfigId?.studioId
+		if (!studioId) throw new Meteor.Error(400, `Peripheral Device "${deviceId}" not attached to a studio`)
 
-			const studioId = peripheralDevice.studioId
-			if (!studioId) throw new Meteor.Error(400, `Peripheral Device "${deviceId}" not attached to a studio`)
-
-			cursorCustomPublish(
-				pub,
-				DeviceTriggerMountedActionAdlibsPreview.find({
-					studioId,
-				})
-			)
-		} else {
-			logger.warn(`Pub.mountedTriggersForDevicePreview: Not allowed: "${deviceId}"`)
-		}
+		cursorCustomPublish(
+			pub,
+			DeviceTriggerMountedActionAdlibsPreview.find({
+				studioId,
+			}),
+			PeripheralDevicePubSub.mountedTriggersForDevicePreview
+		)
 	}
 )
 
@@ -79,7 +68,11 @@ interface CustomOptimizedPublishChanges<DBObj extends { _id: ProtectedString<any
 	removed: Set<DBObj['_id']>
 }
 
-function cursorCustomPublish<T extends { _id: ProtectedString<any> }>(pub: CustomPublish<T>, cursor: Mongo.Cursor<T>) {
+function cursorCustomPublish<T extends { _id: ProtectedString<any> }>(
+	pub: CustomPublish<T>,
+	cursor: Mongo.Cursor<T>,
+	publicationName: PeripheralDevicePubSub
+) {
 	function createEmptyBuffer(): CustomOptimizedPublishChanges<T> {
 		return {
 			added: new Map(),
@@ -101,7 +94,7 @@ function cursorCustomPublish<T extends { _id: ProtectedString<any> }>(pub: Custo
 				removed: Array.from(bufferToSend.removed.values()),
 			})
 		} catch (e) {
-			logger.error(`Error while updating publication: ${stringifyError(e)}`)
+			logger.error(`Error while updating publication ${publicationName}: ${stringifyError(e)}`)
 		}
 	}, PUBLICATION_DEBOUNCE)
 
@@ -128,10 +121,14 @@ function cursorCustomPublish<T extends { _id: ProtectedString<any> }>(pub: Custo
 		removed: (doc) => {
 			if (!pub.isReady) return
 			const id = doc._id
-			buffer.removed.add(id)
-			// if the document with the same id has been added before, clear the addition
-			buffer.changed.delete(id)
-			buffer.added.delete(id)
+			if (buffer.added.has(id)) {
+				// if the document with the same id has been added before, clear the addition
+				buffer.added.delete(id)
+			} else {
+				// if not, mark the deletion and clear any possible changes
+				buffer.removed.add(id)
+				buffer.changed.delete(id)
+			}
 			bufferChanged()
 		},
 	})
@@ -140,5 +137,6 @@ function cursorCustomPublish<T extends { _id: ProtectedString<any> }>(pub: Custo
 
 	pub.onStop(() => {
 		observer.stop()
+		bufferChanged.cancel()
 	})
 }

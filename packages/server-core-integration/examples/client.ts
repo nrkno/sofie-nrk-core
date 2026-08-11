@@ -4,7 +4,7 @@ import {
 	PeripheralDeviceCategory,
 	PeripheralDeviceType,
 } from '@sofie-automation/shared-lib/dist/peripheralDevice/peripheralDeviceAPI'
-import { CoreConnection, PeripheralDevicePubSub, PeripheralDevicePubSubCollectionsNames } from '../src/index'
+import { CoreConnection, PeripheralDevicePubSub, PeripheralDevicePubSubCollectionsNames } from '../src/index.js'
 
 const core = new CoreConnection({
 	deviceId: protectString('ExampleDevice'),
@@ -69,7 +69,7 @@ const setup = async () => {
 
 		await core.setStatus({
 			statusCode: StatusCode.GOOD,
-			messages: [''],
+			statusDetails: [],
 		})
 
 		setupObserver()
@@ -80,7 +80,7 @@ const setup = async () => {
 			console.log('updating status')
 			core.setStatus({
 				statusCode: StatusCode.GOOD,
-				messages: ['a'],
+				statusDetails: [{ message: 'a' }],
 			}).catch((e) => {
 				console.error(`Failed to set status`, e)
 			})
@@ -95,7 +95,7 @@ const setup = async () => {
 			console.log('updating status')
 			core.setStatus({
 				statusCode: StatusCode.GOOD,
-				messages: ['b'],
+				statusDetails: [{ message: 'b' }],
 			}).catch((e) => {
 				console.error(`Failed to set status`, e)
 			})

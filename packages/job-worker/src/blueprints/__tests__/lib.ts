@@ -18,7 +18,6 @@ export function generateFakeBlueprint(
   integrationVersion: '0.0.0',
   TSRVersion: '0.0.0',
   studioConfigManifest: [],
-  studioMigrations: [],
   getBaseline: () => {
 	return {
       timelineObjects: [],
@@ -30,7 +29,6 @@ export function generateFakeBlueprint(
 	return literal<Blueprint>({
 		_id: protectString(id),
 		name: 'Fake blueprint',
-		organizationId: null,
 		code: `({default: (${codeFcnString})()})`,
 		hasCode: true,
 		created: 0,
@@ -45,9 +43,9 @@ export function generateFakeBlueprint(
 
 		databaseVersion: {
 			system: undefined,
-			showStyle: {},
-			studio: {},
 		},
+
+		hasFixUpFunction: false,
 
 		blueprintVersion: '',
 		integrationVersion: '',

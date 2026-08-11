@@ -10,43 +10,102 @@ import {
 	PartInstanceId,
 	PieceId,
 	RundownBaselineAdLibActionId,
+	RundownId,
 	RundownPlaylistId,
 	SegmentId,
 } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { Match, check } from '../../../../lib/check'
-import { PlaylistsRestAPI } from '../../../../lib/api/rest/v1'
+import { RundownTTimerIndex } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/TTimers'
+import { Match, check } from '../../../lib/check'
+import { PlaylistsRestAPI } from '../../../lib/rest/v1'
 import { Meteor } from 'meteor/meteor'
-import { ClientAPI } from '../../../../lib/api/client'
+import { ClientAPI } from '@sofie-automation/meteor-lib/dist/api/client'
 import {
 	AdLibActions,
 	AdLibPieces,
 	BucketAdLibActions,
 	BucketAdLibs,
 	Buckets,
+	Parts,
 	RundownBaselineAdLibActions,
 	RundownBaselineAdLibPieces,
 	RundownPlaylists,
+	Segments,
 } from '../../../collections'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import { ServerClientAPI } from '../../client'
-import { QueueNextSegmentResult, StudioJobs } from '@sofie-automation/corelib/dist/worker/studio'
-import { getCurrentTime } from '../../../../lib/lib'
-import { TriggerReloadDataResponse } from '../../../../lib/api/userActions'
+import { QueueNextSegmentResult, StudioJobs, TakeNextPartResult } from '@sofie-automation/corelib/dist/worker/studio'
+import { getCurrentTime } from '../../../lib/lib'
+import { TriggerReloadDataResponse } from '@sofie-automation/meteor-lib/dist/api/userActions'
 import { ServerRundownAPI } from '../../rundown'
-import { triggerWriteAccess } from '../../../security/lib/securityVerify'
+import { triggerWriteAccess } from '../../../security/securityVerify'
+
+function parseTimerIndex(rawTimerIndex: string): RundownTTimerIndex {
+	const timerIndex = Number(rawTimerIndex)
+	if (!Number.isInteger(timerIndex) || timerIndex < 1 || timerIndex > 3) {
+		throw new Meteor.Error(400, `Invalid timerIndex`)
+	}
+
+	return timerIndex as RundownTTimerIndex
+}
 
 class PlaylistsServerAPI implements PlaylistsRestAPI {
 	constructor(private context: ServerAPIContext) {}
 
+	private async findPlaylist(playlistId: RundownPlaylistId) {
+		const playlist = await RundownPlaylists.findOneAsync({
+			$or: [{ _id: playlistId }, { externalId: playlistId }],
+		})
+		if (!playlist) {
+			throw new Meteor.Error(404, `Playlist ID '${playlistId}' was not found`)
+		}
+		return playlist
+	}
+
+	private async findSegment(segmentId: SegmentId) {
+		const segment = await Segments.findOneAsync({
+			$or: [
+				{
+					_id: segmentId,
+				},
+				{
+					externalId: segmentId,
+				},
+			],
+		})
+		if (!segment) {
+			throw new Meteor.Error(404, `Segment ID '${segmentId}' was not found`)
+		}
+		return segment
+	}
+
+	private async findPart(partId: PartId) {
+		const part = await Parts.findOneAsync({
+			$or: [
+				{ _id: partId },
+				{
+					externalId: partId,
+				},
+			],
+		})
+		if (!part) {
+			throw new Meteor.Error(404, `Part ID '${partId}' was not found`)
+		}
+		return part
+	}
+
 	async getAllRundownPlaylists(
 		_connection: Meteor.Connection,
 		_event: string
-	): Promise<ClientAPI.ClientResponse<Array<{ id: string }>>> {
-		const rundownPlaylists = (await RundownPlaylists.findFetchAsync({}, { projection: { _id: 1 } })) as Array<
-			Pick<DBRundownPlaylist, '_id'>
-		>
+	): Promise<ClientAPI.ClientResponse<Array<{ id: string; externalId: string }>>> {
+		const rundownPlaylists = (await RundownPlaylists.findFetchAsync(
+			{},
+			{ projection: { _id: 1, externalId: 1 } }
+		)) as Array<Pick<DBRundownPlaylist, '_id' | 'externalId'>>
 		return ClientAPI.responseSuccess(
-			rundownPlaylists.map((rundownPlaylist) => ({ id: unprotectString(rundownPlaylist._id) }))
+			rundownPlaylists.map((rundownPlaylist) => ({
+				id: unprotectString(rundownPlaylist._id),
+				externalId: rundownPlaylist.externalId,
+			}))
 		)
 	}
 
@@ -56,26 +115,30 @@ class PlaylistsServerAPI implements PlaylistsRestAPI {
 		rundownPlaylistId: RundownPlaylistId,
 		rehearsal: boolean
 	): Promise<ClientAPI.ClientResponse<void>> {
+		const playlist = await this.findPlaylist(rundownPlaylistId)
+
 		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
 			this.context.getMethodContext(connection),
 			event,
 			getCurrentTime(),
-			rundownPlaylistId,
+			playlist._id,
 			() => {
-				check(rundownPlaylistId, String)
+				check(playlist._id, String)
 				check(rehearsal, Boolean)
 			},
 			StudioJobs.ActivateRundownPlaylist,
 			{
-				playlistId: rundownPlaylistId,
+				playlistId: playlist._id,
 				rehearsal,
 			}
 		)
 	}
-	async deactivate(
+
+	async activateAdLibTesting(
 		connection: Meteor.Connection,
 		event: string,
-		rundownPlaylistId: RundownPlaylistId
+		rundownPlaylistId: RundownPlaylistId,
+		rundownId: RundownId
 	): Promise<ClientAPI.ClientResponse<void>> {
 		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
 			this.context.getMethodContext(connection),
@@ -84,19 +147,45 @@ class PlaylistsServerAPI implements PlaylistsRestAPI {
 			rundownPlaylistId,
 			() => {
 				check(rundownPlaylistId, String)
+				check(rundownId, String)
 			},
-			StudioJobs.DeactivateRundownPlaylist,
+			StudioJobs.ActivateAdlibTesting,
 			{
 				playlistId: rundownPlaylistId,
+				rundownId: rundownId,
 			}
 		)
 	}
+
+	async deactivate(
+		connection: Meteor.Connection,
+		event: string,
+		rundownPlaylistId: RundownPlaylistId
+	): Promise<ClientAPI.ClientResponse<void>> {
+		const playlist = await this.findPlaylist(rundownPlaylistId)
+
+		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
+			this.context.getMethodContext(connection),
+			event,
+			getCurrentTime(),
+			playlist._id,
+			() => {
+				check(playlist._id, String)
+			},
+			StudioJobs.DeactivateRundownPlaylist,
+			{
+				playlistId: playlist._id,
+			}
+		)
+	}
+
 	async executeAdLib(
 		connection: Meteor.Connection,
 		event: string,
 		rundownPlaylistId: RundownPlaylistId,
 		adLibId: AdLibActionId | RundownBaselineAdLibActionId | PieceId | BucketAdLibId,
-		triggerMode?: string | null
+		triggerMode?: string | null,
+		adLibOptions?: { [key: string]: any }
 	): Promise<ClientAPI.ClientResponse<object>> {
 		const baselineAdLibPiece = RundownBaselineAdLibPieces.findOneAsync(adLibId as PieceId, {
 			projection: { _id: 1 },
@@ -121,35 +210,43 @@ class PlaylistsServerAPI implements PlaylistsRestAPI {
 		if (regularAdLibDoc) {
 			// This is an AdLib Piece
 			const pieceType = baselineAdLibDoc ? 'baseline' : segmentAdLibDoc ? 'normal' : 'bucket'
-			const rundownPlaylist = await RundownPlaylists.findOneAsync(rundownPlaylistId, {
-				projection: { currentPartInfo: 1 },
-			})
+			const rundownPlaylist = await RundownPlaylists.findOneAsync(
+				{ $or: [{ _id: rundownPlaylistId }, { externalId: rundownPlaylistId }] },
+				{
+					projection: { currentPartInfo: 1 },
+				}
+			)
 			if (!rundownPlaylist)
 				return ClientAPI.responseError(
 					UserError.from(
 						new Error(`Rundown playlist does not exist`),
-						UserErrorMessage.RundownPlaylistNotFound
-					),
-					404
+						UserErrorMessage.RundownPlaylistNotFound,
+						undefined,
+						404
+					)
 				)
 			if (rundownPlaylist.currentPartInfo === null)
 				return ClientAPI.responseError(
-					UserError.from(Error(`No active Part in ${rundownPlaylistId}`), UserErrorMessage.PartNotFound),
-					412
+					UserError.from(
+						Error(`No active Part in ${rundownPlaylistId}`),
+						UserErrorMessage.PartNotFound,
+						undefined,
+						412
+					)
 				)
 
 			const result = await ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
 				this.context.getMethodContext(connection),
 				event,
 				getCurrentTime(),
-				rundownPlaylistId,
+				rundownPlaylist._id,
 				() => {
-					check(rundownPlaylistId, String)
+					check(rundownPlaylist._id, String)
 					check(adLibId, Match.OneOf(String, null))
 				},
 				StudioJobs.AdlibPieceStart,
 				{
-					playlistId: rundownPlaylistId,
+					playlistId: rundownPlaylist._id,
 					adLibPieceId: regularAdLibDoc._id,
 					partInstanceId: rundownPlaylist.currentPartInfo.partInstanceId,
 					pieceType,
@@ -159,60 +256,67 @@ class PlaylistsServerAPI implements PlaylistsRestAPI {
 			return ClientAPI.responseSuccess({})
 		} else if (adLibActionDoc) {
 			// This is an AdLib Action
-			const rundownPlaylist = await RundownPlaylists.findOneAsync(rundownPlaylistId, {
-				projection: { currentPartInfo: 1, activationId: 1 },
-			})
+			const rundownPlaylist = await RundownPlaylists.findOneAsync(
+				{ $or: [{ _id: rundownPlaylistId }, { externalId: rundownPlaylistId }] },
+				{
+					projection: { currentPartInfo: 1, activationId: 1 },
+				}
+			)
 
 			if (!rundownPlaylist)
 				return ClientAPI.responseError(
 					UserError.from(
 						new Error(`Rundown playlist does not exist`),
-						UserErrorMessage.RundownPlaylistNotFound
-					),
-					404
+						UserErrorMessage.RundownPlaylistNotFound,
+						undefined,
+						404
+					)
 				)
 			if (!rundownPlaylist.activationId)
 				return ClientAPI.responseError(
 					UserError.from(
 						new Error(`Rundown playlist ${rundownPlaylistId} is not currently active`),
-						UserErrorMessage.InactiveRundown
-					),
-					412
+						UserErrorMessage.InactiveRundown,
+						undefined,
+						412
+					)
 				)
 			if (!rundownPlaylist.currentPartInfo)
 				return ClientAPI.responseError(
 					UserError.from(
 						new Error(`Rundown playlist ${rundownPlaylistId} must be playing`),
-						UserErrorMessage.NoCurrentPart
-					),
-					412
+						UserErrorMessage.NoCurrentPart,
+						undefined,
+						412
+					)
 				)
 
 			return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
 				this.context.getMethodContext(connection),
 				event,
 				getCurrentTime(),
-				rundownPlaylistId,
+				rundownPlaylist._id,
 				() => {
-					check(rundownPlaylistId, String)
+					check(rundownPlaylist._id, String)
 					check(adLibId, Match.OneOf(String, null))
 				},
 				StudioJobs.ExecuteAction,
 				{
-					playlistId: rundownPlaylistId,
+					playlistId: rundownPlaylist._id,
 					actionDocId: adLibActionDoc._id,
 					actionId: adLibActionDoc.actionId,
 					userData: adLibActionDoc.userData,
 					triggerMode: triggerMode ?? undefined,
+					actionOptions: adLibOptions,
 				}
 			)
 		} else {
 			return ClientAPI.responseError(
-				UserError.from(new Error(`No adLib with Id ${adLibId}`), UserErrorMessage.AdlibNotFound),
-				412
+				UserError.from(new Error(`No adLib with Id ${adLibId}`), UserErrorMessage.AdlibNotFound, undefined, 412)
 			)
 		}
 	}
+
 	async executeBucketAdLib(
 		connection: Meteor.Connection,
 		event: string,
@@ -221,6 +325,8 @@ class PlaylistsServerAPI implements PlaylistsRestAPI {
 		externalId: string,
 		triggerMode?: string | null
 	): Promise<ClientAPI.ClientResponse<object>> {
+		const playlist = await this.findPlaylist(rundownPlaylistId)
+
 		const bucketPromise = Buckets.findOneAsync(bucketId, { projection: { _id: 1 } })
 		const bucketAdlibPromise = BucketAdLibs.findOneAsync({ bucketId, externalId }, { projection: { _id: 1 } })
 		const bucketAdlibActionPromise = BucketAdLibActions.findOneAsync(
@@ -236,17 +342,22 @@ class PlaylistsServerAPI implements PlaylistsRestAPI {
 		])
 		if (!bucket) {
 			return ClientAPI.responseError(
-				UserError.from(new Error(`Bucket ${bucketId} not found`), UserErrorMessage.BucketNotFound),
-				412
+				UserError.from(
+					new Error(`Bucket ${bucketId} not found`),
+					UserErrorMessage.BucketNotFound,
+					undefined,
+					412
+				)
 			)
 		}
 		if (!bucketAdlib && !bucketAdlibAction) {
 			return ClientAPI.responseError(
 				UserError.from(
 					new Error(`No adLib with Id ${externalId}, in bucket ${bucketId}`),
-					UserErrorMessage.AdlibNotFound
-				),
-				412
+					UserErrorMessage.AdlibNotFound,
+					undefined,
+					412
+				)
 			)
 		}
 
@@ -254,62 +365,70 @@ class PlaylistsServerAPI implements PlaylistsRestAPI {
 			this.context.getMethodContext(connection),
 			event,
 			getCurrentTime(),
-			rundownPlaylistId,
+			playlist._id,
 			() => {
-				check(rundownPlaylistId, String)
+				check(playlist._id, String)
 				check(bucketId, String)
 				check(externalId, String)
 			},
 			StudioJobs.ExecuteBucketAdLibOrAction,
 			{
-				playlistId: rundownPlaylistId,
+				playlistId: playlist._id,
 				bucketId,
 				externalId,
 				triggerMode: triggerMode ?? undefined,
 			}
 		)
 	}
+
 	async moveNextPart(
 		connection: Meteor.Connection,
 		event: string,
 		rundownPlaylistId: RundownPlaylistId,
-		delta: number
+		delta: number,
+		ignoreQuickLoop?: boolean
 	): Promise<ClientAPI.ClientResponse<PartId | null>> {
+		const playlist = await this.findPlaylist(rundownPlaylistId)
+
 		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
 			this.context.getMethodContext(connection),
 			event,
 			getCurrentTime(),
-			rundownPlaylistId,
+			playlist._id,
 			() => {
-				check(rundownPlaylistId, String)
+				check(playlist._id, String)
 				check(delta, Number)
 			},
 			StudioJobs.MoveNextPart,
 			{
-				playlistId: rundownPlaylistId,
+				playlistId: playlist._id,
 				partDelta: delta,
 				segmentDelta: 0,
+				ignoreQuickLoop,
 			}
 		)
 	}
+
 	async moveNextSegment(
 		connection: Meteor.Connection,
 		event: string,
 		rundownPlaylistId: RundownPlaylistId,
 		delta: number
 	): Promise<ClientAPI.ClientResponse<PartId | null>> {
+		const playlist = await this.findPlaylist(rundownPlaylistId)
+
 		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
 			this.context.getMethodContext(connection),
 			event,
 			getCurrentTime(),
-			rundownPlaylistId,
+			playlist._id,
 			() => {
-				check(rundownPlaylistId, String)
+				check(playlist._id, String)
 				check(delta, Number)
 			},
 			StudioJobs.MoveNextPart,
 			{
-				playlistId: rundownPlaylistId,
+				playlistId: playlist._id,
 				partDelta: 0,
 				segmentDelta: delta,
 			}
@@ -321,16 +440,18 @@ class PlaylistsServerAPI implements PlaylistsRestAPI {
 		event: string,
 		rundownPlaylistId: RundownPlaylistId
 	): Promise<ClientAPI.ClientResponse<void>> {
+		const playlist = await this.findPlaylist(rundownPlaylistId)
+
 		return ServerClientAPI.runUserActionInLogForPlaylist<void>(
 			this.context.getMethodContext(connection),
 			event,
 			getCurrentTime(),
-			rundownPlaylistId,
+			playlist._id,
 			() => {
-				check(rundownPlaylistId, String)
+				check(playlist._id, String)
 			},
 			'reloadPlaylist',
-			{ rundownPlaylistId },
+			{ rundownPlaylistId: playlist._id },
 			async (access) => {
 				const reloadResponse = await ServerRundownAPI.resyncRundownPlaylist(access)
 				const success = !reloadResponse.rundownsResponses.reduce((missing, rundownsResponse) => {
@@ -338,7 +459,7 @@ class PlaylistsServerAPI implements PlaylistsRestAPI {
 				}, false)
 				if (!success)
 					throw UserError.from(
-						new Error(`Failed to reload playlist ${rundownPlaylistId}`),
+						new Error(`Failed to reload playlist ${playlist._id}`),
 						UserErrorMessage.InternalError
 					)
 			}
@@ -350,17 +471,19 @@ class PlaylistsServerAPI implements PlaylistsRestAPI {
 		event: string,
 		rundownPlaylistId: RundownPlaylistId
 	): Promise<ClientAPI.ClientResponse<void>> {
+		const playlist = await this.findPlaylist(rundownPlaylistId)
+
 		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
 			this.context.getMethodContext(connection),
 			event,
 			getCurrentTime(),
-			rundownPlaylistId,
+			playlist._id,
 			() => {
-				check(rundownPlaylistId, String)
+				check(playlist._id, String)
 			},
 			StudioJobs.ResetRundownPlaylist,
 			{
-				playlistId: rundownPlaylistId,
+				playlistId: playlist._id,
 			}
 		)
 	}
@@ -370,19 +493,22 @@ class PlaylistsServerAPI implements PlaylistsRestAPI {
 		rundownPlaylistId: RundownPlaylistId,
 		segmentId: SegmentId
 	): Promise<ClientAPI.ClientResponse<PartId>> {
+		const playlist = await this.findPlaylist(rundownPlaylistId)
+		const segment = await this.findSegment(segmentId)
+
 		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
 			this.context.getMethodContext(connection),
 			event,
 			getCurrentTime(),
-			rundownPlaylistId,
+			playlist._id,
 			() => {
-				check(rundownPlaylistId, String)
-				check(segmentId, String)
+				check(playlist._id, String)
+				check(segment._id, String)
 			},
 			StudioJobs.SetNextSegment,
 			{
-				playlistId: rundownPlaylistId,
-				nextSegmentId: segmentId,
+				playlistId: playlist._id,
+				nextSegmentId: segment._id,
 			}
 		)
 	}
@@ -392,19 +518,22 @@ class PlaylistsServerAPI implements PlaylistsRestAPI {
 		rundownPlaylistId: RundownPlaylistId,
 		partId: PartId
 	): Promise<ClientAPI.ClientResponse<void>> {
+		const playlist = await this.findPlaylist(rundownPlaylistId)
+		const part = await this.findPart(partId)
+
 		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
 			this.context.getMethodContext(connection),
 			event,
 			getCurrentTime(),
-			rundownPlaylistId,
+			playlist._id,
 			() => {
-				check(rundownPlaylistId, String)
-				check(partId, String)
+				check(playlist._id, String)
+				check(part._id, String)
 			},
 			StudioJobs.SetNextPart,
 			{
-				playlistId: rundownPlaylistId,
-				nextPartId: partId,
+				playlistId: playlist._id,
+				nextPartId: part._id,
 			}
 		)
 	}
@@ -415,19 +544,22 @@ class PlaylistsServerAPI implements PlaylistsRestAPI {
 		rundownPlaylistId: RundownPlaylistId,
 		segmentId: SegmentId
 	): Promise<ClientAPI.ClientResponse<QueueNextSegmentResult>> {
+		const playlist = await this.findPlaylist(rundownPlaylistId)
+		const segment = await this.findSegment(segmentId)
+
 		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
 			this.context.getMethodContext(connection),
 			event,
 			getCurrentTime(),
-			rundownPlaylistId,
+			playlist._id,
 			() => {
-				check(rundownPlaylistId, String)
-				check(segmentId, String)
+				check(playlist._id, String)
+				check(segment._id, String)
 			},
 			StudioJobs.QueueNextSegment,
 			{
-				playlistId: rundownPlaylistId,
-				queuedSegmentId: segmentId,
+				playlistId: playlist._id,
+				queuedSegmentId: segment._id,
 			}
 		)
 	}
@@ -437,23 +569,22 @@ class PlaylistsServerAPI implements PlaylistsRestAPI {
 		event: string,
 		rundownPlaylistId: RundownPlaylistId,
 		fromPartInstanceId: PartInstanceId | undefined
-	): Promise<ClientAPI.ClientResponse<void>> {
+	): Promise<ClientAPI.ClientResponse<TakeNextPartResult>> {
 		triggerWriteAccess()
-		const rundownPlaylist = await RundownPlaylists.findOneAsync(rundownPlaylistId)
-		if (!rundownPlaylist) throw new Error(`Rundown playlist ${rundownPlaylistId} does not exist`)
+		const playlist = await this.findPlaylist(rundownPlaylistId)
 
 		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
 			this.context.getMethodContext(connection),
 			event,
 			getCurrentTime(),
-			rundownPlaylistId,
+			playlist._id,
 			() => {
-				check(rundownPlaylistId, String)
+				check(playlist._id, String)
 			},
 			StudioJobs.TakeNextPart,
 			{
-				playlistId: rundownPlaylistId,
-				fromPartInstanceId: fromPartInstanceId ?? rundownPlaylist.currentPartInfo?.partInstanceId ?? null,
+				playlistId: playlist._id,
+				fromPartInstanceId: fromPartInstanceId ?? playlist.currentPartInfo?.partInstanceId ?? null,
 			}
 		)
 	}
@@ -464,37 +595,39 @@ class PlaylistsServerAPI implements PlaylistsRestAPI {
 		rundownPlaylistId: RundownPlaylistId,
 		sourceLayerIds: string[]
 	): Promise<ClientAPI.ClientResponse<void>> {
-		const rundownPlaylist = await RundownPlaylists.findOneAsync(rundownPlaylistId)
-		if (!rundownPlaylist)
+		const playlist = await this.findPlaylist(rundownPlaylistId)
+		if (!playlist)
 			return ClientAPI.responseError(
 				UserError.from(
 					Error(`Rundown playlist ${rundownPlaylistId} does not exist`),
-					UserErrorMessage.RundownPlaylistNotFound
-				),
-				412
+					UserErrorMessage.RundownPlaylistNotFound,
+					undefined,
+					412
+				)
 			)
-		if (!rundownPlaylist.currentPartInfo?.partInstanceId || !rundownPlaylist.activationId)
+		if (!playlist.currentPartInfo?.partInstanceId || !playlist.activationId)
 			return ClientAPI.responseError(
 				UserError.from(
 					new Error(`Rundown playlist ${rundownPlaylistId} is not currently active`),
-					UserErrorMessage.InactiveRundown
-				),
-				412
+					UserErrorMessage.InactiveRundown,
+					undefined,
+					412
+				)
 			)
 
 		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
 			this.context.getMethodContext(connection),
 			event,
 			getCurrentTime(),
-			rundownPlaylistId,
+			playlist._id,
 			() => {
-				check(rundownPlaylistId, String)
+				check(playlist._id, String)
 				check(sourceLayerIds, [String])
 			},
 			StudioJobs.StopPiecesOnSourceLayers,
 			{
-				playlistId: rundownPlaylistId,
-				partInstanceId: rundownPlaylist.currentPartInfo.partInstanceId,
+				playlistId: playlist._id,
+				partInstanceId: playlist.currentPartInfo.partInstanceId,
 				sourceLayerIds: sourceLayerIds,
 			}
 		)
@@ -506,19 +639,276 @@ class PlaylistsServerAPI implements PlaylistsRestAPI {
 		rundownPlaylistId: RundownPlaylistId,
 		sourceLayerId: string
 	): Promise<ClientAPI.ClientResponse<void>> {
+		const playlist = await this.findPlaylist(rundownPlaylistId)
+
 		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
 			this.context.getMethodContext(connection),
 			event,
 			getCurrentTime(),
-			rundownPlaylistId,
+			playlist._id,
 			() => {
-				check(rundownPlaylistId, String)
+				check(playlist._id, String)
 				check(sourceLayerId, String)
 			},
 			StudioJobs.StartStickyPieceOnSourceLayer,
 			{
-				playlistId: rundownPlaylistId,
+				playlistId: playlist._id,
 				sourceLayerId,
+			}
+		)
+	}
+
+	async tTimerStartCountdown(
+		connection: Meteor.Connection,
+		event: string,
+		rundownPlaylistId: RundownPlaylistId,
+		timerIndex: RundownTTimerIndex,
+		duration: number,
+		stopAtZero?: boolean,
+		startPaused?: boolean
+	): Promise<ClientAPI.ClientResponse<void>> {
+		const playlist = await this.findPlaylist(rundownPlaylistId)
+
+		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
+			this.context.getMethodContext(connection),
+			event,
+			getCurrentTime(),
+			playlist._id,
+			() => {
+				check(playlist._id, String)
+				check(timerIndex, Number)
+				check(duration, Number)
+				check(stopAtZero, Match.Optional(Boolean))
+				check(startPaused, Match.Optional(Boolean))
+			},
+			StudioJobs.TTimerStartCountdown,
+			{
+				playlistId: playlist._id,
+				timerIndex,
+				duration,
+				stopAtZero: !!stopAtZero,
+				startPaused: !!startPaused,
+			}
+		)
+	}
+
+	async tTimerStartFreeRun(
+		connection: Meteor.Connection,
+		event: string,
+		rundownPlaylistId: RundownPlaylistId,
+		timerIndex: RundownTTimerIndex,
+		startPaused?: boolean
+	): Promise<ClientAPI.ClientResponse<void>> {
+		const playlist = await this.findPlaylist(rundownPlaylistId)
+
+		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
+			this.context.getMethodContext(connection),
+			event,
+			getCurrentTime(),
+			playlist._id,
+			() => {
+				check(playlist._id, String)
+				check(timerIndex, Number)
+				check(startPaused, Match.Optional(Boolean))
+			},
+			StudioJobs.TTimerStartFreeRun,
+			{
+				playlistId: playlist._id,
+				timerIndex,
+				startPaused: !!startPaused,
+			}
+		)
+	}
+
+	async tTimerPause(
+		connection: Meteor.Connection,
+		event: string,
+		rundownPlaylistId: RundownPlaylistId,
+		timerIndex: RundownTTimerIndex
+	): Promise<ClientAPI.ClientResponse<void>> {
+		const playlist = await this.findPlaylist(rundownPlaylistId)
+
+		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
+			this.context.getMethodContext(connection),
+			event,
+			getCurrentTime(),
+			playlist._id,
+			() => {
+				check(playlist._id, String)
+				check(timerIndex, Number)
+			},
+			StudioJobs.TTimerPause,
+			{
+				playlistId: playlist._id,
+				timerIndex,
+			}
+		)
+	}
+
+	async tTimerResume(
+		connection: Meteor.Connection,
+		event: string,
+		rundownPlaylistId: RundownPlaylistId,
+		timerIndex: RundownTTimerIndex
+	): Promise<ClientAPI.ClientResponse<void>> {
+		const playlist = await this.findPlaylist(rundownPlaylistId)
+
+		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
+			this.context.getMethodContext(connection),
+			event,
+			getCurrentTime(),
+			playlist._id,
+			() => {
+				check(playlist._id, String)
+				check(timerIndex, Number)
+			},
+			StudioJobs.TTimerResume,
+			{
+				playlistId: playlist._id,
+				timerIndex,
+			}
+		)
+	}
+
+	async tTimerRestart(
+		connection: Meteor.Connection,
+		event: string,
+		rundownPlaylistId: RundownPlaylistId,
+		timerIndex: RundownTTimerIndex
+	): Promise<ClientAPI.ClientResponse<void>> {
+		const playlist = await this.findPlaylist(rundownPlaylistId)
+
+		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
+			this.context.getMethodContext(connection),
+			event,
+			getCurrentTime(),
+			playlist._id,
+			() => {
+				check(playlist._id, String)
+				check(timerIndex, Number)
+			},
+			StudioJobs.TTimerRestart,
+			{
+				playlistId: playlist._id,
+				timerIndex,
+			}
+		)
+	}
+
+	async tTimerClearProjected(
+		connection: Meteor.Connection,
+		event: string,
+		rundownPlaylistId: RundownPlaylistId,
+		timerIndex: RundownTTimerIndex
+	): Promise<ClientAPI.ClientResponse<void>> {
+		const playlist = await this.findPlaylist(rundownPlaylistId)
+
+		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
+			this.context.getMethodContext(connection),
+			event,
+			getCurrentTime(),
+			playlist._id,
+			() => {
+				check(playlist._id, String)
+				check(timerIndex, Number)
+			},
+			StudioJobs.TTimerClearProjected,
+			{
+				playlistId: playlist._id,
+				timerIndex,
+			}
+		)
+	}
+
+	async tTimerSetProjectedAnchorPart(
+		connection: Meteor.Connection,
+		event: string,
+		rundownPlaylistId: RundownPlaylistId,
+		timerIndex: RundownTTimerIndex,
+		partId?: PartId,
+		externalId?: string
+	): Promise<ClientAPI.ClientResponse<void>> {
+		const playlist = await this.findPlaylist(rundownPlaylistId)
+
+		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
+			this.context.getMethodContext(connection),
+			event,
+			getCurrentTime(),
+			playlist._id,
+			() => {
+				check(playlist._id, String)
+				check(timerIndex, Number)
+				check(partId, Match.Optional(String))
+				check(externalId, Match.Optional(String))
+			},
+			StudioJobs.TTimerSetProjectedAnchorPart,
+			{
+				playlistId: playlist._id,
+				timerIndex,
+				partId,
+				externalId,
+			}
+		)
+	}
+
+	async tTimerSetProjectedTime(
+		connection: Meteor.Connection,
+		event: string,
+		rundownPlaylistId: RundownPlaylistId,
+		timerIndex: RundownTTimerIndex,
+		time: number,
+		paused?: boolean
+	): Promise<ClientAPI.ClientResponse<void>> {
+		const playlist = await this.findPlaylist(rundownPlaylistId)
+
+		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
+			this.context.getMethodContext(connection),
+			event,
+			getCurrentTime(),
+			playlist._id,
+			() => {
+				check(playlist._id, String)
+				check(timerIndex, Number)
+				check(time, Number)
+				check(paused, Match.Optional(Boolean))
+			},
+			StudioJobs.TTimerSetProjectedTime,
+			{
+				playlistId: playlist._id,
+				timerIndex,
+				time,
+				paused: !!paused,
+			}
+		)
+	}
+
+	async tTimerSetProjectedDuration(
+		connection: Meteor.Connection,
+		event: string,
+		rundownPlaylistId: RundownPlaylistId,
+		timerIndex: RundownTTimerIndex,
+		duration: number,
+		paused?: boolean
+	): Promise<ClientAPI.ClientResponse<void>> {
+		const playlist = await this.findPlaylist(rundownPlaylistId)
+
+		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
+			this.context.getMethodContext(connection),
+			event,
+			getCurrentTime(),
+			playlist._id,
+			() => {
+				check(playlist._id, String)
+				check(timerIndex, Number)
+				check(duration, Number)
+				check(paused, Match.Optional(Boolean))
+			},
+			StudioJobs.TTimerSetProjectedDuration,
+			{
+				playlistId: playlist._id,
+				timerIndex,
+				duration,
+				paused: !!paused,
 			}
 		)
 	}
@@ -562,6 +952,25 @@ export function registerRoutes(registerRoute: APIRegisterHook<PlaylistsRestAPI>)
 		}
 	)
 
+	registerRoute<{ playlistId: string; rundownId: string }, { rehearsal: boolean }, void>(
+		'put',
+		'/playlists/:playlistId/rundowns/:rundownId/activate-adlib-testing',
+		new Map([
+			[404, [UserErrorMessage.RundownPlaylistNotFound]],
+			[412, [UserErrorMessage.RundownAlreadyActive]],
+		]),
+		playlistsAPIFactory,
+		async (serverAPI, connection, event, params, _body) => {
+			const rundownPlaylistId = protectString<RundownPlaylistId>(params.playlistId)
+			const rundownId = protectString<RundownId>(params.rundownId)
+			logger.info(`API PUT: activate AdLib testing mode, playlist ${rundownPlaylistId}, rundown ${rundownId}`)
+
+			check(rundownPlaylistId, String)
+			check(rundownId, String)
+			return await serverAPI.activateAdLibTesting(connection, event, rundownPlaylistId, rundownId)
+		}
+	)
+
 	registerRoute<{ playlistId: string }, never, void>(
 		'put',
 		'/playlists/:playlistId/deactivate',
@@ -576,11 +985,13 @@ export function registerRoutes(registerRoute: APIRegisterHook<PlaylistsRestAPI>)
 		}
 	)
 
-	registerRoute<{ playlistId: string }, { adLibId: string; actionType?: string }, object>(
+	registerRoute<{ playlistId: string }, { adLibId: string; actionType?: string; adLibOptions?: any }, object>(
 		'post',
 		'/playlists/:playlistId/execute-adlib',
 		new Map([
+			[400, []],
 			[404, [UserErrorMessage.RundownPlaylistNotFound]],
+			[409, [UserErrorMessage.ValidationFailed]],
 			[412, [UserErrorMessage.InactiveRundown, UserErrorMessage.NoCurrentPart, UserErrorMessage.AdlibNotFound]],
 		]),
 		playlistsAPIFactory,
@@ -591,12 +1002,24 @@ export function registerRoutes(registerRoute: APIRegisterHook<PlaylistsRestAPI>)
 			)
 			const actionTypeObj = body
 			const triggerMode = actionTypeObj ? (actionTypeObj as { actionType: string }).actionType : undefined
-			logger.info(`API POST: execute-adlib ${rundownPlaylistId} ${adLibId} - triggerMode: ${triggerMode}`)
+			const adLibOptions = actionTypeObj ? actionTypeObj.adLibOptions : undefined
+			logger.info(
+				`API POST: execute-adlib ${rundownPlaylistId} ${adLibId} - actionType: ${triggerMode} - options: ${
+					adLibOptions ? JSON.stringify(adLibOptions) : 'undefined'
+				}`
+			)
 
 			check(adLibId, String)
 			check(rundownPlaylistId, String)
 
-			return await serverAPI.executeAdLib(connection, event, rundownPlaylistId, adLibId, triggerMode)
+			return await serverAPI.executeAdLib(
+				connection,
+				event,
+				rundownPlaylistId,
+				adLibId,
+				triggerMode,
+				adLibOptions
+			)
 		}
 	)
 
@@ -604,7 +1027,9 @@ export function registerRoutes(registerRoute: APIRegisterHook<PlaylistsRestAPI>)
 		'post',
 		'/playlists/:playlistId/execute-bucket-adlib',
 		new Map([
+			[400, []],
 			[404, [UserErrorMessage.RundownPlaylistNotFound]],
+			[409, [UserErrorMessage.ValidationFailed]],
 			[
 				412,
 				[
@@ -767,7 +1192,7 @@ export function registerRoutes(registerRoute: APIRegisterHook<PlaylistsRestAPI>)
 		}
 	)
 
-	registerRoute<{ playlistId: string }, { fromPartInstanceId?: string }, void>(
+	registerRoute<{ playlistId: string }, { fromPartInstanceId?: string }, TakeNextPartResult>(
 		'post',
 		'/playlists/:playlistId/take',
 		new Map([
@@ -800,7 +1225,7 @@ export function registerRoutes(registerRoute: APIRegisterHook<PlaylistsRestAPI>)
 			logger.info(`API POST: clear-sourcelayers ${playlistId} ${sourceLayerIds}`)
 
 			check(playlistId, String)
-			check(sourceLayerIds, Array<String>)
+			check(sourceLayerIds, Array<string>)
 
 			return await serverAPI.clearSourceLayers(connection, event, playlistId, sourceLayerIds)
 		}
@@ -841,6 +1266,205 @@ export function registerRoutes(registerRoute: APIRegisterHook<PlaylistsRestAPI>)
 			check(playlistId, String)
 			check(sourceLayerId, String)
 			return await serverAPI.recallStickyPiece(connection, event, playlistId, sourceLayerId)
+		}
+	)
+
+	registerRoute<
+		{ playlistId: string; timerIndex: string },
+		{ duration: number; stopAtZero?: boolean; startPaused?: boolean },
+		void
+	>(
+		'post',
+		'/playlists/:playlistId/t-timers/:timerIndex/countdown',
+		new Map([[404, [UserErrorMessage.RundownPlaylistNotFound]]]),
+		playlistsAPIFactory,
+		async (serverAPI, connection, event, params, body) => {
+			const rundownPlaylistId = protectString<RundownPlaylistId>(params.playlistId)
+			const timerIndex = parseTimerIndex(params.timerIndex)
+			logger.info(`API POST: t-timer countdown ${rundownPlaylistId} ${timerIndex}`)
+
+			check(rundownPlaylistId, String)
+			check(timerIndex, Number)
+			return await serverAPI.tTimerStartCountdown(
+				connection,
+				event,
+				rundownPlaylistId,
+				timerIndex,
+				body.duration,
+				body.stopAtZero,
+				body.startPaused
+			)
+		}
+	)
+
+	registerRoute<{ playlistId: string; timerIndex: string }, { startPaused?: boolean }, void>(
+		'post',
+		'/playlists/:playlistId/t-timers/:timerIndex/free-run',
+		new Map([[404, [UserErrorMessage.RundownPlaylistNotFound]]]),
+		playlistsAPIFactory,
+		async (serverAPI, connection, event, params, body) => {
+			const rundownPlaylistId = protectString<RundownPlaylistId>(params.playlistId)
+			const timerIndex = parseTimerIndex(params.timerIndex)
+			logger.info(`API POST: t-timer free-run ${rundownPlaylistId} ${timerIndex}`)
+
+			check(rundownPlaylistId, String)
+			check(timerIndex, Number)
+			return await serverAPI.tTimerStartFreeRun(
+				connection,
+				event,
+				rundownPlaylistId,
+				timerIndex,
+				body.startPaused
+			)
+		}
+	)
+
+	registerRoute<{ playlistId: string; timerIndex: string }, never, void>(
+		'post',
+		'/playlists/:playlistId/t-timers/:timerIndex/pause',
+		new Map([[404, [UserErrorMessage.RundownPlaylistNotFound]]]),
+		playlistsAPIFactory,
+		async (serverAPI, connection, event, params, _) => {
+			const rundownPlaylistId = protectString<RundownPlaylistId>(params.playlistId)
+			const timerIndex = parseTimerIndex(params.timerIndex)
+			logger.info(`API POST: t-timer pause ${rundownPlaylistId} ${timerIndex}`)
+
+			check(rundownPlaylistId, String)
+			check(timerIndex, Number)
+			return await serverAPI.tTimerPause(connection, event, rundownPlaylistId, timerIndex)
+		}
+	)
+
+	registerRoute<{ playlistId: string; timerIndex: string }, never, void>(
+		'post',
+		'/playlists/:playlistId/t-timers/:timerIndex/resume',
+		new Map([[404, [UserErrorMessage.RundownPlaylistNotFound]]]),
+		playlistsAPIFactory,
+		async (serverAPI, connection, event, params, _) => {
+			const rundownPlaylistId = protectString<RundownPlaylistId>(params.playlistId)
+			const timerIndex = parseTimerIndex(params.timerIndex)
+			logger.info(`API POST: t-timer resume ${rundownPlaylistId} ${timerIndex}`)
+
+			check(rundownPlaylistId, String)
+			check(timerIndex, Number)
+			return await serverAPI.tTimerResume(connection, event, rundownPlaylistId, timerIndex)
+		}
+	)
+
+	registerRoute<{ playlistId: string; timerIndex: string }, never, void>(
+		'post',
+		'/playlists/:playlistId/t-timers/:timerIndex/restart',
+		new Map([[404, [UserErrorMessage.RundownPlaylistNotFound]]]),
+		playlistsAPIFactory,
+		async (serverAPI, connection, event, params, _) => {
+			const rundownPlaylistId = protectString<RundownPlaylistId>(params.playlistId)
+			const timerIndex = parseTimerIndex(params.timerIndex)
+			logger.info(`API POST: t-timer restart ${rundownPlaylistId} ${timerIndex}`)
+
+			check(rundownPlaylistId, String)
+			check(timerIndex, Number)
+			return await serverAPI.tTimerRestart(connection, event, rundownPlaylistId, timerIndex)
+		}
+	)
+
+	registerRoute<{ playlistId: string; timerIndex: string }, never, void>(
+		'post',
+		'/playlists/:playlistId/t-timers/:timerIndex/projected/clear',
+		new Map([[404, [UserErrorMessage.RundownPlaylistNotFound]]]),
+		playlistsAPIFactory,
+		async (serverAPI, connection, event, params, _) => {
+			const rundownPlaylistId = protectString<RundownPlaylistId>(params.playlistId)
+			const timerIndex = parseTimerIndex(params.timerIndex)
+			logger.info(`API POST: t-timer projected clear ${rundownPlaylistId} ${timerIndex}`)
+
+			check(rundownPlaylistId, String)
+			check(timerIndex, Number)
+			return await serverAPI.tTimerClearProjected(connection, event, rundownPlaylistId, timerIndex)
+		}
+	)
+
+	registerRoute<{ playlistId: string; timerIndex: string }, { partId?: string; externalId?: string }, void>(
+		'post',
+		'/playlists/:playlistId/t-timers/:timerIndex/projected/anchor-part',
+		new Map([[404, [UserErrorMessage.RundownPlaylistNotFound]]]),
+		playlistsAPIFactory,
+		async (serverAPI, connection, event, params, body) => {
+			const rundownPlaylistId = protectString<RundownPlaylistId>(params.playlistId)
+			const timerIndex = parseTimerIndex(params.timerIndex)
+			logger.info(`API POST: t-timer projected anchor-part ${rundownPlaylistId} ${timerIndex}`)
+
+			check(rundownPlaylistId, String)
+			check(timerIndex, Number)
+			check(body.partId, Match.Optional(String))
+			check(body.externalId, Match.Optional(String))
+
+			if (!body.partId && !body.externalId) {
+				throw new Meteor.Error(400, `Must provide either 'partId' or 'externalId'`)
+			}
+
+			const partId = body.partId ? protectString<PartId>(body.partId) : undefined
+			const externalId = body.externalId
+
+			return await serverAPI.tTimerSetProjectedAnchorPart(
+				connection,
+				event,
+				rundownPlaylistId,
+				timerIndex,
+				partId,
+				externalId
+			)
+		}
+	)
+
+	registerRoute<{ playlistId: string; timerIndex: string }, { time: number; paused?: boolean }, void>(
+		'post',
+		'/playlists/:playlistId/t-timers/:timerIndex/projected/time',
+		new Map([[404, [UserErrorMessage.RundownPlaylistNotFound]]]),
+		playlistsAPIFactory,
+		async (serverAPI, connection, event, params, body) => {
+			const rundownPlaylistId = protectString<RundownPlaylistId>(params.playlistId)
+			const timerIndex = parseTimerIndex(params.timerIndex)
+			logger.info(`API POST: t-timer projected time ${rundownPlaylistId} ${timerIndex}`)
+
+			check(rundownPlaylistId, String)
+			check(timerIndex, Number)
+			check(body.time, Number)
+			check(body.paused, Match.Optional(Boolean))
+
+			return await serverAPI.tTimerSetProjectedTime(
+				connection,
+				event,
+				rundownPlaylistId,
+				timerIndex,
+				body.time,
+				body.paused
+			)
+		}
+	)
+
+	registerRoute<{ playlistId: string; timerIndex: string }, { duration: number; paused?: boolean }, void>(
+		'post',
+		'/playlists/:playlistId/t-timers/:timerIndex/projected/duration',
+		new Map([[404, [UserErrorMessage.RundownPlaylistNotFound]]]),
+		playlistsAPIFactory,
+		async (serverAPI, connection, event, params, body) => {
+			const rundownPlaylistId = protectString<RundownPlaylistId>(params.playlistId)
+			const timerIndex = parseTimerIndex(params.timerIndex)
+			logger.info(`API POST: t-timer projected duration ${rundownPlaylistId} ${timerIndex}`)
+
+			check(rundownPlaylistId, String)
+			check(timerIndex, Number)
+			check(body.duration, Number)
+			check(body.paused, Match.Optional(Boolean))
+
+			return await serverAPI.tTimerSetProjectedDuration(
+				connection,
+				event,
+				rundownPlaylistId,
+				timerIndex,
+				body.duration,
+				body.paused
+			)
 		}
 	)
 }

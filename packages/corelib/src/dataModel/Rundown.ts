@@ -1,15 +1,19 @@
-import { RundownPlaylistTiming, Time } from '@sofie-automation/blueprints-integration'
+import {
+	BlueprintExternalEventSubscription,
+	RundownPlaylistTiming,
+	Time,
+} from '@sofie-automation/blueprints-integration'
 import {
 	RundownId,
-	OrganizationId,
 	StudioId,
 	ShowStyleBaseId,
 	PeripheralDeviceId,
 	RundownPlaylistId,
 	ShowStyleVariantId,
-} from './Ids'
-import { RundownNote } from './Notes'
+} from './Ids.js'
+import { RundownNote } from './Notes.js'
 import { ReadonlyDeep } from 'type-fest'
+import { CoreUserEditingDefinition } from './UserEditingDefinitions.js'
 
 export enum RundownOrphanedReason {
 	/** Rundown is deleted from the source but we still need it */
@@ -29,8 +33,6 @@ export interface RundownImportVersions {
 
 export interface Rundown {
 	_id: RundownId
-	/** ID of the organization that owns the rundown */
-	organizationId: OrganizationId | null
 	/** The id of the Studio this rundown is in */
 	studioId: StudioId
 
@@ -56,10 +58,7 @@ export interface Rundown {
 	 */
 	orphaned?: RundownOrphanedReason
 
-	/** Last sent storyStatus to ingestDevice (MOS) */
-	notifiedCurrentPlayingPartExternalId?: string
-
-	/** Holds notes (warnings / errors) thrown by the blueprints during creation, or appended after */
+	/** Holds notes (warnings / errors) thrown by the blueprints during creation */
 	notes?: Array<RundownNote>
 
 	externalId: string
@@ -79,16 +78,26 @@ export interface Rundown {
 
 	/** External id of the Rundown Playlist to put this rundown in */
 	playlistExternalId?: string
-	/** Whether the end of the rundown marks a commercial break */
-	endOfRundownIsShowBreak?: boolean
 	/** The id of the Rundown Playlist this rundown is in */
 	playlistId: RundownPlaylistId
 	/** If the playlistId has ben set manually by a user in Sofie */
 	playlistIdIsSetInSofie?: boolean
+	/**
+	 * User editing definitions for this rundown
+	 */
+	userEditOperations?: CoreUserEditingDefinition[]
+
+	/** Subscriptions to external device events, as declared by the blueprint */
+	externalEventSubscriptions?: BlueprintExternalEventSubscription[]
 }
 
 /** A description of where a Rundown originated from */
-export type RundownSource = RundownSourceNrcs | RundownSourceSnapshot | RundownSourceHttp | RundownSourceTesting
+export type RundownSource =
+	| RundownSourceNrcs
+	| RundownSourceSnapshot
+	| RundownSourceHttp
+	| RundownSourceTesting
+	| RundownSourceRestApi
 
 /** A description of the external NRCS source of a Rundown */
 export interface RundownSourceNrcs {
@@ -113,6 +122,11 @@ export interface RundownSourceTesting {
 	type: 'testing'
 	/** The ShowStyleVariant the Rundown is created for */
 	showStyleVariantId: ShowStyleVariantId
+}
+/** A description of the source of a Rundown which was through the new HTTP ingest API */
+export interface RundownSourceRestApi {
+	type: 'restApi'
+	resyncUrl: string
 }
 
 export function getRundownNrcsName(rundown: ReadonlyDeep<Pick<DBRundown, 'source'>> | undefined): string {

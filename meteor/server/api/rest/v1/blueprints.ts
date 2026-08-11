@@ -1,12 +1,12 @@
 import { BlueprintId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { check } from '../../../../lib/check'
-import { protectString, unprotectString } from '../../../../lib/lib'
+import { check } from '../../../lib/check'
+import { protectString, unprotectString } from '@sofie-automation/corelib/dist/protectedString'
 import { logger } from '../../../logging'
 import { APIFactory, APIRegisterHook, ServerAPIContext } from './types'
-import { APIBlueprint } from '../../../../lib/api/rest/v1'
-import { BlueprintsRestAPI } from '../../../../lib/api/rest/v1'
+import { APIBlueprint } from '../../../lib/rest/v1'
+import { BlueprintsRestAPI } from '../../../lib/rest/v1'
 import { Meteor } from 'meteor/meteor'
-import { ClientAPI } from '../../../../lib/api/client'
+import { ClientAPI } from '@sofie-automation/meteor-lib/dist/api/client'
 import { Blueprints } from '../../../collections'
 import { Blueprint } from '@sofie-automation/corelib/dist/dataModel/Blueprint'
 import { UserError, UserErrorMessage } from '@sofie-automation/corelib/dist/error'
@@ -32,8 +32,12 @@ class BlueprintsServerAPI implements BlueprintsRestAPI {
 		const blueprint = await Blueprints.findOneAsync(blueprintId)
 		if (!blueprint) {
 			return ClientAPI.responseError(
-				UserError.from(new Error(`Blueprint ${blueprintId} not found`), UserErrorMessage.BlueprintNotFound),
-				404
+				UserError.from(
+					new Error(`Blueprint ${blueprintId} not found`),
+					UserErrorMessage.BlueprintNotFound,
+					undefined,
+					404
+				)
 			)
 		}
 

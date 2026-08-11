@@ -1,28 +1,16 @@
-import * as _ from 'underscore'
-import { setupEmptyEnvironment } from '../../../__mocks__/helpers/database'
-import { testInFiber } from '../../../__mocks__/helpers/jest'
-import { ICoreSystem, GENESIS_SYSTEM_VERSION } from '../../../lib/collections/CoreSystem'
+import _ from 'underscore'
+import { setupEmptyEnvironment, setupMockStudio } from '../../../__mocks__/helpers/database'
+import { ICoreSystem, GENESIS_SYSTEM_VERSION } from '@sofie-automation/meteor-lib/dist/collections/CoreSystem'
 import { clearMigrationSteps, addMigrationSteps, prepareMigration, PreparedMigration } from '../databaseMigration'
 import { CURRENT_SYSTEM_VERSION } from '../currentSystemVersion'
-import { RunMigrationResult, GetMigrationStatusResult } from '../../../lib/api/migration'
-import { literal, protectString } from '../../../lib/lib'
-import {
-	MigrationStepInputResult,
-	BlueprintManifestType,
-	MigrationContextStudio,
-	MigrationContextShowStyle,
-	PlaylistTimingType,
-	PlaylistTimingNone,
-	ShowStyleBlueprintManifest,
-	StudioBlueprintManifest,
-} from '@sofie-automation/blueprints-integration'
+import { RunMigrationResult, GetMigrationStatusResult } from '@sofie-automation/meteor-lib/dist/api/migration'
+import { protectString } from '@sofie-automation/corelib/dist/protectedString'
+import { MigrationStepCore } from '@sofie-automation/meteor-lib/dist/migrations'
 import { DBStudio } from '@sofie-automation/corelib/dist/dataModel/Studio'
-import { generateFakeBlueprint } from '../../api/blueprints/__tests__/lib'
-import { MeteorCall } from '../../../lib/api/methods'
+import { MeteorCall } from '../../api/methods'
 import { wrapDefaultObject } from '@sofie-automation/corelib/dist/settings/objectWithOverrides'
-import { Blueprints, ShowStyleBases, ShowStyleVariants, Studios } from '../../collections'
+import { ShowStyleBases, ShowStyleVariants, Studios } from '../../collections'
 import { getCoreSystemAsync } from '../../coreSystem/collection'
-import { DEFAULT_MINIMUM_TAKE_SPAN } from '@sofie-automation/shared-lib/dist/core/constants'
 import fs from 'fs'
 
 require('../../api/peripheralDevice.ts') // include in order to create the Meteor methods needed
@@ -47,23 +35,8 @@ describe('Migrations', () => {
 	async function getSystem() {
 		return (await getCoreSystemAsync()) as ICoreSystem
 	}
-	function userInput(
-		migrationStatus: GetMigrationStatusResult,
-		userValues?: { [key: string]: any }
-	): MigrationStepInputResult[] {
-		return _.compact(
-			_.map(migrationStatus.migration.manualInputs, (manualInput) => {
-				if (manualInput.stepId && manualInput.attribute) {
-					return literal<MigrationStepInputResult>({
-						stepId: manualInput.stepId,
-						attribute: manualInput.attribute,
-						value: userValues && userValues[manualInput.stepId],
-					})
-				}
-			})
-		)
-	}
-	testInFiber('System migrations, initial setup', async () => {
+
+	test('System migrations, initial setup', async () => {
 		expect((await getSystem()).version).toEqual(GENESIS_SYSTEM_VERSION)
 
 		const migrationStatus0: GetMigrationStatusResult = await MeteorCall.migration.getMigrationStatus()
@@ -74,11 +47,8 @@ describe('Migrations', () => {
 			migrationNeeded: true,
 
 			migration: {
-				canDoAutomaticMigration: true,
-				// manualInputs: [],
 				hash: expect.stringContaining(''),
 				automaticStepCount: expect.any(Number),
-				manualStepCount: expect.any(Number),
 				ignoredStepCount: expect.any(Number),
 				partialMigration: true,
 				// chunks: expect.any(Array)
@@ -87,8 +57,7 @@ describe('Migrations', () => {
 
 		const migrationResult0: RunMigrationResult = await MeteorCall.migration.runMigration(
 			migrationStatus0.migration.chunks,
-			migrationStatus0.migration.hash,
-			userInput(migrationStatus0)
+			migrationStatus0.migration.hash
 		)
 
 		expect(migrationResult0).toMatchObject({
@@ -101,7 +70,7 @@ describe('Migrations', () => {
 		expect((await getSystem()).version).toEqual(CURRENT_SYSTEM_VERSION)
 	})
 
-	testInFiber('Ensure migrations run in correct order', async () => {
+	test('Ensure migrations run in correct order', async () => {
 		await MeteorCall.migration.resetDatabaseVersions()
 
 		expect((await getSystem()).version).toEqual(GENESIS_SYSTEM_VERSION)
@@ -117,31 +86,8 @@ describe('Migrations', () => {
 					return false
 				},
 				migrate: async () => {
-					await Studios.insertAsync({
+					await setupMockStudio({
 						_id: protectString('studioMock2'),
-						name: 'Default studio',
-						organizationId: null,
-						supportedShowStyleBase: [],
-						settings: {
-							mediaPreviewsUrl: '',
-							frameRate: 25,
-							minimumTakeSpan: DEFAULT_MINIMUM_TAKE_SPAN,
-						},
-						mappingsWithOverrides: wrapDefaultObject({}),
-						blueprintConfigWithOverrides: wrapDefaultObject({}),
-						_rundownVersionHash: '',
-						routeSets: {},
-						routeSetExclusivityGroups: {},
-						packageContainers: {},
-						previewContainerIds: [],
-						thumbnailContainerIds: [],
-						peripheralDeviceSettings: {
-							playoutDevices: wrapDefaultObject({}),
-							ingestDevices: wrapDefaultObject({}),
-							inputDevices: wrapDefaultObject({}),
-						},
-						lastBlueprintConfig: undefined,
-						lastBlueprintFixUpHash: undefined,
 					})
 				},
 			},
@@ -155,31 +101,8 @@ describe('Migrations', () => {
 					return false
 				},
 				migrate: async () => {
-					await Studios.insertAsync({
+					await setupMockStudio({
 						_id: protectString('studioMock3'),
-						name: 'Default studio',
-						organizationId: null,
-						supportedShowStyleBase: [],
-						settings: {
-							mediaPreviewsUrl: '',
-							frameRate: 25,
-							minimumTakeSpan: DEFAULT_MINIMUM_TAKE_SPAN,
-						},
-						mappingsWithOverrides: wrapDefaultObject({}),
-						blueprintConfigWithOverrides: wrapDefaultObject({}),
-						_rundownVersionHash: '',
-						routeSets: {},
-						routeSetExclusivityGroups: {},
-						packageContainers: {},
-						previewContainerIds: [],
-						thumbnailContainerIds: [],
-						peripheralDeviceSettings: {
-							playoutDevices: wrapDefaultObject({}),
-							ingestDevices: wrapDefaultObject({}),
-							inputDevices: wrapDefaultObject({}),
-						},
-						lastBlueprintConfig: undefined,
-						lastBlueprintFixUpHash: undefined,
 					})
 				},
 			},
@@ -193,31 +116,8 @@ describe('Migrations', () => {
 					return false
 				},
 				migrate: async () => {
-					await Studios.insertAsync({
+					await setupMockStudio({
 						_id: protectString('studioMock1'),
-						name: 'Default studio',
-						organizationId: null,
-						supportedShowStyleBase: [],
-						settings: {
-							mediaPreviewsUrl: '',
-							frameRate: 25,
-							minimumTakeSpan: DEFAULT_MINIMUM_TAKE_SPAN,
-						},
-						mappingsWithOverrides: wrapDefaultObject({}),
-						blueprintConfigWithOverrides: wrapDefaultObject({}),
-						_rundownVersionHash: '',
-						routeSets: {},
-						routeSetExclusivityGroups: {},
-						packageContainers: {},
-						previewContainerIds: [],
-						thumbnailContainerIds: [],
-						peripheralDeviceSettings: {
-							playoutDevices: wrapDefaultObject({}),
-							ingestDevices: wrapDefaultObject({}),
-							inputDevices: wrapDefaultObject({}),
-						},
-						lastBlueprintConfig: undefined,
-						lastBlueprintFixUpHash: undefined,
 					})
 				},
 			},
@@ -239,164 +139,9 @@ describe('Migrations', () => {
 		const studio = (await Studios.findOneAsync({})) as DBStudio
 		expect(studio).toBeTruthy()
 
-		const studioManifest = (): StudioBlueprintManifest => ({
-			blueprintType: 'studio' as BlueprintManifestType.STUDIO,
-			blueprintVersion: '1.0.0',
-			integrationVersion: '0.0.0',
-			TSRVersion: '0.0.0',
-
-			configPresets: {
-				main: {
-					name: 'Main',
-					config: {},
-				},
-			},
-
-			studioConfigSchema: '{}' as any,
-			studioMigrations: [
-				{
-					version: '0.2.0',
-					id: 'myStudioMockStep2',
-					validate: (context: MigrationContextStudio) => {
-						if (!context.getConfig('mocktest2')) return `mocktest2 config not set`
-						return false
-					},
-					canBeRunAutomatically: true,
-					migrate: (context: MigrationContextStudio) => {
-						if (!context.getConfig('mocktest2')) {
-							context.setConfig('mocktest2', true)
-						}
-					},
-				},
-				{
-					version: '0.3.0',
-					id: 'myStudioMockStep3',
-					validate: (context: MigrationContextStudio) => {
-						if (!context.getConfig('mocktest3')) return `mocktest3 config not set`
-						return false
-					},
-					canBeRunAutomatically: true,
-					migrate: (context: MigrationContextStudio) => {
-						if (!context.getConfig('mocktest3')) {
-							context.setConfig('mocktest3', true)
-						}
-					},
-				},
-				{
-					version: '0.1.0',
-					id: 'myStudioMockStep1',
-					validate: (context: MigrationContextStudio) => {
-						if (!context.getConfig('mocktest1')) return `mocktest1 config not set`
-						return false
-					},
-					canBeRunAutomatically: true,
-					migrate: (context: MigrationContextStudio) => {
-						if (!context.getConfig('mocktest1')) {
-							context.setConfig('mocktest1', true)
-						}
-					},
-				},
-			],
-			getBaseline: () => {
-				return {
-					timelineObjects: [],
-				}
-			},
-			getShowStyleId: () => null,
-		})
-
-		const showStyleManifest = (): ShowStyleBlueprintManifest => ({
-			blueprintType: 'showstyle' as BlueprintManifestType.SHOWSTYLE,
-			blueprintVersion: '1.0.0',
-			integrationVersion: '0.0.0',
-			TSRVersion: '0.0.0',
-
-			configPresets: {
-				main: {
-					name: 'Main',
-					config: {},
-
-					variants: {
-						main: {
-							name: 'Default',
-							config: {},
-						},
-					},
-				},
-			},
-
-			showStyleConfigSchema: '{}' as any,
-			showStyleMigrations: [
-				{
-					version: '0.2.0',
-					id: 'myShowStyleMockStep2',
-					validate: (context: MigrationContextShowStyle) => {
-						if (!context.getBaseConfig('mocktest2')) return `mocktest2 config not set`
-						return false
-					},
-					canBeRunAutomatically: true,
-					migrate: (context: MigrationContextShowStyle) => {
-						if (!context.getBaseConfig('mocktest2')) {
-							context.setBaseConfig('mocktest2', true)
-						}
-					},
-				},
-				{
-					version: '0.3.0',
-					id: 'myShowStyleMockStep3',
-					validate: (context: MigrationContextShowStyle) => {
-						if (!context.getBaseConfig('mocktest3')) return `mocktest3 config not set`
-						return false
-					},
-					canBeRunAutomatically: true,
-					migrate: (context: MigrationContextShowStyle) => {
-						if (!context.getBaseConfig('mocktest3')) {
-							context.setBaseConfig('mocktest3', true)
-						}
-					},
-				},
-				{
-					version: '0.1.0',
-					id: 'myShowStyleMockStep1',
-					validate: (context: MigrationContextShowStyle) => {
-						if (!context.getBaseConfig('mocktest1')) return `mocktest1 config not set`
-						return false
-					},
-					canBeRunAutomatically: true,
-					migrate: (context: MigrationContextShowStyle) => {
-						if (!context.getBaseConfig('mocktest1')) {
-							context.setBaseConfig('mocktest1', true)
-						}
-					},
-				},
-			],
-			getShowStyleVariantId: () => null,
-			getRundown: () => ({
-				rundown: {
-					externalId: '',
-					name: '',
-					timing: literal<PlaylistTimingNone>({
-						type: PlaylistTimingType.None,
-					}),
-				},
-				globalAdLibPieces: [],
-				globalActions: [],
-				baseline: { timelineObjects: [] },
-			}),
-			getSegment: () => ({
-				segment: { name: '' },
-				parts: [],
-			}),
-		})
-
-		await Blueprints.insertAsync(
-			generateFakeBlueprint('showStyle0', BlueprintManifestType.SHOWSTYLE, showStyleManifest)
-		)
-
 		await ShowStyleBases.insertAsync({
 			_id: protectString('showStyle0'),
 			name: '',
-			organizationId: null,
 			blueprintId: protectString('showStyle0'),
 			outputLayersWithOverrides: wrapDefaultObject({}),
 			sourceLayersWithOverrides: wrapDefaultObject({}),
@@ -416,7 +161,6 @@ describe('Migrations', () => {
 			_rank: 0,
 		})
 
-		await Blueprints.insertAsync(generateFakeBlueprint('studio0', BlueprintManifestType.STUDIO, studioManifest))
 		await Studios.updateAsync(studio._id, {
 			$set: {
 				blueprintId: protectString('studio0'),
@@ -475,5 +219,48 @@ describe('Migrations', () => {
 		expect(steps.indexOf(myShowStyleMockStep2)).toEqual(7)
 		expect(steps.indexOf(myShowStyleMockStep3)).toEqual(8)
 		*/
+	})
+
+	test('Class-based migration steps work with proper binding', async () => {
+		await MeteorCall.migration.resetDatabaseVersions()
+		clearMigrationSteps()
+
+		// Create a migration step class that uses instance properties
+		class TestClassMigrationStep implements Omit<MigrationStepCore, 'version'> {
+			public readonly id = 'classBasedMigrationTest'
+			public readonly canBeRunAutomatically = true
+			public testValue = 'initialized'
+
+			public async validate(): Promise<boolean | string> {
+				// If 'this' is not bound, testValue will be undefined
+				return this.testValue === 'initialized' ? 'Migration needed' : false
+			}
+
+			public async migrate(): Promise<void> {
+				// If 'this' is not bound, this will throw or fail to update the correct instance
+				this.testValue = 'migrated'
+			}
+		}
+
+		// Instantiate the step so we can check it later
+		const step = new TestClassMigrationStep()
+		addMigrationSteps('1.0.0', [step])()
+
+		// Prepare migration to ensure it's detected
+		const migration = await prepareMigration(true)
+		expect(migration.migrationNeeded).toEqual(true)
+		expect(_.find(migration.steps, (s) => s.id === 'classBasedMigrationTest')).toBeTruthy()
+
+		// Run the migration to verify that methods are properly bound
+		const migrationStatus: GetMigrationStatusResult = await MeteorCall.migration.getMigrationStatus()
+		const migrationResult: RunMigrationResult = await MeteorCall.migration.runMigration(
+			migrationStatus.migration.chunks,
+			migrationStatus.migration.hash
+		)
+
+		expect(migrationResult.migrationCompleted).toEqual(true)
+
+		// Verify that migrate() was called and 'this' was correctly bound
+		expect(step.testValue).toEqual('migrated')
 	})
 })

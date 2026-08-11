@@ -1,10 +1,10 @@
-import * as _ from 'underscore'
+import _ from 'underscore'
 import { logger } from '../../logging'
 import { Meteor } from 'meteor/meteor'
 import { BlueprintManifestSet } from '@sofie-automation/blueprints-integration'
-import { check, Match } from '../../../lib/check'
+import { check, Match } from '../../lib/check'
 import { retrieveBlueprintAsset, uploadBlueprint, uploadBlueprintAsset } from './api'
-import { protectString } from '../../../lib/lib'
+import { protectString } from '@sofie-automation/corelib/dist/protectedString'
 import path from 'path'
 import { BlueprintId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import KoaRouter from '@koa/router'
@@ -31,6 +31,7 @@ blueprintsRouter.post(
 		try {
 			const blueprintId = ctx.params.blueprintId
 			const force = ctx.query['force'] === '1' || ctx.query['force'] === 'true'
+			const developmentMode = ctx.query['developmentMode'] === '1' || ctx.query['developmentMode'] === 'true'
 
 			const blueprintNames = ctx.query['name']
 			const blueprintName: string | undefined = Array.isArray(blueprintNames) ? blueprintNames[0] : blueprintNames
@@ -38,20 +39,16 @@ blueprintsRouter.post(
 			check(blueprintId, String)
 			check(blueprintName, Match.Maybe(String))
 
-			const userId = ctx.headers.authorization ? ctx.headers.authorization.split(' ')[1] : ''
-
 			const body = ctx.request.body || ctx.req.body
 			if (!body) throw new Meteor.Error(400, 'Restore Blueprint: Missing request body')
 			if (typeof body !== 'string' || body.length < 10)
 				throw new Meteor.Error(400, 'Restore Blueprint: Invalid request body')
 
-			await uploadBlueprint(
-				{ userId: protectString(userId) },
-				protectString<BlueprintId>(blueprintId),
-				body,
+			await uploadBlueprint(ctx, protectString<BlueprintId>(blueprintId), body, {
 				blueprintName,
-				force
-			)
+				ignoreIdChange: force,
+				developmentMode,
+			})
 
 			ctx.response.status = 200
 			ctx.body = ''
@@ -77,6 +74,8 @@ blueprintsRouter.post(
 			if (typeof body !== 'object' || Object.keys(body as any).length === 0)
 				throw new Meteor.Error(400, 'Restore Blueprint: Invalid request body')
 
+			const developmentMode = ctx.query['developmentMode'] === '1' || ctx.query['developmentMode'] === 'true'
+
 			const collection = body as BlueprintManifestSet
 
 			const isBlueprintManifestSet = (obj: string | object): obj is BlueprintManifestSet =>
@@ -89,13 +88,10 @@ blueprintsRouter.post(
 			const errors: any[] = []
 			for (const id of _.keys(collection.blueprints)) {
 				try {
-					const userId = ctx.headers.authorization ? ctx.headers.authorization.split(' ')[1] : ''
-					await uploadBlueprint(
-						{ userId: protectString(userId) },
-						protectString<BlueprintId>(id),
-						collection.blueprints[id],
-						id
-					)
+					await uploadBlueprint(ctx, protectString<BlueprintId>(id), collection.blueprints[id], {
+						blueprintName: id,
+						developmentMode,
+					})
 				} catch (e) {
 					logger.error('Blueprint restore failed: ' + e)
 					errors.push(e)
@@ -104,8 +100,7 @@ blueprintsRouter.post(
 			if (collection.assets) {
 				for (const id of _.keys(collection.assets)) {
 					try {
-						const userId = ctx.headers.authorization ? ctx.headers.authorization.split(' ')[1] : ''
-						await uploadBlueprintAsset({ userId: protectString(userId) }, id, collection.assets[id])
+						await uploadBlueprintAsset(ctx, id, collection.assets[id])
 					} catch (e) {
 						logger.error('Blueprint assets upload failed: ' + e)
 						errors.push(e)
@@ -157,8 +152,7 @@ blueprintsRouter.post(
 			const errors: any[] = []
 			for (const id of _.keys(collection)) {
 				try {
-					const userId = ctx.headers.authorization ? ctx.headers.authorization.split(' ')[1] : ''
-					await uploadBlueprintAsset({ userId: protectString(userId) }, id, collection[id])
+					await uploadBlueprintAsset(ctx, id, collection[id])
 				} catch (e) {
 					logger.error('Blueprint assets upload failed: ' + e)
 					errors.push(e)
@@ -185,16 +179,15 @@ blueprintsRouter.post(
 	}
 )
 
-blueprintsRouter.get('/assets/(.*)', async (ctx) => {
+blueprintsRouter.get('/assets/*fileId', async (ctx) => {
 	logger.debug(`Blueprint Asset: ${ctx.socket.remoteAddress} GET "${ctx.url}"`)
 	// TODO - some sort of user verification
 	// for now just check it's a png to prevent snapshots being downloaded
 
-	const filePath = ctx.params[0]
+	const filePath = ctx.params.fileId
 	if (filePath.match(/\.(png|svg|gif)?$/)) {
-		const userId = ctx.headers.authorization ? ctx.headers.authorization.split(' ')[1] : ''
 		try {
-			const dataStream = retrieveBlueprintAsset({ userId: protectString(userId) }, filePath)
+			const dataStream = await retrieveBlueprintAsset(ctx, filePath)
 			const extension = path.extname(filePath)
 			if (extension === '.svg') {
 				ctx.response.type = 'image/svg+xml'
@@ -207,8 +200,17 @@ blueprintsRouter.get('/assets/(.*)', async (ctx) => {
 			ctx.set('Cache-Control', `public, max-age=${BLUEPRINT_ASSET_MAX_AGE}, immutable`)
 			ctx.statusCode = 200
 			ctx.body = dataStream
-		} catch {
-			ctx.statusCode = 404 // Probably
+		} catch (e) {
+			if (e instanceof Error && 'code' in e && e.code === 'ENOENT') {
+				logger.warn('Blueprint asset not found: ' + e)
+				ctx.statusCode = 404
+			} else if (e instanceof Error && e.message.includes('outside of asset storage path')) {
+				logger.warn('Blueprint asset path traversal attempt: ' + e)
+				ctx.statusCode = 400
+			} else {
+				logger.warn('Blueprint asset retrieval failed: ' + e)
+				ctx.statusCode = 500
+			}
 		}
 	} else {
 		ctx.statusCode = 403

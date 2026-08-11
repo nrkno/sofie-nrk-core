@@ -6,7 +6,8 @@ import { BucketAdLib } from '@sofie-automation/corelib/dist/dataModel/BucketAdLi
 import { CollectionName } from '@sofie-automation/corelib/dist/dataModel/Collections'
 import { ExpectedPackageDB } from '@sofie-automation/corelib/dist/dataModel/ExpectedPackages'
 import { ExpectedPlayoutItem } from '@sofie-automation/corelib/dist/dataModel/ExpectedPlayoutItem'
-import { IngestDataCacheObj } from '@sofie-automation/corelib/dist/dataModel/IngestDataCache'
+import { NrcsIngestDataCacheObj } from '@sofie-automation/corelib/dist/dataModel/NrcsIngestDataCache'
+import { SofieIngestDataCacheObj } from '@sofie-automation/corelib/dist/dataModel/SofieIngestDataCache'
 import { DBPart } from '@sofie-automation/corelib/dist/dataModel/Part'
 import { DBPartInstance } from '@sofie-automation/corelib/dist/dataModel/PartInstance'
 import { PeripheralDevice } from '@sofie-automation/corelib/dist/dataModel/PeripheralDevice'
@@ -16,7 +17,7 @@ import { PieceInstance } from '@sofie-automation/corelib/dist/dataModel/PieceIns
 import { DBRundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
 import { RundownBaselineAdLibAction } from '@sofie-automation/corelib/dist/dataModel/RundownBaselineAdLibAction'
 import { RundownBaselineObj } from '@sofie-automation/corelib/dist/dataModel/RundownBaselineObj'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import { DBSegment } from '@sofie-automation/corelib/dist/dataModel/Segment'
 import { DBShowStyleBase } from '@sofie-automation/corelib/dist/dataModel/ShowStyleBase'
 import { DBShowStyleVariant } from '@sofie-automation/corelib/dist/dataModel/ShowStyleVariant'
@@ -31,16 +32,23 @@ import {
 	mongoWhere,
 } from '@sofie-automation/corelib/dist/mongo'
 import { ProtectedString } from '@sofie-automation/corelib/dist/protectedString'
-import EventEmitter = require('eventemitter3')
 import { AnyBulkWriteOperation, Collection, CountOptions, FindOptions } from 'mongodb'
 import { ReadonlyDeep } from 'type-fest'
-import { IChangeStream, IChangeStreamEvents, ICollection, IDirectCollections, MongoModifier, MongoQuery } from '../db'
-import _ = require('underscore')
-import { ExpectedMediaItem } from '@sofie-automation/corelib/dist/dataModel/ExpectedMediaItem'
+import {
+	IChangeStream,
+	IChangeStreamEvents,
+	ICollection,
+	IDirectCollections,
+	MongoModifier,
+	MongoQuery,
+} from '../db/index.js'
+import _ from 'underscore'
 import { RundownBaselineAdLibItem } from '@sofie-automation/corelib/dist/dataModel/RundownBaselineAdLibPiece'
 import { ExternalMessageQueueObj } from '@sofie-automation/corelib/dist/dataModel/ExternalMessageQueue'
 import { MediaObjects } from '@sofie-automation/corelib/dist/dataModel/MediaObjects'
 import { PackageInfoDB } from '@sofie-automation/corelib/dist/dataModel/PackageInfos'
+import type { DBNotificationObj } from '@sofie-automation/corelib/dist/dataModel/Notifications'
+import { EventEmitter } from 'events'
 
 export interface CollectionOperation {
 	type: string
@@ -79,13 +87,13 @@ export class MockMongoCollection<TDoc extends { _id: ProtectedString<any> }> imp
 		this.#ops.length = 0
 	}
 
-	async findFetch(selector?: MongoQuery<TDoc>, options?: FindOptions<TDoc>): Promise<TDoc[]> {
+	async findFetch(selector?: MongoQuery<TDoc>, options?: FindOptions): Promise<TDoc[]> {
 		this.#ops.push({ type: 'findFetch', args: [selector, options] })
 
 		return this.findFetchInner(selector, options)
 	}
 
-	private async findFetchInner(selector?: MongoQuery<TDoc>, options?: FindOptions<TDoc>): Promise<TDoc[]> {
+	private async findFetchInner(selector?: MongoQuery<TDoc>, options?: FindOptions): Promise<TDoc[]> {
 		if (typeof selector === 'string') selector = { _id: selector }
 		selector = selector ?? {}
 
@@ -145,7 +153,7 @@ export class MockMongoCollection<TDoc extends { _id: ProtectedString<any> }> imp
 
 		return clone(matchedDocs)
 	}
-	async findOne(selector?: MongoQuery<TDoc> | TDoc['_id'], options?: FindOptions<TDoc>): Promise<TDoc | undefined> {
+	async findOne(selector?: MongoQuery<TDoc> | TDoc['_id'], options?: FindOptions): Promise<TDoc | undefined> {
 		this.#ops.push({ type: 'findOne', args: [selector, options] })
 
 		const docs = await this.findFetchInner(selector, {
@@ -176,6 +184,16 @@ export class MockMongoCollection<TDoc extends { _id: ProtectedString<any> }> imp
 		this.#ops.push({ type: 'remove', args: [selector] })
 
 		const docs: Pick<TDoc, '_id'>[] = await this.findFetchInner(selector, { projection: { _id: 1 } })
+		for (const doc of docs) {
+			this.#documents.delete(doc._id)
+		}
+
+		return docs.length
+	}
+	private async removeOne(selector: MongoQuery<TDoc> | TDoc['_id']): Promise<number> {
+		this.#ops.push({ type: 'removeOne', args: [selector] })
+
+		const docs: Pick<TDoc, '_id'>[] = await this.findFetchInner(selector, { projection: { _id: 1 }, limit: 1 })
 		for (const doc of docs) {
 			this.#documents.delete(doc._id)
 		}
@@ -223,8 +241,12 @@ export class MockMongoCollection<TDoc extends { _id: ProtectedString<any> }> imp
 				await this.updateInner(op.updateOne.filter, op.updateOne.update, true)
 			} else if ('replaceOne' in op) {
 				await this.replace(op.replaceOne.replacement as any)
+			} else if ('insertOne' in op) {
+				await this.insertOne(op.insertOne.document as any)
 			} else if ('deleteMany' in op) {
 				await this.remove(op.deleteMany.filter)
+			} else if ('deleteOne' in op) {
+				await this.removeOne(op.deleteOne.filter)
 			} else {
 				// Note: implement more as we start using them
 				throw new Error(`Unknown mongo Bulk Operation: ${JSON.stringify(op)}`)
@@ -281,9 +303,10 @@ export function getMockCollections(): {
 			Blueprints: new MockMongoCollection<Blueprint>(CollectionName.Blueprints),
 			BucketAdLibActions: new MockMongoCollection<BucketAdLibAction>(CollectionName.BucketAdLibActions),
 			BucketAdLibPieces: new MockMongoCollection<BucketAdLib>(CollectionName.BucketAdLibPieces),
-			ExpectedMediaItems: new MockMongoCollection(CollectionName.ExpectedMediaItems),
 			ExpectedPlayoutItems: new MockMongoCollection<ExpectedPlayoutItem>(CollectionName.ExpectedPlayoutItems),
-			IngestDataCache: new MockMongoCollection<IngestDataCacheObj>(CollectionName.IngestDataCache),
+			Notifications: new MockMongoCollection<DBNotificationObj>(CollectionName.Notifications),
+			SofieIngestDataCache: new MockMongoCollection<SofieIngestDataCacheObj>(CollectionName.SofieIngestDataCache),
+			NrcsIngestDataCache: new MockMongoCollection<NrcsIngestDataCacheObj>(CollectionName.NrcsIngestDataCache),
 			Parts: new MockMongoCollection<DBPart>(CollectionName.Parts),
 			PartInstances: new MockMongoCollection<DBPartInstance>(CollectionName.PartInstances),
 			PeripheralDevices: new MockMongoCollection<PeripheralDevice>(CollectionName.PeripheralDevices),
@@ -337,9 +360,10 @@ export interface IMockCollections {
 	Blueprints: MockMongoCollection<Blueprint>
 	BucketAdLibActions: MockMongoCollection<BucketAdLibAction>
 	BucketAdLibPieces: MockMongoCollection<BucketAdLib>
-	ExpectedMediaItems: MockMongoCollection<ExpectedMediaItem>
 	ExpectedPlayoutItems: MockMongoCollection<ExpectedPlayoutItem>
-	IngestDataCache: MockMongoCollection<IngestDataCacheObj>
+	Notifications: MockMongoCollection<DBNotificationObj>
+	SofieIngestDataCache: MockMongoCollection<SofieIngestDataCacheObj>
+	NrcsIngestDataCache: MockMongoCollection<NrcsIngestDataCacheObj>
 	Parts: MockMongoCollection<DBPart>
 	PartInstances: MockMongoCollection<DBPartInstance>
 	PeripheralDevices: MockMongoCollection<PeripheralDevice>

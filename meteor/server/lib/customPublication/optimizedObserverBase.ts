@@ -2,13 +2,15 @@ import deepmerge from 'deepmerge'
 import { Meteor } from 'meteor/meteor'
 import { Mongo } from 'meteor/mongo'
 import { ReadonlyDeep } from 'type-fest'
-import { clone, createManualPromise, lazyIgnore, ProtectedString } from '../../../lib/lib'
+import { clone } from '@sofie-automation/corelib/dist/lib'
+import { ProtectedString } from '@sofie-automation/corelib/dist/protectedString'
 import { stringifyError } from '@sofie-automation/shared-lib/dist/lib/stringifyError'
 import { profiler } from '../../api/profiler'
 import { logger } from '../../logging'
 import { ReactiveCacheCollection } from '../../publications/lib/ReactiveCacheCollection'
-import { LiveQueryHandle } from '../lib'
+import { LiveQueryHandle, lazyIgnore } from '../lib'
 import { CustomPublish, CustomPublishChanges } from './publish'
+import { waitForAllObserversReady } from '../../publications/lib/lib'
 
 const apmNamespace = 'optimizedObserver'
 
@@ -41,6 +43,8 @@ const optimizedObservers: Record<string, OptimizedObserverWrapper<any, unknown, 
 
 export type TriggerUpdate<UpdateProps extends Record<string, any>> = (updateProps: Partial<UpdateProps>) => void
 
+export type SetupObserversResult = Array<Promise<LiveQueryHandle> | LiveQueryHandle>
+
 /**
  * This should not be used directly, and should be used through one of the setUpOptimizedObserverArray or setUpCollectionOptimizedObserver wrappers
  *
@@ -57,7 +61,7 @@ export async function setUpOptimizedObserverInner<
 	PublicationDoc extends { _id: ProtectedString<any> },
 	Args,
 	State extends Record<string, any>,
-	UpdateProps extends Record<string, any>
+	UpdateProps extends Record<string, any>,
 >(
 	identifier: string,
 	args0: ReadonlyDeep<Args>,
@@ -65,7 +69,7 @@ export async function setUpOptimizedObserverInner<
 		args: ReadonlyDeep<Args>,
 		/** Trigger an update by mutating the context of manipulateData */
 		triggerUpdate: TriggerUpdate<UpdateProps>
-	) => Promise<LiveQueryHandle[]>,
+	) => Promise<SetupObserversResult>,
 	manipulateData: (
 		args: ReadonlyDeep<Args>,
 		state: Partial<State>,
@@ -113,14 +117,14 @@ export async function setUpOptimizedObserverInner<
 		// Wait for the observer to be ready
 		await thisObserverWrapper.worker
 	} else {
-		const resultingOptimizedObserver = createManualPromise<OptimizedObserverWorker<PublicationDoc, Args, State>>()
-		resultingOptimizedObserver.catch(() => null) // ensure resultingOptimizedObserver doesn't go uncaught
+		const resultingOptimizedObserver = Promise.withResolvers<OptimizedObserverWorker<PublicationDoc, Args, State>>()
+		resultingOptimizedObserver.promise.catch(() => null) // ensure resultingOptimizedObserver doesn't go uncaught
 
 		// Store the optimizedObserver, so that other subscribers can join onto this without creating their own
 		thisObserverWrapper = optimizedObservers[identifier] = {
 			newSubscribers: [receiver],
 			activeSubscribers: [],
-			worker: resultingOptimizedObserver,
+			worker: resultingOptimizedObserver.promise,
 		}
 		receiver.onStop(() => removeReceiver())
 
@@ -138,7 +142,7 @@ export async function setUpOptimizedObserverInner<
 			)
 
 			Meteor.defer(() => {
-				resultingOptimizedObserver.manualResolve(observerWorker)
+				resultingOptimizedObserver.resolve(observerWorker)
 			})
 		} catch (e: any) {
 			// The setup failed, so delete and cleanup the in-progress observer
@@ -146,7 +150,7 @@ export async function setUpOptimizedObserverInner<
 
 			Meteor.defer(() => {
 				// Propogate to other susbcribers
-				resultingOptimizedObserver.manualReject(e)
+				resultingOptimizedObserver.reject(e)
 			})
 
 			// Propogate to the susbcriber that started this
@@ -177,7 +181,7 @@ async function createOptimizedObserverWorker<
 	PublicationDoc extends { _id: ProtectedString<any> },
 	Args,
 	State extends Record<string, any>,
-	UpdateProps extends Record<string, any>
+	UpdateProps extends Record<string, any>,
 >(
 	identifier: string,
 	thisObserverWrapper: OptimizedObserverWrapper<PublicationDoc, Args, State>,
@@ -186,7 +190,7 @@ async function createOptimizedObserverWorker<
 		args: ReadonlyDeep<Args>,
 		/** Trigger an update by mutating the context of manipulateData */
 		triggerUpdate: TriggerUpdate<UpdateProps>
-	) => Promise<LiveQueryHandle[]>,
+	) => Promise<SetupObserversResult>,
 	manipulateData: (
 		args: ReadonlyDeep<Args>,
 		state: Partial<State>,
@@ -324,7 +328,7 @@ async function createOptimizedObserverWorker<
 
 	try {
 		// Setup the mongo observers
-		const observers = await setupObservers(args, triggerUpdate)
+		const observers = await waitForAllObserversReady(await setupObservers(args, triggerUpdate))
 
 		thisObserverWorker = {
 			args: args,

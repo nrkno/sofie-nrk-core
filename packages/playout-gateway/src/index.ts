@@ -1,5 +1,6 @@
-import { Connector } from './connector'
-import { config, logPath, disableWatchdog, logLevel } from './config'
+import { Connector } from './connector.js'
+import { config, logPath, disableWatchdog, logLevel } from './config.js'
+import { loadTSRPlugins } from './tsrDeviceRegistry.js'
 
 import * as Winston from 'winston'
 import { stringifyError } from '@sofie-automation/server-core-integration'
@@ -43,6 +44,7 @@ if (logPath) {
 	})
 
 	logger = Winston.createLogger({
+		exitOnError: false,
 		transports: [transportConsole, transportFile],
 	})
 	logger.info('Logging to', logPath)
@@ -66,6 +68,7 @@ if (logPath) {
 	})
 
 	logger = Winston.createLogger({
+		exitOnError: false,
 		transports: [transportConsole],
 	})
 	logger.info('Logging to Console')
@@ -89,8 +92,14 @@ logger.info('Starting Playout Gateway')
 if (disableWatchdog) logger.info('Watchdog is disabled!')
 const connector = new Connector(logger)
 
-logger.info('Core:          ' + config.core.host + ':' + config.core.port)
-logger.info('------------------------------------------------------------------')
-connector.init(config).catch((e) => {
-	logger.error(e)
-})
+Promise.resolve()
+	.then(async () => {
+		await loadTSRPlugins(logger)
+
+		logger.info('Core:          ' + config.core.host + ':' + config.core.port)
+		logger.info('------------------------------------------------------------------')
+		await connector.init(config)
+	})
+	.catch((e) => {
+		logger.error(e)
+	})

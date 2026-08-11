@@ -1,30 +1,31 @@
-import { getOrderedPartsAfterPlayhead, PartAndPieces, PartInstanceAndPieceInstances } from './util'
-import { findLookaheadForLayer, LookaheadResult } from './findForLayer'
-import { PlayoutModel } from '../model/PlayoutModel'
-import { sortPieceInstancesByStart } from '../pieces'
+import { getOrderedPartsAfterPlayhead, PartAndPieces, PartInstanceAndPieceInstances } from './util.js'
+import { findLookaheadForLayer, LookaheadResult, PartInstanceAndPieceInstancesInfos } from './findForLayer.js'
+import { PlayoutModel } from '../model/PlayoutModel.js'
+import { sortPieceInstancesByStart } from '../pieces.js'
 import { MappingExt } from '@sofie-automation/corelib/dist/dataModel/Studio'
 import { TSR, LookaheadMode, OnGenerateTimelineObj } from '@sofie-automation/blueprints-integration'
-import { SelectedPartInstancesTimelineInfo, SelectedPartInstanceTimelineInfo } from '../timeline/generate'
+import { SelectedPartInstancesTimelineInfo, SelectedPartInstanceTimelineInfo } from '../timeline/generate.js'
 import {
 	OnGenerateTimelineObjExt,
 	TimelineObjRundown,
 	updateLookaheadLayer,
 } from '@sofie-automation/corelib/dist/dataModel/Timeline'
-import { JobContext } from '../../jobs'
+import { JobContext } from '../../jobs/index.js'
 import { Piece } from '@sofie-automation/corelib/dist/dataModel/Piece'
 import { PieceInstance, wrapPieceToInstance } from '@sofie-automation/corelib/dist/dataModel/PieceInstance'
 import { PartId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { protectString } from '@sofie-automation/corelib/dist/protectedString'
 import { clone } from '@sofie-automation/corelib/dist/lib'
 import { Filter as FilterQuery } from 'mongodb'
-import _ = require('underscore')
+import _ from 'underscore'
 import { LOOKAHEAD_DEFAULT_SEARCH_DISTANCE } from '@sofie-automation/shared-lib/dist/core/constants'
-import { prefixSingleObjectId } from '../lib'
-import { LookaheadTimelineObject } from './findObjects'
-import { hasPieceInstanceDefinitelyEnded } from '../timeline/lib'
-import { applyAndValidateOverrides } from '@sofie-automation/corelib/dist/settings/objectWithOverrides'
+import { prefixSingleObjectId } from '../lib.js'
+import { LookaheadTimelineObject } from './findObjects.js'
+import { hasPieceInstanceDefinitelyEnded, TimelinePlayoutState } from '../timeline/lib.js'
 import { DBPart } from '@sofie-automation/corelib/dist/dataModel/Part'
 import { ReadonlyDeep } from 'type-fest'
+import { RundownHoldState } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
+import { filterPieceInstancesForNextPartWithOffset } from './lookaheadOffset.js'
 
 const LOOKAHEAD_OBJ_PRIORITY = 0.1
 
@@ -36,7 +37,7 @@ function parseSearchDistance(rawVal: number | undefined): number {
 	}
 }
 
-function findLargestLookaheadDistance(mappings: Array<[string, MappingExt]>): number {
+export function findLargestLookaheadDistance(mappings: Array<[string, ReadonlyDeep<MappingExt>]>): number {
 	const values = mappings.map(([_id, m]) => parseSearchDistance(m.lookaheadMaxSearchDistance))
 	return _.max(values)
 }
@@ -47,15 +48,29 @@ function getPrunedEndedPieceInstances(info: SelectedPartInstanceTimelineInfo) {
 	if (!info.partInstance.timings?.plannedStartedPlayback) {
 		return info.pieceInstances
 	} else {
-		return info.pieceInstances.filter((p) => !hasPieceInstanceDefinitelyEnded(p, info.nowInPart))
+		return info.pieceInstances.filter((p) => !hasPieceInstanceDefinitelyEnded(p, info.partTimes.nowInPart))
 	}
 }
-function removeInfiniteContinuations(info: PartInstanceAndPieceInstances): PartInstanceAndPieceInstances {
+function removeInfiniteContinuations(
+	info: PartInstanceAndPieceInstances,
+	isCurrentPart: boolean
+): PartInstanceAndPieceInstances {
 	const partId = info.part.part._id
 	return {
 		...info,
 		// Ignore PieceInstances that continue from the previous part, as they will not need lookahead
-		allPieces: info.allPieces.filter((inst) => !inst.infinite || inst.piece.startPartId === partId),
+		allPieces: info.allPieces.filter((inst) => {
+			// Always include non infinite pieces
+			if (!inst.infinite) return true
+
+			// Only include rundown owned pieces in the current part
+			if (!inst.piece.startPartId) {
+				return isCurrentPart
+			}
+
+			// Include infinite pieces in the part where they start
+			return inst.piece.startPartId === partId
+		}),
 	}
 }
 
@@ -65,8 +80,8 @@ export async function getLookeaheadObjects(
 	partInstancesInfo0: SelectedPartInstancesTimelineInfo
 ): Promise<Array<TimelineObjRundown & OnGenerateTimelineObjExt>> {
 	const span = context.startSpan('getLookeaheadObjects')
-	const allMappings = applyAndValidateOverrides(context.studio.mappingsWithOverrides)
-	const mappingsToConsider = Object.entries<MappingExt>(allMappings.obj).filter(
+	const allMappings = context.studio.mappings
+	const mappingsToConsider = Object.entries<ReadonlyDeep<MappingExt>>(allMappings).filter(
 		([_id, map]) => map.lookahead !== LookaheadMode.NONE && map.lookahead !== undefined
 	)
 	if (mappingsToConsider.length === 0) {
@@ -91,37 +106,50 @@ export async function getLookeaheadObjects(
 		},
 	})
 
-	const partInstancesInfo: PartInstanceAndPieceInstances[] = _.compact([
-		partInstancesInfo0.current
-			? removeInfiniteContinuations({
-					part: partInstancesInfo0.current.partInstance,
-					onTimeline: true,
-					nowInPart: partInstancesInfo0.current.nowInPart,
-					allPieces: getPrunedEndedPieceInstances(partInstancesInfo0.current),
-					calculatedTimings: partInstancesInfo0.current.calculatedTimings,
-			  })
-			: undefined,
-		partInstancesInfo0.next
-			? removeInfiniteContinuations({
-					part: partInstancesInfo0.next.partInstance,
-					onTimeline: !!partInstancesInfo0.current?.partInstance?.part?.autoNext,
-					nowInPart: partInstancesInfo0.next.nowInPart,
-					allPieces: partInstancesInfo0.next.pieceInstances,
-					calculatedTimings: partInstancesInfo0.next.calculatedTimings,
-			  })
-			: undefined,
-	])
-
 	// Track the previous info for checking how the timeline will be built
 	let previousPartInfo: PartInstanceAndPieceInstances | undefined
 	if (partInstancesInfo0.previous) {
-		previousPartInfo = removeInfiniteContinuations({
-			part: partInstancesInfo0.previous.partInstance,
-			onTimeline: true,
-			nowInPart: partInstancesInfo0.previous.nowInPart,
-			allPieces: getPrunedEndedPieceInstances(partInstancesInfo0.previous),
-			calculatedTimings: partInstancesInfo0.previous.calculatedTimings,
-		})
+		previousPartInfo = removeInfiniteContinuations(
+			{
+				part: partInstancesInfo0.previous.partInstance,
+				onTimeline: true,
+				nowInPart: partInstancesInfo0.previous.partTimes.nowInPart,
+				allPieces: getPrunedEndedPieceInstances(partInstancesInfo0.previous),
+				calculatedTimings: partInstancesInfo0.previous.calculatedTimings,
+			},
+			false
+		)
+	}
+
+	const partInstancesInfo: PartInstanceAndPieceInstancesInfos = {
+		previous: previousPartInfo,
+		current: partInstancesInfo0.current
+			? removeInfiniteContinuations(
+					{
+						part: partInstancesInfo0.current.partInstance,
+						onTimeline: true,
+						nowInPart: partInstancesInfo0.current.partTimes.nowInPart,
+						allPieces: getPrunedEndedPieceInstances(partInstancesInfo0.current),
+						calculatedTimings: partInstancesInfo0.current.calculatedTimings,
+					},
+					true
+				)
+			: undefined,
+		next: partInstancesInfo0.next
+			? removeInfiniteContinuations(
+					{
+						part: partInstancesInfo0.next.partInstance,
+						onTimeline: !!partInstancesInfo0.current?.partInstance?.part?.autoNext, //TODO -QL
+						nowInPart: partInstancesInfo0.next.partTimes.nowInPart,
+						allPieces: filterPieceInstancesForNextPartWithOffset(
+							partInstancesInfo0.next.pieceInstances,
+							playoutModel.playlist.nextTimeOffset
+						),
+						calculatedTimings: partInstancesInfo0.next.calculatedTimings,
+					},
+					false
+				)
+			: undefined,
 	}
 
 	// TODO: Do we need to use processAndPrunePieceInstanceTimings on these pieces? In theory yes, but that gets messy and expensive.
@@ -130,6 +158,9 @@ export async function getLookeaheadObjects(
 
 	const piecesByPart = new Map<PartId, Array<PieceInstance>>()
 	for (const piece of piecesToSearch) {
+		// Don't lookahead any rundown owned pieces, that should only happen once they become PieceInstances
+		if (!piece.startPartId) continue
+
 		const pieceInstance = wrapPieceToInstance(piece, protectString(''), protectString(''), true)
 		const existing = piecesByPart.get(piece.startPartId)
 		if (existing) {
@@ -152,6 +183,11 @@ export async function getLookeaheadObjects(
 		}
 	})
 
+	const playoutState: TimelinePlayoutState = {
+		isRehearsal: !!playoutModel.playlist.rehearsal,
+		isInHold: playoutModel.playlist.holdState === RundownHoldState.ACTIVE,
+	}
+
 	const span2 = context.startSpan('getLookeaheadObjects.iterate')
 	const timelineObjs: Array<TimelineObjRundown & OnGenerateTimelineObjExt> = []
 	const futurePartCount = orderedPartInfos.length + (partInstancesInfo0.next ? 1 : 0)
@@ -162,16 +198,15 @@ export async function getLookeaheadObjects(
 				parseSearchDistance(mapping.lookaheadMaxSearchDistance),
 				futurePartCount
 			)
-
 			const lookaheadObjs = findLookaheadForLayer(
 				context,
-				playoutModel.playlist.currentPartInfo?.partInstanceId ?? null,
 				partInstancesInfo,
-				previousPartInfo,
 				orderedPartInfos,
 				layerId,
 				lookaheadTargetObjects,
-				lookaheadMaxSearchDistance
+				lookaheadMaxSearchDistance,
+				playoutState,
+				playoutModel.playlist.nextTimeOffset
 			)
 
 			timelineObjs.push(...processResult(lookaheadObjs, mapping.lookahead))

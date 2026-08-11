@@ -1,5 +1,4 @@
-import { Meteor } from 'meteor/meteor'
-import { getRoutedTimeline } from '../../lib/collections/Timeline'
+import { getRoutedTimeline } from '@sofie-automation/meteor-lib/dist/collections/Timeline'
 import {
 	RoutedTimeline,
 	TimelineComplete,
@@ -8,27 +7,26 @@ import {
 	serializeTimelineBlob,
 	TimelineBlob,
 } from '@sofie-automation/corelib/dist/dataModel/Timeline'
-import { meteorPublish } from './lib'
-import { MeteorPubSub } from '../../lib/api/pubsub'
-import { FindOptions } from '../../lib/collections/lib'
+import { meteorPublish } from './lib/lib'
+import { MeteorPubSub } from '@sofie-automation/meteor-lib/dist/api/pubsub'
+import { FindOptions } from '@sofie-automation/meteor-lib/dist/collections/lib'
 import {
 	CustomPublish,
 	meteorCustomPublish,
+	SetupObserversResult,
 	setUpOptimizedObserverArray,
 	TriggerUpdate,
 } from '../lib/customPublication'
-import { getActiveRoutes } from '../../lib/collections/Studios'
-import { PeripheralDeviceReadAccess } from '../security/peripheralDevice'
-import { StudioReadAccess } from '../security/studio'
-import { fetchStudioLight } from '../optimizations'
+import { getActiveRoutes } from '@sofie-automation/meteor-lib/dist/collections/Studios'
+import { fetchStudioIds, fetchStudioLight } from '../optimizations'
 import { FastTrackObservers, setupFastTrackObserver } from './fastTrack'
 import { logger } from '../logging'
 import { getRandomId, literal } from '@sofie-automation/corelib/dist/lib'
-import { Time } from '../../lib/lib'
+import type { Time } from '@sofie-automation/shared-lib/dist/lib/lib'
 import { ReadonlyDeep } from 'type-fest'
 import { PeripheralDeviceId, StudioId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { DBTimelineDatastoreEntry } from '@sofie-automation/corelib/dist/dataModel/TimelineDatastore'
-import { PeripheralDevices, Studios, Timeline, TimelineDatastore } from '../collections'
+import { Studios, Timeline, TimelineDatastore } from '../collections'
 import { check } from 'meteor/check'
 import { ResultingMappingRoutes, StudioLight } from '@sofie-automation/corelib/dist/dataModel/Studio'
 import { CorelibPubSub } from '@sofie-automation/corelib/dist/pubsub'
@@ -36,16 +34,14 @@ import {
 	PeripheralDevicePubSub,
 	PeripheralDevicePubSubCollectionsNames,
 } from '@sofie-automation/shared-lib/dist/pubsub/peripheralDevice'
+import { applyAndValidateOverrides } from '@sofie-automation/corelib/dist/settings/objectWithOverrides'
+import { checkAccessAndGetPeripheralDevice } from '../security/check'
+import { assertConnectionHasOneOfPermissions } from '../security/auth'
 
-meteorPublish(CorelibPubSub.timelineDatastore, async function (studioId: StudioId, token: string | undefined) {
-	if (!studioId) throw new Meteor.Error(400, 'selector argument missing')
-	const modifier: FindOptions<DBTimelineDatastoreEntry> = {
-		fields: {},
-	}
-	if (await StudioReadAccess.studioContent(studioId, { userId: this.userId, token })) {
-		return TimelineDatastore.findWithCursor({ studioId }, modifier)
-	}
-	return null
+meteorPublish(CorelibPubSub.timelineDatastore, async function () {
+	assertConnectionHasOneOfPermissions(this.connection, 'testing')
+
+	return TimelineDatastore.findWithCursor({})
 })
 
 meteorCustomPublish(
@@ -54,16 +50,12 @@ meteorCustomPublish(
 	async function (pub, deviceId: PeripheralDeviceId, token: string | undefined) {
 		check(deviceId, String)
 
-		if (await PeripheralDeviceReadAccess.peripheralDeviceContent(deviceId, { userId: this.userId, token })) {
-			const peripheralDevice = await PeripheralDevices.findOneAsync(deviceId)
+		const peripheralDevice = await checkAccessAndGetPeripheralDevice(deviceId, token, this)
 
-			if (!peripheralDevice) throw new Meteor.Error('PeripheralDevice "' + deviceId + '" not found')
+		const studioId = peripheralDevice.studioAndConfigId?.studioId
+		if (!studioId) return
 
-			const studioId = peripheralDevice.studioId
-			if (!studioId) return
-
-			await createObserverForTimelinePublication(pub, studioId)
-		}
+		await createObserverForTimelinePublication(pub, studioId)
 	}
 )
 meteorPublish(
@@ -71,30 +63,30 @@ meteorPublish(
 	async function (deviceId: PeripheralDeviceId, token: string | undefined) {
 		check(deviceId, String)
 
-		if (await PeripheralDeviceReadAccess.peripheralDeviceContent(deviceId, { userId: this.userId, token })) {
-			const peripheralDevice = await PeripheralDevices.findOneAsync(deviceId)
+		const peripheralDevice = await checkAccessAndGetPeripheralDevice(deviceId, token, this)
 
-			if (!peripheralDevice) throw new Meteor.Error('PeripheralDevice "' + deviceId + '" not found')
+		const studioId = peripheralDevice.studioAndConfigId?.studioId
+		if (!studioId) return null
 
-			const studioId = peripheralDevice.studioId
-			if (!studioId) return null
-			const modifier: FindOptions<DBTimelineDatastoreEntry> = {
-				fields: {},
-			}
-
-			return TimelineDatastore.findWithCursor({ studioId }, modifier)
+		const modifier: FindOptions<DBTimelineDatastoreEntry> = {
+			fields: {},
 		}
-		return null
+
+		return TimelineDatastore.findWithCursor({ studioId }, modifier)
 	}
 )
 
 meteorCustomPublish(
 	MeteorPubSub.timelineForStudio,
 	PeripheralDevicePubSubCollectionsNames.studioTimeline,
-	async function (pub, studioId: StudioId, token: string | undefined) {
-		if (await StudioReadAccess.studio(studioId, { userId: this.userId, token })) {
-			await createObserverForTimelinePublication(pub, studioId)
-		}
+	async function (pub) {
+		assertConnectionHasOneOfPermissions(this.connection, 'testing')
+
+		// Find the first studioId. There should only be one, but we don't know what it will be
+		const studioIds = await fetchStudioIds({})
+		if (studioIds.length < 1) throw new Error('No studios found')
+
+		await createObserverForTimelinePublication(pub, studioIds[0])
 	}
 )
 
@@ -123,7 +115,7 @@ interface RoutedTimelineUpdateProps {
 async function setupTimelinePublicationObservers(
 	args: ReadonlyDeep<RoutedTimelineArgs>,
 	triggerUpdate: TriggerUpdate<RoutedTimelineUpdateProps>
-): Promise<Meteor.LiveQueryHandle[]> {
+): Promise<SetupObserversResult> {
 	// Set up observers:
 	return [
 		Studios.observeChanges(
@@ -134,7 +126,7 @@ async function setupTimelinePublicationObservers(
 				removed: () => triggerUpdate({ invalidateStudio: true }),
 			},
 			{
-				fields: {
+				projection: {
 					// It should be enough to watch the mappingsHash, since that should change whenever there is a
 					// change to the mappings or the routes
 					mappingsHash: 1,
@@ -209,7 +201,7 @@ async function manipulateTimelinePublicationData(
 
 	if (!state.routes) {
 		// Routes need recalculating
-		state.routes = getActiveRoutes(state.studio.routeSets)
+		state.routes = getActiveRoutes(applyAndValidateOverrides(state.studio.routeSetsWithOverrides).obj)
 		invalidateTimeline = true
 	}
 

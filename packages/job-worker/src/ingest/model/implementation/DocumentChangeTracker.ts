@@ -1,7 +1,7 @@
 import { ProtectedString } from '@sofie-automation/corelib/dist/protectedString'
 import { AnyBulkWriteOperation } from 'mongodb'
-import { LazyInitialise } from '../../../lib/lazy'
-import { DocumentChanges, getDocumentChanges } from './utils'
+import { LazyInitialise } from '../../../lib/lazy.js'
+import { DocumentChanges, getDocumentChanges } from './utils.js'
 
 export async function generateWriteOpsForLazyDocuments<TDoc extends { _id: ProtectedString<any> }>(
 	currentDocs: LazyInitialise<TDoc[]>,
@@ -96,6 +96,10 @@ export class DocumentChangeTracker<TDoc extends { _id: ProtectedString<any> }> {
 
 	getDeletedIds(): TDoc['_id'][] {
 		return Array.from(this.#deletedIds.values())
+	}
+
+	getDocumentsToSave(): ReadonlyMap<TDoc['_id'], TDoc> {
+		return this.#documentsToSave
 	}
 
 	/**

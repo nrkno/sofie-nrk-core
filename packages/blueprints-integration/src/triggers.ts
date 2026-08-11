@@ -1,5 +1,5 @@
-import { SourceLayerType } from './content'
-import { ITranslatableMessage } from './translations'
+import { SourceLayerType } from './content.js'
+import { ITranslatableMessage } from './translations.js'
 import {
 	SomeActionIdentifier,
 	ClientActions,
@@ -123,6 +123,11 @@ export type IRundownPlaylistFilterLink =
 			field: 'name'
 			value: string
 	  }
+	| {
+			object: 'rundownPlaylist'
+			field: 'rehearsal'
+			value: boolean
+	  }
 
 export type IGUIContextFilterLink = {
 	object: 'view'
@@ -167,6 +172,8 @@ export type IAdLibFilterLink =
 			value: 'adLib' | 'adLibAction' | 'clear' | 'sticky'
 	  }
 
+export type FilterType = (IRundownPlaylistFilterLink | IGUIContextFilterLink | IAdLibFilterLink)['object']
+
 export interface IAdlibPlayoutActionArguments {
 	triggerMode: string
 }
@@ -192,6 +199,13 @@ export interface IRundownPlaylistDeactivateAction extends ITriggeredActionBase {
 export interface IRundownPlaylistActivateAdlibTestingAction extends ITriggeredActionBase {
 	action: PlayoutActions.activateAdlibTestingMode
 	filterChain: (IRundownPlaylistFilterLink | IGUIContextFilterLink)[]
+}
+
+export interface ISwitchRouteSetAction extends ITriggeredActionBase {
+	action: PlayoutActions.switchRouteSet
+	filterChain: (IRundownPlaylistFilterLink | IGUIContextFilterLink)[]
+	routeSetId: string
+	state: boolean | 'toggle'
 }
 
 export interface ITakeAction extends ITriggeredActionBase {
@@ -223,6 +237,13 @@ export interface IMoveNextAction extends ITriggeredActionBase {
 	 * @memberof IMoveNextAction
 	 */
 	parts: number
+	/**
+	 * When moving the next part it should ignore any of the boundaries set by the QuickLoop feature
+	 *
+	 * @type {boolean}
+	 * @memberof IMoveNextAction
+	 */
+	ignoreQuickLoop: boolean
 }
 
 export interface ICreateSnapshotForDebugAction extends ITriggeredActionBase {
@@ -254,6 +275,12 @@ export interface IRundownPlaylistResyncAction extends ITriggeredActionBase {
 
 export interface IShelfAction extends ITriggeredActionBase {
 	action: ClientActions.shelf
+	state: true | false | 'toggle'
+	filterChain: IGUIContextFilterLink[]
+}
+
+export interface IEditModeAction extends ITriggeredActionBase {
+	action: ClientActions.editMode
 	state: true | false | 'toggle'
 	filterChain: IGUIContextFilterLink[]
 }
@@ -311,11 +338,13 @@ export type SomeAction =
 	| IRundownPlaylistResetAction
 	| IRundownPlaylistResyncAction
 	| IShelfAction
+	| IEditModeAction
 	| IGoToOnAirLineAction
 	| IRewindSegmentsAction
 	| IShowEntireCurrentSegmentAction
 	| IMiniShelfQueueAdLib
 	| IModifyShiftRegister
+	| ISwitchRouteSetAction
 
 export interface IBlueprintTriggeredActions {
 	_id: string
@@ -332,3 +361,27 @@ export interface IBlueprintTriggeredActions {
 }
 
 export { SomeActionIdentifier, ClientActions, PlayoutActions }
+
+export enum IBlueprintDefaultCoreSystemTriggersType {
+	toggleShelf = 'toggleShelf',
+	activateRundownPlaylist = 'activateRundownPlaylist',
+	activateRundownPlaylistRehearsal = 'activateRundownPlaylistRehearsal',
+	deactivateRundownPlaylist = 'deactivateRundownPlaylist',
+	take = 'take',
+	hold = 'hold',
+	holdUndo = 'holdUndo',
+	resetRundownPlaylist = 'resetRundownPlaylist',
+	disableNextPiece = 'disableNextPiece',
+	disableNextPieceUndo = 'disableNextPieceUndo',
+	createSnapshotForDebug = 'createSnapshotForDebug',
+	moveNextPart = 'moveNextPart',
+	moveNextSegment = 'moveNextSegment',
+	movePreviousPart = 'movePreviousPart',
+	movePreviousSegment = 'movePreviousSegment',
+	goToOnAirLine = 'goToOnAirLine',
+	rewindSegments = 'rewindSegments',
+}
+
+export type IBlueprintDefaultCoreSystemTriggers = {
+	[key in IBlueprintDefaultCoreSystemTriggersType]: IBlueprintTriggeredActions
+}

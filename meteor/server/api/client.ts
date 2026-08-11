@@ -1,15 +1,14 @@
-import { check } from '../../lib/check'
-import { literal, getCurrentTime, Time, getRandomId } from '../../lib/lib'
+import { check } from '../lib/check'
+import { literal, getRandomId } from '@sofie-automation/corelib/dist/lib'
+import type { Time } from '@sofie-automation/shared-lib/dist/lib/lib'
+import { getCurrentTime } from '../lib/lib'
 import { stringifyError } from '@sofie-automation/shared-lib/dist/lib/stringifyError'
 import { logger } from '../logging'
-import { ClientAPI, NewClientAPI, ClientAPIMethods } from '../../lib/api/client'
-import { UserActionsLogItem } from '../../lib/collections/UserActionsLog'
+import { ClientAPI, NewClientAPI, ClientAPIMethods } from '@sofie-automation/meteor-lib/dist/api/client'
+import { UserActionsLogItem } from '@sofie-automation/meteor-lib/dist/collections/UserActionsLog'
 import { registerClassToMeteorMethods } from '../methods'
-import { MethodContext, MethodContextAPI } from '../../lib/api/methods'
-import { Settings } from '../../lib/Settings'
-import { resolveCredentials } from '../security/lib/credentials'
-import { isInTestWrite, triggerWriteAccessBecauseNoCheckNecessary } from '../security/lib/securityVerify'
-import { PeripheralDeviceContentWriteAccess } from '../security/peripheralDevice'
+import { MethodContext, MethodContextAPI } from './methodContext'
+import { isInTestWrite, triggerWriteAccessBecauseNoCheckNecessary } from '../security/securityVerify'
 import { endTrace, sendTrace, startTrace } from './integration/influx'
 import { interpollateTranslation, translateMessage } from '@sofie-automation/corelib/dist/TranslatableMessage'
 import { UserError } from '@sofie-automation/corelib/dist/error'
@@ -17,32 +16,30 @@ import { StudioJobFunc } from '@sofie-automation/corelib/dist/worker/studio'
 import { QueueStudioJob } from '../worker/worker'
 import { profiler } from './profiler'
 import {
-	OrganizationId,
 	PeripheralDeviceId,
 	RundownId,
 	RundownPlaylistId,
 	StudioId,
 	UserActionsLogItemId,
-	UserId,
 } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import {
 	checkAccessToPlaylist,
 	checkAccessToRundown,
-	VerifiedRundownContentAccess,
-	VerifiedRundownPlaylistContentAccess,
-} from './lib'
-import { BasicAccessContext } from '../security/organization'
-import { NoticeLevel } from '../../lib/notifications/notifications'
+	VerifiedRundownForUserAction,
+	VerifiedRundownPlaylistForUserAction,
+} from '../security/check'
 import { UserActionsLog } from '../collections'
 import { executePeripheralDeviceFunctionWithCustomTimeout } from './peripheralDevice/executeFunction'
+import { resolveActionResult } from './peripheralDevice'
+import { LeveledLogMethodFixed } from '@sofie-automation/corelib/dist/logging'
+import { assertConnectionHasOneOfPermissions } from '../security/auth'
 
 function rewrapError(methodName: string, e: any): ClientAPI.ClientResponseError {
 	const userError = UserError.fromUnknown(e)
-
 	logger.info(`UserAction "${methodName}" failed: ${userError.toErrorString()}`)
 
 	// Forward the error to the caller
-	return ClientAPI.responseError(userError, userError.errorCode)
+	return ClientAPI.responseError(userError)
 }
 
 export namespace ServerClientAPI {
@@ -64,11 +61,11 @@ export namespace ServerClientAPI {
 			eventTime,
 			`worker.${jobName}`,
 			jobArguments as any,
-			async (_credentials, userActionMetadata) => {
+			async (userActionMetadata) => {
 				checkArgs()
 
-				const access = await checkAccessToPlaylist(context, playlistId)
-				return runStudioJob(access.playlist.studioId, jobName, jobArguments, userActionMetadata)
+				const playlist = await checkAccessToPlaylist(context.connection, playlistId)
+				return runStudioJob(playlist.studioId, jobName, jobArguments, userActionMetadata)
 			}
 		)
 	}
@@ -91,11 +88,11 @@ export namespace ServerClientAPI {
 			eventTime,
 			`worker.${jobName}`,
 			jobArguments as any,
-			async (_credentials, userActionMetadata) => {
+			async (userActionMetadata) => {
 				checkArgs()
 
-				const access = await checkAccessToRundown(context, rundownId)
-				return runStudioJob(access.rundown.studioId, jobName, jobArguments, userActionMetadata)
+				const rundown = await checkAccessToRundown(context.connection, rundownId)
+				return runStudioJob(rundown.studioId, jobName, jobArguments, userActionMetadata)
 			}
 		)
 	}
@@ -111,13 +108,13 @@ export namespace ServerClientAPI {
 		checkArgs: () => void,
 		methodName: string,
 		args: Record<string, unknown>,
-		fcn: (access: VerifiedRundownPlaylistContentAccess) => Promise<T>
+		fcn: (playlist: VerifiedRundownPlaylistForUserAction) => Promise<T>
 	): Promise<ClientAPI.ClientResponse<T>> {
 		return runUserActionInLog(context, userEvent, eventTime, methodName, args, async () => {
 			checkArgs()
 
-			const access = await checkAccessToPlaylist(context, playlistId)
-			return fcn(access)
+			const playlist = await checkAccessToPlaylist(context.connection, playlistId)
+			return fcn(playlist)
 		})
 	}
 
@@ -132,13 +129,13 @@ export namespace ServerClientAPI {
 		checkArgs: () => void,
 		methodName: string,
 		args: Record<string, unknown>,
-		fcn: (access: VerifiedRundownContentAccess) => Promise<T>
+		fcn: (rundown: VerifiedRundownForUserAction) => Promise<T>
 	): Promise<ClientAPI.ClientResponse<T>> {
 		return runUserActionInLog(context, userEvent, eventTime, methodName, args, async () => {
 			checkArgs()
 
-			const access = await checkAccessToRundown(context, rundownId)
-			return fcn(access)
+			const rundown = await checkAccessToRundown(context.connection, rundownId)
+			return fcn(rundown)
 		})
 	}
 
@@ -184,11 +181,11 @@ export namespace ServerClientAPI {
 		eventTime: Time,
 		methodName: string,
 		methodArgs: Record<string, unknown>,
-		fcn: (credentials: BasicAccessContext, userActionMetadata: UserActionMetadata) => Promise<TRes>
+		fcn: (userActionMetadata: UserActionMetadata) => Promise<TRes>
 	): Promise<ClientAPI.ClientResponse<TRes>> {
 		// If we are in the test write auth check mode, then bypass all special logic to ensure errors dont get mangled
 		if (isInTestWrite()) {
-			const result = await fcn({ organizationId: null, userId: null }, {})
+			const result = await fcn({})
 			return ClientAPI.responseSuccess(result)
 		}
 
@@ -202,23 +199,19 @@ export namespace ServerClientAPI {
 				// Called internally from server-side.
 				// Just run and return right away:
 				try {
-					const result = await fcn({ organizationId: null, userId: null }, {})
-
+					const result = await fcn({})
 					return ClientAPI.responseSuccess(result)
 				} catch (e) {
 					return rewrapError(methodName, e)
 				}
 			} else {
-				const credentials = await getLoggedInCredentials(context)
-
 				// Start the db entry, but don't wait for it
 				const actionId: UserActionsLogItemId = getRandomId()
 				const pInitialInsert = UserActionsLog.insertAsync(
 					literal<UserActionsLogItem>({
 						_id: actionId,
 						clientAddress: context.connection.clientAddress,
-						organizationId: credentials.organizationId,
-						userId: credentials.userId,
+						userId: null,
 						context: userEvent,
 						method: methodName,
 						args: JSON.stringify(methodArgs),
@@ -232,7 +225,7 @@ export namespace ServerClientAPI {
 
 				const userActionMetadata: UserActionMetadata = {}
 				try {
-					const result = await fcn(credentials, userActionMetadata)
+					const result = await fcn(userActionMetadata)
 
 					const completeTime = Date.now()
 					pInitialInsert
@@ -257,7 +250,7 @@ export namespace ServerClientAPI {
 
 					const wrappedError = rewrapError(methodName, e)
 					const wrappedErrorStr = `ClientResponseError: ${translateMessage(
-						wrappedError.error.message,
+						wrappedError.error.userMessage,
 						interpollateTranslation
 					)}`
 
@@ -320,18 +313,18 @@ export namespace ServerClientAPI {
 			return makeCall().catch(async (e) => {
 				logger.error(stringifyError(e))
 				// allow the exception to be handled by the Client code
-				return Promise.reject(e)
+				return Promise.reject(e instanceof Error ? e : new Error(e))
 			})
 		}
 
-		const access = await PeripheralDeviceContentWriteAccess.executeFunction(methodContext, deviceId)
+		// TODO - check this. This probably needs to be moved out of this method, with the client using more targetted methods
+		assertConnectionHasOneOfPermissions(methodContext.connection, 'studio', 'configure', 'service')
 
 		await UserActionsLog.insertAsync(
 			literal<UserActionsLogItem>({
 				_id: actionId,
 				clientAddress: methodContext.connection ? methodContext.connection.clientAddress : '',
-				organizationId: access.organizationId,
-				userId: access.userId,
+				userId: null,
 				context: context,
 				method: `${deviceId}: ${method}`,
 				args: JSON.stringify(args),
@@ -364,7 +357,7 @@ export namespace ServerClientAPI {
 				})
 
 				// allow the exception to be handled by the Client code
-				return Promise.reject(err)
+				return Promise.reject(err instanceof Error ? err : new Error(err))
 			})
 	}
 
@@ -390,11 +383,12 @@ export namespace ServerClientAPI {
 			}).catch(async (e) => {
 				logger.error(stringifyError(e))
 				// allow the exception to be handled by the Client code
-				return Promise.reject(e)
+				return Promise.reject(e instanceof Error ? e : new Error(e))
 			})
 		}
 
-		await PeripheralDeviceContentWriteAccess.executeFunction(methodContext, deviceId)
+		// TODO - check this. This probably needs to be moved out of this method, with the client using more targetted methods
+		assertConnectionHasOneOfPermissions(methodContext.connection, 'studio', 'configure', 'service')
 
 		return executePeripheralDeviceFunctionWithCustomTimeout(deviceId, timeoutTime, {
 			functionName,
@@ -403,23 +397,19 @@ export namespace ServerClientAPI {
 			const errMsg = stringifyError(err)
 			logger.error(errMsg)
 			// allow the exception to be handled by the Client code
-			return Promise.reject(err)
+			return Promise.reject(err instanceof Error ? err : new Error(err))
 		})
-	}
-
-	async function getLoggedInCredentials(methodContext: MethodContext): Promise<BasicAccessContext> {
-		let userId: UserId | null = null
-		let organizationId: OrganizationId | null = null
-		if (Settings.enableUserAccounts) {
-			const cred = await resolveCredentials({ userId: methodContext.userId })
-			if (cred.user) userId = cred.user._id
-			organizationId = cred.organizationId
-		}
-		return { userId, organizationId }
 	}
 }
 
 class ServerClientAPIClass extends MethodContextAPI implements NewClientAPI {
+	async clientLogger(type: string, ...args: string[]): Promise<void> {
+		triggerWriteAccessBecauseNoCheckNecessary()
+
+		const loggerFunction: LeveledLogMethodFixed = (logger as any)[type] || logger.log
+
+		loggerFunction(args.join(', '))
+	}
 	async clientErrorReport(timestamp: Time, errorString: string, location: string) {
 		check(timestamp, Number)
 		triggerWriteAccessBecauseNoCheckNecessary() // TODO: discuss if is this ok?
@@ -429,7 +419,7 @@ class ServerClientAPIClass extends MethodContextAPI implements NewClientAPI {
 			}"\n  at ${new Date(timestamp).toISOString()}:\n"${errorString}`
 		)
 	}
-	async clientLogNotification(timestamp: Time, from: string, severity: NoticeLevel, message: string, source?: any) {
+	async clientLogNotification(timestamp: Time, from: string, severity: number, message: string, source?: any) {
 		check(timestamp, Number)
 		triggerWriteAccessBecauseNoCheckNecessary() // TODO: discuss if is this ok?
 		const address = this.connection ? this.connection.clientAddress : 'N/A'
@@ -469,7 +459,7 @@ class ServerClientAPIClass extends MethodContextAPI implements NewClientAPI {
 		actionId: string,
 		payload?: Record<string, any>
 	) {
-		return ServerClientAPI.callPeripheralDeviceFunctionOrAction(
+		const result = await ServerClientAPI.callPeripheralDeviceFunctionOrAction(
 			this,
 			context,
 			deviceId,
@@ -481,6 +471,7 @@ class ServerClientAPIClass extends MethodContextAPI implements NewClientAPI {
 			actionId,
 			payload
 		)
+		return resolveActionResult(deviceId, result)
 	}
 	async callBackgroundPeripheralDeviceFunction(
 		deviceId: PeripheralDeviceId,

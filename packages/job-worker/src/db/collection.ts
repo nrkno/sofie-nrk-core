@@ -1,9 +1,9 @@
 import { ProtectedString, unprotectString } from '@sofie-automation/corelib/dist/protectedString'
-import { EventEmitter } from 'eventemitter3'
+import { EventEmitter } from 'events'
 import { AnyBulkWriteOperation, ChangeStream, Collection as MongoCollection, FindOptions, CountOptions } from 'mongodb'
-import { IChangeStreamEvents } from '.'
-import { startSpanManual } from '../profiler'
-import { IChangeStream, ICollection, MongoModifier, MongoQuery } from './collections'
+import { IChangeStreamEvents } from './index.js'
+import { startSpanManual } from '../profiler.js'
+import { IChangeStream, ICollection, MongoModifier, MongoQuery } from './collections.js'
 
 /** Wrap some APM and better error small query modifications around a Mongo.Collection */
 class WrappedCollection<TDoc extends { _id: ProtectedString<any> }> implements ICollection<TDoc> {
@@ -28,7 +28,7 @@ class WrappedCollection<TDoc extends { _id: ProtectedString<any> }> implements I
 		return this.#collection
 	}
 
-	async findFetch(selector: MongoQuery<TDoc>, options?: FindOptions<TDoc>): Promise<Array<TDoc>> {
+	async findFetch(selector: MongoQuery<TDoc>, options?: FindOptions): Promise<Array<TDoc>> {
 		const span = startSpanManual('WrappedCollection.findFetch')
 		if (span) {
 			span.addLabels({
@@ -41,7 +41,7 @@ class WrappedCollection<TDoc extends { _id: ProtectedString<any> }> implements I
 		return res as any
 	}
 
-	async findOne(selector: MongoQuery<TDoc> | TDoc['_id'], options?: FindOptions<TDoc>): Promise<TDoc | undefined> {
+	async findOne(selector: MongoQuery<TDoc> | TDoc['_id'], options?: FindOptions): Promise<TDoc | undefined> {
 		const span = startSpanManual('WrappedCollection.findOne')
 		if (span) {
 			span.addLabels({

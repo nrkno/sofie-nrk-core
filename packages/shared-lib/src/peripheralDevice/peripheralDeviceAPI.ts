@@ -1,6 +1,10 @@
-import { DeviceConfigManifest } from '../core/deviceConfigManifest'
-import { PeripheralDeviceId, RundownPlaylistId, PartInstanceId, PieceInstanceId } from '../core/model/Ids'
-import { StatusCode } from '../lib/status'
+import type { DeviceConfigManifest } from '../core/deviceConfigManifest.js'
+import type { PeripheralDeviceId, RundownPlaylistId, PartInstanceId, PieceInstanceId } from '../core/model/Ids.js'
+import type { StatusCode } from '../lib/status.js'
+import type { DeviceStatusDetail } from 'timeline-state-resolver-types'
+
+// Re-export for use in UI components
+export type { DeviceStatusDetail } from 'timeline-state-resolver-types'
 
 export interface PartPlaybackCallbackData {
 	rundownPlaylistId: RundownPlaylistId
@@ -24,6 +28,11 @@ export interface PiecePlaybackStartedResult extends PiecePlaybackCallbackData {
 }
 export type PiecePlaybackStoppedResult = PiecePlaybackStartedResult
 
+export interface TriggerRegenerationCallbackData {
+	rundownPlaylistId: RundownPlaylistId
+	regenerationToken: string
+}
+
 export type PlayoutChangedResults = {
 	rundownPlaylistId: RundownPlaylistId
 	changes: PlayoutChangedResult[]
@@ -33,6 +42,7 @@ export enum PlayoutChangedType {
 	PART_PLAYBACK_STOPPED = 'partPlaybackStopped',
 	PIECE_PLAYBACK_STARTED = 'piecePlaybackStarted',
 	PIECE_PLAYBACK_STOPPED = 'piecePlaybackStopped',
+	TRIGGER_REGENERATION = 'triggerRegeneration',
 }
 export type PlayoutChangedResult = {
 	objId: string
@@ -41,6 +51,7 @@ export type PlayoutChangedResult = {
 		| PlayoutChangedType.PART_PLAYBACK_STOPPED
 		| PlayoutChangedType.PIECE_PLAYBACK_STARTED
 		| PlayoutChangedType.PIECE_PLAYBACK_STOPPED
+		| PlayoutChangedType.TRIGGER_REGENERATION
 } & (
 	| {
 			type: PlayoutChangedType.PART_PLAYBACK_STARTED
@@ -58,6 +69,10 @@ export type PlayoutChangedResult = {
 			type: PlayoutChangedType.PIECE_PLAYBACK_STOPPED
 			data: Omit<PiecePlaybackStoppedResult, 'rundownPlaylistId'>
 	  }
+	| {
+			type: PlayoutChangedType.TRIGGER_REGENERATION
+			data: Omit<TriggerRegenerationCallbackData, 'rundownPlaylistId'>
+	  }
 )
 
 // Note The actual type of a device is determined by the Category, Type and SubType
@@ -65,12 +80,17 @@ export type PlayoutChangedResult = {
 export interface PeripheralDeviceStatusObject {
 	statusCode: StatusCode
 	messages?: Array<string>
+	/**
+	 * Structured status details for blueprint customization and UI display.
+	 * Blueprints can provide custom translations for status codes when present.
+	 * The messages array is derived from these details for backward compatibility.
+	 */
+	statusDetails: Array<DeviceStatusDetail>
 }
 // Note The actual type of a device is determined by the Category, Type and SubType
 export enum PeripheralDeviceCategory {
 	INGEST = 'ingest',
 	PLAYOUT = 'playout',
-	MEDIA_MANAGER = 'media_manager',
 	PACKAGE_MANAGER = 'package_manager',
 	LIVE_STATUS = 'live_status',
 	TRIGGER_INPUT = 'trigger_input',
@@ -82,8 +102,6 @@ export enum PeripheralDeviceType {
 	INEWS = 'inews',
 	// Playout devices:
 	PLAYOUT = 'playout',
-	// Media-manager devices:
-	MEDIA_MANAGER = 'media_manager',
 	// Package_manager devices:
 	PACKAGE_MANAGER = 'package_manager',
 	// API devices:

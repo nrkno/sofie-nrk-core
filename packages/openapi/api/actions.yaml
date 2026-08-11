@@ -7,7 +7,7 @@ info:
     name: 'MIT License'
     url: 'http://opensource.org/licenses/MIT'
   x-logo:
-    url: 'https://nrkno.github.io/sofie-core/img/sofie-logo.svg'
+    url: 'https://sofie-automation.github.io/sofie-core/img/sofie-logo.svg'
     backgroundColor: '#FFFFFF'
     altText: 'Sofie TV Automation'
 
@@ -20,6 +20,8 @@ tags:
 paths:
   /:
     $ref: 'definitions/sofie.yaml#/resources/index'
+  /health:
+    $ref: 'definitions/sofie.yaml#/resources/health'
   /system/blueprint:
     $ref: 'definitions/sofie.yaml#/resources/systemBlueprint'
   /system/migrations:
@@ -43,6 +45,8 @@ paths:
     $ref: 'definitions/playlists.yaml#/resources/activate'
   /playlists/{playlistId}/deactivate:
     $ref: 'definitions/playlists.yaml#/resources/deactivate'
+  /playlists/{playlistId}/rundowns/{rundownId}/activate-adlib-testing:
+    $ref: 'definitions/playlists.yaml#/resources/activateAdlibTesting'
   /playlists/{playlistId}/execute-adlib:
     $ref: 'definitions/playlists.yaml#/resources/executeAdLib'
   /playlists/{playlistId}/execute-bucket-adlib:
@@ -69,11 +73,31 @@ paths:
     $ref: 'definitions/playlists.yaml#/resources/sourceLayer'
   /playlists/{playlistId}/sourceLayer/{sourceLayerId}/sticky:
     $ref: 'definitions/playlists.yaml#/resources/sourceLayer/sticky'
+  /playlists/{playlistId}/t-timers/{timerIndex}/countdown:
+    $ref: 'definitions/playlists.yaml#/resources/tTimerCountdown'
+  /playlists/{playlistId}/t-timers/{timerIndex}/free-run:
+    $ref: 'definitions/playlists.yaml#/resources/tTimerFreeRun'
+  /playlists/{playlistId}/t-timers/{timerIndex}/pause:
+    $ref: 'definitions/playlists.yaml#/resources/tTimerPause'
+  /playlists/{playlistId}/t-timers/{timerIndex}/resume:
+    $ref: 'definitions/playlists.yaml#/resources/tTimerResume'
+  /playlists/{playlistId}/t-timers/{timerIndex}/restart:
+    $ref: 'definitions/playlists.yaml#/resources/tTimerRestart'
+  /playlists/{playlistId}/t-timers/{timerIndex}/projected/clear:
+    $ref: 'definitions/playlists.yaml#/resources/tTimerProjectedClear'
+  /playlists/{playlistId}/t-timers/{timerIndex}/projected/anchor-part:
+    $ref: 'definitions/playlists.yaml#/resources/tTimerProjectedAnchorPart'
+  /playlists/{playlistId}/t-timers/{timerIndex}/projected/time:
+    $ref: 'definitions/playlists.yaml#/resources/tTimerProjectedTime'
+  /playlists/{playlistId}/t-timers/{timerIndex}/projected/duration:
+    $ref: 'definitions/playlists.yaml#/resources/tTimerProjectedDuration'
   # studio operations
   /studios:
     $ref: 'definitions/studios.yaml#/resources/studios'
   /studios/{studioId}:
     $ref: 'definitions/studios.yaml#/resources/studio'
+  /studios/{studioId}/config:
+    $ref: 'definitions/studios.yaml#/resources/config'
   /studios/{studioId}/switch-route-set:
     $ref: 'definitions/studios.yaml#/resources/switchRouteSet'
   /studios/{studioId}/devices:
@@ -87,6 +111,8 @@ paths:
     $ref: 'definitions/showstyles.yaml#/resources/showStyleBases'
   /showstyles/{showStyleBaseId}:
     $ref: 'definitions/showstyles.yaml#/resources/showStyleBase'
+  /showstyles/{showStyleBaseId}/config:
+    $ref: 'definitions/showstyles.yaml#/resources/config'
   /showstyles/{showStyleBaseId}/variants:
     $ref: 'definitions/showstyles.yaml#/resources/showStyleVariants'
   /showstyles/{showStyleBaseId}/variants/{showStyleVariantId}:
@@ -102,3 +128,25 @@ paths:
     $ref: 'definitions/buckets.yaml#/resources/bucketAdlibs'
   /buckets/{bucketId}/adlibs/{externalId}:
     $ref: 'definitions/buckets.yaml#/resources/bucketAdlib'
+  # snapshot operations
+  /snapshots:
+    $ref: 'definitions/snapshots.yaml#/resources/snapshots'
+  # ingest operations
+  /ingest/{studioId}/playlists:
+    $ref: 'definitions/ingest.yaml#/resources/playlists'
+  /ingest/{studioId}/playlists/{playlistId}:
+    $ref: 'definitions/ingest.yaml#/resources/playlist'
+  /ingest/{studioId}/rundowns:
+    $ref: 'definitions/ingest.yaml#/resources/rundownsInStudio'
+  /ingest/{studioId}/playlists/{playlistId}/rundowns:
+    $ref: 'definitions/ingest.yaml#/resources/rundowns'
+  /ingest/{studioId}/playlists/{playlistId}/rundowns/{rundownId}:
+    $ref: 'definitions/ingest.yaml#/resources/rundown'
+  /ingest/{studioId}/playlists/{playlistId}/rundowns/{rundownId}/segments:
+    $ref: 'definitions/ingest.yaml#/resources/segments'
+  /ingest/{studioId}/playlists/{playlistId}/rundowns/{rundownId}/segments/{segmentId}:
+    $ref: 'definitions/ingest.yaml#/resources/segment'
+  /ingest/{studioId}/playlists/{playlistId}/rundowns/{rundownId}/segments/{segmentId}/parts:
+    $ref: 'definitions/ingest.yaml#/resources/parts'
+  /ingest/{studioId}/playlists/{playlistId}/rundowns/{rundownId}/segments/{segmentId}/parts/{partId}:
+    $ref: 'definitions/ingest.yaml#/resources/part'

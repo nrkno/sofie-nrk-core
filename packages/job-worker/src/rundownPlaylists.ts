@@ -1,7 +1,17 @@
 import { RundownPlaylistId, StudioId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { DBRundown, Rundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
-import { clone, getHash, getRandomString, normalizeArrayToMap } from '@sofie-automation/corelib/dist/lib'
+import {
+	DBRundownPlaylist,
+	QuickLoopMarkerType,
+} from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
+import { ForceQuickLoopAutoNext } from '@sofie-automation/shared-lib/dist/core/model/StudioSettings'
+import {
+	clone,
+	getHash,
+	getRandomString,
+	normalizeArrayToMap,
+	generateTranslation,
+} from '@sofie-automation/corelib/dist/lib'
 import { stringifyError } from '@sofie-automation/shared-lib/dist/lib/stringifyError'
 import { protectString, unprotectString } from '@sofie-automation/corelib/dist/protectedString'
 import { IngestJobs } from '@sofie-automation/corelib/dist/worker/ingest'
@@ -12,36 +22,41 @@ import {
 	RemovePlaylistProps,
 } from '@sofie-automation/corelib/dist/worker/studio'
 import { ReadonlyDeep } from 'type-fest'
-import { BlueprintResultRundownPlaylist, IBlueprintRundown } from '@sofie-automation/blueprints-integration'
-import { JobContext } from './jobs'
-import { logger } from './logging'
-import { resetRundownPlaylist } from './playout/lib'
-import { runJobWithPlaylistLock, runWithPlayoutModel } from './playout/lock'
-import { updateTimeline } from './playout/timeline/generate'
-import { DBStudio } from '@sofie-automation/corelib/dist/dataModel/Studio'
-import { WrappedStudioBlueprint } from './blueprints/cache'
-import { StudioUserContext } from './blueprints/context'
-import { getCurrentTime } from './lib'
+import {
+	BlueprintResultRundownPlaylist,
+	IBlueprintRundown,
+	NoteSeverity,
+} from '@sofie-automation/blueprints-integration'
+import { JobContext, JobStudio } from './jobs/index.js'
+import { logger } from './logging.js'
+import { resetRundownPlaylist } from './playout/lib.js'
+import { runJobWithPlaylistLock, runWithPlayoutModel } from './playout/lock.js'
+import { updateTimeline } from './playout/timeline/generate.js'
+import { WrappedStudioBlueprint } from './blueprints/cache.js'
+import { StudioUserContext } from './blueprints/context/index.js'
+import { getCurrentTime } from './lib/index.js'
 import {
 	regeneratePlaylistAndRundownOrder,
 	removeRundownFromPlaylistAndUpdatePlaylist,
 	updatePlayoutAfterChangingRundownInPlaylist,
-} from './ingest/commit'
-import { allowedToMoveRundownOutOfPlaylist } from './rundown'
+} from './ingest/commit.js'
+import { allowedToMoveRundownOutOfPlaylist } from './rundown.js'
 import { PlaylistTiming } from '@sofie-automation/corelib/dist/playout/rundownTiming'
 import { UserError, UserErrorMessage } from '@sofie-automation/corelib/dist/error'
-import { RundownLock } from './jobs/lock'
-import { runWithRundownLock } from './ingest/lock'
-import { convertRundownToBlueprints } from './blueprints/context/lib'
+import { PlaylistLock, RundownLock } from './jobs/lock.js'
+import { runWithRundownLock } from './ingest/lock.js'
+import { convertRundownToBlueprints } from './blueprints/context/lib.js'
 import { sortRundownIDsInPlaylist } from '@sofie-automation/corelib/dist/playout/playlist'
+import { INoteBase } from '@sofie-automation/corelib/dist/dataModel/Notes'
 
 /**
  * Debug: Remove a Playlist and all its contents
  */
 export async function handleRemoveRundownPlaylist(context: JobContext, data: RemovePlaylistProps): Promise<void> {
-	const removed = await runJobWithPlaylistLock(context, data, async (playlist) => {
+	const removed = await runJobWithPlaylistLock(context, data, async (playlist, lock) => {
 		if (playlist) {
-			await context.directCollections.RundownPlaylists.remove(playlist._id)
+			await removePlaylistFromDb(context, lock)
+
 			return true
 		} else {
 			return false
@@ -143,10 +158,10 @@ export async function removeRundownFromDb(context: JobContext, lock: RundownLock
 		context.directCollections.Rundowns.remove({ _id: rundownId }),
 		context.directCollections.AdLibActions.remove({ rundownId: rundownId }),
 		context.directCollections.AdLibPieces.remove({ rundownId: rundownId }),
-		context.directCollections.ExpectedMediaItems.remove({ rundownId: rundownId }),
 		context.directCollections.ExpectedPlayoutItems.remove({ rundownId: rundownId }),
 		context.directCollections.ExpectedPackages.remove({ rundownId: rundownId }),
-		context.directCollections.IngestDataCache.remove({ rundownId: rundownId }),
+		context.directCollections.SofieIngestDataCache.remove({ rundownId: rundownId }),
+		context.directCollections.NrcsIngestDataCache.remove({ rundownId: rundownId }),
 		context.directCollections.RundownBaselineAdLibPieces.remove({ rundownId: rundownId }),
 		context.directCollections.Segments.remove({ rundownId: rundownId }),
 		context.directCollections.Parts.remove({ rundownId: rundownId }),
@@ -155,6 +170,19 @@ export async function removeRundownFromDb(context: JobContext, lock: RundownLock
 		context.directCollections.PieceInstances.remove({ rundownId: rundownId }),
 		context.directCollections.RundownBaselineAdLibActions.remove({ rundownId: rundownId }),
 		context.directCollections.RundownBaselineObjects.remove({ rundownId: rundownId }),
+		context.directCollections.Notifications.remove({ 'relatedTo.rundownId': rundownId }),
+	])
+}
+
+export async function removePlaylistFromDb(context: JobContext, lock: PlaylistLock): Promise<void> {
+	if (!lock.isLocked) throw new Error(`Can't delete Playlist without lock: ${lock.toString()}`)
+
+	const playlistId = lock.playlistId
+
+	await Promise.allSettled([
+		context.directCollections.RundownPlaylists.remove({ _id: playlistId }),
+
+		context.directCollections.Notifications.remove({ 'relatedTo.playlistId': playlistId }),
 	])
 }
 
@@ -167,27 +195,38 @@ export function produceRundownPlaylistInfoFromRundown(
 	rundowns: ReadonlyDeep<Array<DBRundown>>
 ): DBRundownPlaylist {
 	let playlistInfo: BlueprintResultRundownPlaylist | null = null
+
+	let notes: INoteBase[] = []
+
 	try {
 		if (studioBlueprint?.blueprint?.getRundownPlaylistInfo) {
+			const blueprintContext = new StudioUserContext(
+				{
+					name: 'produceRundownPlaylistInfoFromRundown',
+					identifier: `studioId=${context.studioId},playlistId=${playlistId},rundownIds=${rundowns
+						.map((r) => r._id)
+						.join(',')}`,
+				},
+				context.studio,
+				context.getStudioBlueprintConfig()
+			)
+
 			playlistInfo = studioBlueprint.blueprint.getRundownPlaylistInfo(
-				new StudioUserContext(
-					{
-						name: 'produceRundownPlaylistInfoFromRundown',
-						identifier: `studioId=${context.studioId},playlistId=${playlistId},rundownIds=${rundowns
-							.map((r) => r._id)
-							.join(',')}`,
-						tempSendUserNotesIntoBlackHole: true,
-					},
-					context.studio,
-					context.getStudioBlueprintConfig()
-				),
+				blueprintContext,
 				rundowns.map(convertRundownToBlueprints),
 				playlistExternalId
 			)
+
+			notes = blueprintContext.notes
 		}
 	} catch (err) {
 		logger.error(`Error in studioBlueprint.getRundownPlaylistInfo: ${stringifyError(err)}`)
 		playlistInfo = null
+
+		notes.push({
+			type: NoteSeverity.ERROR,
+			message: generateTranslation(`Internal Error generating RundownPlaylist`),
+		})
 	}
 
 	const rundownsInDefaultOrder = sortDefaultRundownInPlaylistOrder(rundowns)
@@ -200,17 +239,19 @@ export function produceRundownPlaylistInfoFromRundown(
 			nextPartInfo: null,
 			previousPartInfo: null,
 			rundownIdsInOrder: [],
+			tTimers: [
+				{ index: 1, label: '', mode: null, state: null },
+				{ index: 2, label: '', mode: null, state: null },
+				{ index: 3, label: '', mode: null, state: null },
+			],
 
 			...clone<DBRundownPlaylist | undefined>(existingPlaylist),
 
 			_id: playlistId,
 			externalId: playlistExternalId,
-			organizationId: context.studio.organizationId,
 			studioId: context.studioId,
 			name: playlistInfo.playlist.name,
 			timing: playlistInfo.playlist.timing,
-
-			loop: playlistInfo.playlist.loop,
 
 			outOfOrderTiming: playlistInfo.playlist.outOfOrderTiming,
 			timeOfDayCountdowns: playlistInfo.playlist.timeOfDayCountdowns,
@@ -219,6 +260,17 @@ export function produceRundownPlaylistInfoFromRundown(
 
 			modified: getCurrentTime(),
 		}
+		if (playlistInfo.playlist.loop) {
+			newPlaylist.quickLoop = {
+				start: { type: QuickLoopMarkerType.PLAYLIST },
+				end: { type: QuickLoopMarkerType.PLAYLIST },
+				locked: true,
+				forceAutoNext: context.studio.settings.forceQuickLoopAutoNext ?? ForceQuickLoopAutoNext.DISABLED,
+				running: existingPlaylist?.quickLoop?.running ?? false,
+			}
+		} else if (existingPlaylist?.quickLoop?.locked) {
+			delete newPlaylist.quickLoop
+		}
 	} else {
 		newPlaylist = {
 			...defaultPlaylistForRundown(rundownsInDefaultOrder[0], context.studio, existingPlaylist),
@@ -226,6 +278,14 @@ export function produceRundownPlaylistInfoFromRundown(
 			externalId: playlistExternalId,
 		}
 	}
+
+	// Update the notes on the playlist
+	newPlaylist.notes = notes.map((note) => ({
+		...note,
+		origin: {
+			name: 'produceRundownPlaylistInfoFromRundown',
+		},
+	}))
 
 	if (!newPlaylist.rundownRanksAreSetInSofie) {
 		if (playlistInfo?.order) {
@@ -271,7 +331,7 @@ export function produceRundownPlaylistInfoFromRundown(
 
 function defaultPlaylistForRundown(
 	rundown: ReadonlyDeep<IBlueprintRundown>,
-	studio: ReadonlyDeep<DBStudio>,
+	studio: ReadonlyDeep<JobStudio>,
 	existingPlaylist?: ReadonlyDeep<DBRundownPlaylist>
 ): Omit<DBRundownPlaylist, '_id' | 'externalId'> {
 	return {
@@ -280,10 +340,14 @@ function defaultPlaylistForRundown(
 		nextPartInfo: null,
 		previousPartInfo: null,
 		rundownIdsInOrder: [],
+		tTimers: [
+			{ index: 1, label: '', mode: null, state: null },
+			{ index: 2, label: '', mode: null, state: null },
+			{ index: 3, label: '', mode: null, state: null },
+		],
 
 		...clone<DBRundownPlaylist | undefined>(existingPlaylist),
 
-		organizationId: studio.organizationId,
 		studioId: studio._id,
 		name: rundown.name,
 		timing: rundown.timing,
@@ -436,7 +500,13 @@ export async function handleMoveRundownIntoPlaylist(
 					}
 
 					// If the playlist is active this could have changed lookahead
-					await updatePlayoutAfterChangingRundownInPlaylist(context, newPlaylist, intoPlaylistLock, rundown)
+					await updatePlayoutAfterChangingRundownInPlaylist(
+						context,
+						newPlaylist,
+						intoPlaylistLock,
+						rundown,
+						null
+					)
 				}
 			)
 		} else {
@@ -486,7 +556,7 @@ export async function handleRestoreRundownsInPlaylistToDefaultOrder(
 
 			if (updatedPlaylist) {
 				// If the playlist is active this could have changed lookahead
-				await updatePlayoutAfterChangingRundownInPlaylist(context, updatedPlaylist, playlistLock, null)
+				await updatePlayoutAfterChangingRundownInPlaylist(context, updatedPlaylist, playlistLock, null, null)
 			}
 		}
 	})

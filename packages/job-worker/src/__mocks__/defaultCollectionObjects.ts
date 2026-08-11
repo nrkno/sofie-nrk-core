@@ -1,4 +1,5 @@
 import { IBlueprintPieceType, PieceLifespan, PlaylistTimingType } from '@sofie-automation/blueprints-integration'
+import { ShelfButtonSize } from '@sofie-automation/shared-lib/dist/core/model/StudioSettings'
 import { AdLibPiece } from '@sofie-automation/corelib/dist/dataModel/AdLibPiece'
 import {
 	PartId,
@@ -14,21 +15,20 @@ import {
 import { DBPart } from '@sofie-automation/corelib/dist/dataModel/Part'
 import { EmptyPieceTimelineObjectsBlob, Piece } from '@sofie-automation/corelib/dist/dataModel/Piece'
 import { DBRundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import { DBSegment } from '@sofie-automation/corelib/dist/dataModel/Segment'
 import { DBStudio } from '@sofie-automation/corelib/dist/dataModel/Studio'
 import { unprotectString } from '@sofie-automation/corelib/dist/protectedString'
 import { wrapDefaultObject } from '@sofie-automation/corelib/dist/settings/objectWithOverrides'
 import { DEFAULT_MINIMUM_TAKE_SPAN } from '@sofie-automation/shared-lib/dist/core/constants'
-import { getRundownId } from '../ingest/lib'
-import { getCurrentTime } from '../lib'
+import { getRundownId } from '../ingest/lib.js'
+import { getCurrentTime } from '../lib/index.js'
 
 export function defaultRundownPlaylist(_id: RundownPlaylistId, studioId: StudioId): DBRundownPlaylist {
 	return {
 		_id: _id,
 
 		externalId: 'MOCK_RUNDOWNPLAYLIST',
-		organizationId: null,
 		studioId: studioId,
 
 		name: 'Default RundownPlaylist',
@@ -45,6 +45,12 @@ export function defaultRundownPlaylist(_id: RundownPlaylistId, studioId: StudioI
 			type: PlaylistTimingType.None,
 		},
 		rundownIdsInOrder: [],
+
+		tTimers: [
+			{ index: 1, label: '', mode: null, state: null },
+			{ index: 2, label: '', mode: null, state: null },
+			{ index: 3, label: '', mode: null, state: null },
+		],
 	}
 }
 export function defaultRundown(
@@ -59,8 +65,6 @@ export function defaultRundown(
 		studioId: studioId,
 		showStyleBaseId: showStyleBaseId,
 		showStyleVariantId: showStyleVariantId,
-
-		organizationId: null,
 
 		playlistId: playlistId,
 
@@ -86,10 +90,10 @@ export function defaultRundown(
 					type: 'nrcs',
 					peripheralDeviceId: ingestDeviceId,
 					nrcsName: 'mock',
-			  }
+				}
 			: {
 					type: 'http',
-			  },
+				},
 	}
 }
 
@@ -98,22 +102,29 @@ export function defaultStudio(_id: StudioId): DBStudio {
 		_id: _id,
 
 		name: 'mockStudio',
-		organizationId: null,
 		mappingsWithOverrides: wrapDefaultObject({}),
 		supportedShowStyleBase: [],
 		blueprintConfigWithOverrides: wrapDefaultObject({}),
-		settings: {
+		settingsWithOverrides: wrapDefaultObject({
 			frameRate: 25,
 			mediaPreviewsUrl: '',
 			minimumTakeSpan: DEFAULT_MINIMUM_TAKE_SPAN,
 			allowAdlibTestingSegment: true,
-		},
-		routeSets: {},
-		routeSetExclusivityGroups: {},
-		packageContainers: {},
-		previewContainerIds: [],
-		thumbnailContainerIds: [],
+			allowHold: true,
+			allowPieceDirectPlay: true,
+			enableBuckets: true,
+			enableEvaluationForm: true,
+			shelfAdlibButtonSize: ShelfButtonSize.LARGE,
+		}),
+		routeSetsWithOverrides: wrapDefaultObject({}),
+		routeSetExclusivityGroupsWithOverrides: wrapDefaultObject({}),
+		packageContainersWithOverrides: wrapDefaultObject({}),
+		packageContainerSettingsWithOverrides: wrapDefaultObject({
+			previewContainerIds: [],
+			thumbnailContainerIds: [],
+		}),
 		peripheralDeviceSettings: {
+			deviceSettings: wrapDefaultObject({}),
 			playoutDevices: wrapDefaultObject({}),
 			ingestDevices: wrapDefaultObject({}),
 			inputDevices: wrapDefaultObject({}),
@@ -131,7 +142,6 @@ export function defaultSegment(_id: SegmentId, rundownId: RundownId): DBSegment 
 		externalId: unprotectString(_id),
 		rundownId: rundownId,
 		name: 'Default Segment',
-		externalModified: 1,
 	}
 }
 

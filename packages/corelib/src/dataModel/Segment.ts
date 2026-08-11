@@ -1,6 +1,9 @@
 import { SegmentDisplayMode, SegmentTimingInfo } from '@sofie-automation/blueprints-integration'
-import { SegmentId, RundownId } from './Ids'
-import { SegmentNote } from './Notes'
+import { ShelfButtonSize } from '@sofie-automation/shared-lib/dist/core/model/StudioSettings'
+import { SegmentId, RundownId } from './Ids.js'
+import { SegmentNote } from './Notes.js'
+import { CoreUserEditingDefinition, CoreUserEditingProperties } from './UserEditingDefinitions.js'
+import { IOutputLayerExtended, ISourceLayerExtended } from './ShowStyleBase.js'
 
 export enum SegmentOrphanedReason {
 	/** Segment is deleted from the NRCS but we still need it */
@@ -18,8 +21,6 @@ export interface DBSegment {
 	_rank: number
 	/** ID of the source object in the gateway */
 	externalId: string
-	/** Timestamp when the externalData was last modified */
-	externalModified: number
 	/** The rundown this segment belongs to */
 	rundownId: RundownId
 
@@ -34,8 +35,8 @@ export interface DBSegment {
 	/** User-facing identifier that can be used by the User to identify the contents of a segment in the Rundown source system */
 	identifier?: string
 
-	/** Show the minishelf of the segment */
-	showShelf?: boolean
+	/** Control display of the segment minishelf. Unset means hidden. */
+	displayMinishelf?: ShelfButtonSize
 	/** Segment display mode. Default mode is *SegmentDisplayMode.Timeline* */
 	displayAs?: SegmentDisplayMode
 
@@ -47,4 +48,26 @@ export interface DBSegment {
 
 	/** Holds notes (warnings / errors) thrown by the blueprints during creation */
 	notes?: Array<SegmentNote>
+
+	/**
+	 * User editing definitions for this segment
+	 */
+	userEditOperations?: CoreUserEditingDefinition[]
+
+	/**
+	 * Properties that are user editable from the properties panel in the Sofie UI, if the user saves changes to these
+	 * it will trigger a user edit operation of type DefaultUserOperationEditProperties
+	 */
+	userEditProperties?: CoreUserEditingProperties
+}
+
+export interface SegmentExtended extends DBSegment {
+	/** Output layers available in the installation used by this segment */
+	outputLayers: {
+		[key: string]: IOutputLayerExtended
+	}
+	/** Source layers used by this segment */
+	sourceLayers: {
+		[key: string]: ISourceLayerExtended
+	}
 }

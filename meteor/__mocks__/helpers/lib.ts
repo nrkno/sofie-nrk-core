@@ -1,5 +1,6 @@
-import * as _ from 'underscore'
-import { LogLevel, ProtectedString } from '../../lib/lib'
+import _ from 'underscore'
+import { LogLevel } from '@sofie-automation/meteor-lib/dist/lib'
+import { ProtectedString } from '@sofie-automation/corelib/dist/protectedString'
 import { AsyncOnlyMongoCollection } from '../../server/collections/collection'
 import { getLogLevel, setLogLevel } from '../../server/logging'
 
@@ -24,7 +25,7 @@ const METHOD_NAMES = [
 	'remove',
 	'update',
 	'upsert',
-	'_ensureIndex',
+	'createIndex',
 	'findFetchAsync',
 	'findOneAsync',
 	'insertAsync',

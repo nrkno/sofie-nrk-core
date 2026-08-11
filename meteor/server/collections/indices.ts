@@ -1,6 +1,6 @@
-import { ProtectedString } from '../../lib/lib'
+import { ProtectedString } from '@sofie-automation/corelib/dist/protectedString'
 import { Meteor } from 'meteor/meteor'
-import { IndexSpecifier } from '../../lib/collections/lib'
+import { IndexSpecifier } from '@sofie-automation/meteor-lib/dist/collections/lib'
 import { AsyncOnlyReadOnlyMongoCollection } from './collection'
 
 interface CollectionsIndexes {

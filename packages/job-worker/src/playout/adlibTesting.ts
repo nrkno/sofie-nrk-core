@@ -2,12 +2,12 @@ import { SegmentOrphanedReason } from '@sofie-automation/corelib/dist/dataModel/
 import { UserError, UserErrorMessage } from '@sofie-automation/corelib/dist/error'
 import { getRandomId } from '@sofie-automation/corelib/dist/lib'
 import { ActivateAdlibTestingProps } from '@sofie-automation/corelib/dist/worker/studio'
-import { getCurrentTime } from '../lib'
-import { JobContext } from '../jobs'
-import { runJobWithPlayoutModel } from './lock'
-import { performTakeToNextedPart } from './take'
-import { PlayoutModel } from './model/PlayoutModel'
-import { PlayoutPartInstanceModel } from './model/PlayoutPartInstanceModel'
+import { getCurrentTime } from '../lib/index.js'
+import { JobContext } from '../jobs/index.js'
+import { runJobWithPlayoutModel } from './lock.js'
+import { performTakeToNextedPart } from './take.js'
+import { PlayoutModel } from './model/PlayoutModel.js'
+import { PlayoutPartInstanceModel } from './model/PlayoutPartInstanceModel.js'
 
 export async function handleActivateAdlibTesting(context: JobContext, data: ActivateAdlibTestingProps): Promise<void> {
 	if (!context.studio.settings.allowAdlibTestingSegment)
@@ -47,7 +47,7 @@ export async function handleActivateAdlibTesting(context: JobContext, data: Acti
 			playoutModel.setPartInstanceAsNext(newPartInstance, true, false)
 
 			// Take into the newly created Part
-			await performTakeToNextedPart(context, playoutModel, getCurrentTime())
+			await performTakeToNextedPart(context, playoutModel, getCurrentTime(), undefined)
 		}
 	)
 }

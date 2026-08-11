@@ -1,12 +1,13 @@
 import { getPeripheralDeviceFromRundown, runIngestOperation } from './lib'
 import { MOSDeviceActions } from './mosDevice/actions'
 import { Meteor } from 'meteor/meteor'
-import { Rundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
-import { TriggerReloadDataResponse } from '../../../lib/api/userActions'
+import { TriggerReloadDataResponse } from '@sofie-automation/meteor-lib/dist/api/userActions'
 import { GenericDeviceActions } from './genericDevice/actions'
 import { PeripheralDeviceType } from '@sofie-automation/corelib/dist/dataModel/PeripheralDevice'
 import { IngestJobs } from '@sofie-automation/corelib/dist/worker/ingest'
 import { assertNever } from '@sofie-automation/corelib/dist/lib'
+import { VerifiedRundownForUserAction } from '../../security/check'
+import { logger } from '../../logging'
 
 /*
 This file contains actions that can be performed on an ingest-device
@@ -15,9 +16,7 @@ export namespace IngestActions {
 	/**
 	 * Trigger a reload of a rundown
 	 */
-	export async function reloadRundown(
-		rundown: Pick<Rundown, '_id' | 'studioId' | 'externalId' | 'showStyleVariantId' | 'source'>
-	): Promise<TriggerReloadDataResponse> {
+	export async function reloadRundown(rundown: VerifiedRundownForUserAction): Promise<TriggerReloadDataResponse> {
 		const rundownSourceType = rundown.source.type
 		switch (rundown.source.type) {
 			case 'snapshot':
@@ -28,6 +27,26 @@ export namespace IngestActions {
 				})
 
 				return TriggerReloadDataResponse.COMPLETED
+			}
+			case 'restApi': {
+				const resyncUrl = rundown.source.resyncUrl
+				fetch(resyncUrl, { method: 'POST' })
+					.then(() => {
+						logger.info(`Reload rundown: resync request sent to "${resyncUrl}"`)
+					})
+					.catch((error) => {
+						if (error.cause.code === 'ECONNREFUSED' || error.cause.code === 'ENOTFOUND') {
+							logger.error(
+								`Reload rundown: could not establish connection with "${resyncUrl}" (${error.cause.code})`
+							)
+							return
+						}
+						logger.error(
+							`Reload rundown: error occured while sending resync request to "${resyncUrl}", message: ${error.message}, cause: ${JSON.stringify(error.cause)}`
+						)
+					})
+
+				return TriggerReloadDataResponse.WORKING
 			}
 			case 'testing': {
 				await runIngestOperation(rundown.studioId, IngestJobs.CreateAdlibTestingRundownForShowStyleVariant, {

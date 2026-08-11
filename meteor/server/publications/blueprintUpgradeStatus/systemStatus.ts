@@ -1,14 +1,13 @@
-import { createManualPromise } from '@sofie-automation/corelib/dist/lib'
 import { ProtectedString } from '@sofie-automation/corelib/dist/protectedString'
 import { Meteor } from 'meteor/meteor'
-import { UIBlueprintUpgradeStatus } from '../../../lib/api/upgradeStatus'
+import { UIBlueprintUpgradeStatus } from '@sofie-automation/meteor-lib/dist/api/upgradeStatus'
 import { CustomPublish, CustomPublishChanges } from '../../lib/customPublication'
 import { createBlueprintUpgradeStatusSubscriptionHandle } from './publication'
 
 class CustomPublishToMap<DBObj extends { _id: ProtectedString<any> }> implements CustomPublish<DBObj> {
 	#isReady = false
 	#documents = new Map<DBObj['_id'], DBObj>()
-	#readyPromise = createManualPromise<void>()
+	#readyPromise = Promise.withResolvers<void>()
 
 	get isReady(): boolean {
 		return this.#isReady
@@ -19,7 +18,7 @@ class CustomPublishToMap<DBObj extends { _id: ProtectedString<any> }> implements
 	}
 
 	async waitForReady(): Promise<void> {
-		return this.#readyPromise
+		return this.#readyPromise.promise
 	}
 
 	/**
@@ -41,7 +40,7 @@ class CustomPublishToMap<DBObj extends { _id: ProtectedString<any> }> implements
 
 		this.#isReady = true
 
-		Meteor.defer(() => this.#readyPromise.manualResolve())
+		Meteor.defer(() => this.#readyPromise.resolve())
 	}
 
 	/**

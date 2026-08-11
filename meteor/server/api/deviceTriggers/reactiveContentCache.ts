@@ -6,15 +6,22 @@ import { DBPart } from '@sofie-automation/corelib/dist/dataModel/Part'
 import { DBPartInstance } from '@sofie-automation/corelib/dist/dataModel/PartInstance'
 import { RundownBaselineAdLibAction } from '@sofie-automation/corelib/dist/dataModel/RundownBaselineAdLibAction'
 import { RundownBaselineAdLibItem } from '@sofie-automation/corelib/dist/dataModel/RundownBaselineAdLibPiece'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import { DBSegment } from '@sofie-automation/corelib/dist/dataModel/Segment'
 import { DBShowStyleBase } from '@sofie-automation/corelib/dist/dataModel/ShowStyleBase'
-import { DBTriggeredActions } from '../../../lib/collections/TriggeredActions'
+import { DBTriggeredActions } from '@sofie-automation/meteor-lib/dist/collections/TriggeredActions'
 import { MongoFieldSpecifierOnesStrict } from '@sofie-automation/corelib/dist/mongo'
 import { literal } from '@sofie-automation/corelib/dist/lib'
 import { ReactiveCacheCollection } from '../../publications/lib/ReactiveCacheCollection'
 
-export type RundownPlaylistFields = '_id' | 'name' | 'activationId' | 'currentPartInfo' | 'nextPartInfo'
+export type RundownPlaylistFields =
+	| '_id'
+	| 'name'
+	| 'activationId'
+	| 'currentPartInfo'
+	| 'nextPartInfo'
+	| 'studioId'
+	| 'rehearsal'
 export const rundownPlaylistFieldSpecifier = literal<
 	MongoFieldSpecifierOnesStrict<Pick<DBRundownPlaylist, RundownPlaylistFields>>
 >({
@@ -23,6 +30,8 @@ export const rundownPlaylistFieldSpecifier = literal<
 	activationId: 1,
 	currentPartInfo: 1,
 	nextPartInfo: 1,
+	studioId: 1,
+	rehearsal: 1,
 })
 
 export type SegmentFields = '_id' | '_rank' | 'isHidden' | 'name' | 'rundownId' | 'identifier'

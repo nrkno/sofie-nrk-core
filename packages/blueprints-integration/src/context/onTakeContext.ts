@@ -1,15 +1,19 @@
-import { IEventContext, IShowStyleUserContext, Time } from '..'
-import { IPartAndPieceActionContext } from './partsAndPieceActionContext'
-import { IExecuteTSRActionsContext } from './executeTsrActionContext'
+import { IBlueprintPart, IBlueprintPiece, IEventContext, IShowStyleUserContext, Time } from '../index.js'
+import { IPartAndPieceActionContext } from './partsAndPieceActionContext.js'
+import { IExecuteTSRActionsContext, ITriggerIngestChangeContext } from './executeTsrActionContext.js'
+import { ITTimersContext } from './tTimersContext.js'
 
 /**
  * Context in which 'current' is the partInstance we're leaving, and 'next' is the partInstance we're taking
  */
 export interface IOnTakeContext
-	extends IPartAndPieceActionContext,
+	extends
+		IPartAndPieceActionContext,
 		IShowStyleUserContext,
 		IEventContext,
-		IExecuteTSRActionsContext {
+		IExecuteTSRActionsContext,
+		ITriggerIngestChangeContext,
+		ITTimersContext {
 	/** Inform core that a take out of the taken partinstance should be blocked until the specified time */
 	blockTakeUntil(time: Time | null): Promise<void>
 	/**
@@ -18,4 +22,6 @@ export interface IOnTakeContext
 	 * but the next part will not be taken.
 	 */
 	abortTake(): void
+	/** Insert a queued part to follow the taken part */
+	queuePartAfterTake(part: IBlueprintPart, pieces: IBlueprintPiece[]): void
 }

@@ -1,4 +1,4 @@
-import { TSR, TimelineObjectCoreExt, TimelineObjHoldMode } from '@sofie-automation/blueprints-integration'
+import { TSR, TimelineObjectCoreExt } from '@sofie-automation/blueprints-integration'
 import { RundownPlaylistId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { deserializePieceTimelineObjectsBlob } from '@sofie-automation/corelib/dist/dataModel/Piece'
 import {
@@ -7,14 +7,14 @@ import {
 	TimelineObjType,
 	TimelineObjGroupPart,
 } from '@sofie-automation/corelib/dist/dataModel/Timeline'
-import { assertNever, clone } from '@sofie-automation/corelib/dist/lib'
+import { clone } from '@sofie-automation/corelib/dist/lib'
 import { PieceInstanceWithTimings } from '@sofie-automation/corelib/dist/playout/processAndPrune'
-import { createPieceGroupAndCap } from './pieceGroup'
+import { createPieceGroupAndCap } from './pieceGroup.js'
 import { PartCalculatedTimings } from '@sofie-automation/corelib/dist/playout/timings'
 import { unprotectString } from '@sofie-automation/corelib/dist/protectedString'
 import { ReadonlyDeep } from 'type-fest'
-import { prefixAllObjectIds } from '../lib'
-import { hasPieceInstanceDefinitelyEnded } from './lib'
+import { prefixAllObjectIds } from '../lib.js'
+import { hasPieceInstanceDefinitelyEnded, shouldIncludeObjectOnTimeline, TimelinePlayoutState } from './lib.js'
 
 export function transformPieceGroupAndObjects(
 	playlistId: RundownPlaylistId,
@@ -25,9 +25,7 @@ export function transformPieceGroupAndObjects(
 	/** If the start of the piece has been offset inside the partgroup  */
 	pieceStartOffset: number,
 	controlObjClasses: string[],
-	/** If true, we're playing in a HOLD situation */
-	isInHold: boolean,
-	includeHoldExceptObjects: boolean
+	playoutState: TimelinePlayoutState
 ): Array<TimelineObjRundown & OnGenerateTimelineObjExt> {
 	// If a piece has definitely finished playback, then we can prune its contents. But we can only do that check if the part has an absolute time, otherwise we are only guessing
 	const hasDefinitelyEnded =
@@ -50,24 +48,7 @@ export function transformPieceGroupAndObjects(
 
 		const objects = deserializePieceTimelineObjectsBlob(pieceInstance.piece.timelineObjectsString)
 		for (const o of objects) {
-			// Some objects can be filtered out at times based on the holdMode of the object
-			switch (o.holdMode) {
-				case TimelineObjHoldMode.NORMAL:
-				case undefined:
-					break
-				case TimelineObjHoldMode.EXCEPT:
-					if (isInHold && !includeHoldExceptObjects) {
-						continue
-					}
-					break
-				case TimelineObjHoldMode.ONLY:
-					if (!isInHold) {
-						continue
-					}
-					break
-				default:
-					assertNever(o.holdMode)
-			}
+			if (!shouldIncludeObjectOnTimeline(playoutState, o)) continue
 
 			pieceObjects.push({
 				metaData: undefined,
@@ -90,21 +71,18 @@ export function transformPieceGroupAndObjects(
 export function getPieceEnableInsidePart(
 	pieceInstance: ReadonlyDeep<PieceInstanceWithTimings>,
 	partTimings: PartCalculatedTimings,
-	partGroupId: string
+	partGroupId: string,
+	partHasEndTime: boolean
 ): TSR.Timeline.TimelineEnable {
 	const pieceEnable: TSR.Timeline.TimelineEnable = { ...pieceInstance.piece.enable }
 	if (typeof pieceEnable.start === 'number') {
-		if (pieceInstance.dynamicallyInserted) {
-			// timed adlibbed pieces needs to factor in their preroll
-			pieceEnable.start += pieceInstance.piece.prerollDuration || 0
-		} else {
-			// timed planned pieces should be offset based on the preroll of the part
-			pieceEnable.start += partTimings.toPartDelay
-		}
+		// pieces should be offset based on the preroll of the part
+		pieceEnable.start += partTimings.toPartDelay
 	}
 
-	if (partTimings.toPartPostroll) {
-		if (!pieceEnable.duration) {
+	// If the part has an end time, we can consider post-roll
+	if (partHasEndTime && partTimings.toPartPostroll) {
+		if (pieceEnable.duration === undefined) {
 			// make sure that the control object is shortened correctly
 			pieceEnable.end = `#${partGroupId} - ${partTimings.toPartPostroll}`
 		}

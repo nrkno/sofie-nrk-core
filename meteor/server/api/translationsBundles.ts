@@ -1,12 +1,16 @@
 import { Meteor } from 'meteor/meteor'
-import { Translation, TranslationsBundle as DBTranslationsBundle } from '../../lib/collections/TranslationsBundles'
+import {
+	Translation,
+	TranslationsBundle as DBTranslationsBundle,
+} from '@sofie-automation/meteor-lib/dist/collections/TranslationsBundles'
 import { TranslationsBundles as TranslationsBundleCollection } from '../collections'
 import {
 	I18NextData,
 	TranslationsBundle as BlueprintTranslationsbundle,
 	TranslationsBundleType,
 } from '@sofie-automation/blueprints-integration'
-import { getHash, protectString, unprotectString } from '../../lib/lib'
+import { getHash } from '@sofie-automation/corelib/dist/lib'
+import { protectString, unprotectString } from '@sofie-automation/corelib/dist/protectedString'
 import {
 	BlueprintId,
 	PeripheralDeviceId,

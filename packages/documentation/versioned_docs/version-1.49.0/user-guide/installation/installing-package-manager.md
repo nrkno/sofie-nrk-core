@@ -4,7 +4,7 @@ sidebar_position: 7
 
 # Installing Package Manager
 
-### Prerequisites
+## Prerequisites
 
 - [Installed and running Sofie&nbsp;Core](installing-sofie-server-core.md)
 - [Initial Sofie&nbsp;Core Setup](initial-sofie-core-setup.md)
@@ -48,7 +48,6 @@ To setup, go into Core and add this device to a Studio
 ```
 
 This first run is necessary to get the Package Manager device registered with _Sofie&nbsp;Core_. We'll restart Package Manager later on in the [Configuration](#configuration) instructions.
-
 
 ## Installation In Production
 

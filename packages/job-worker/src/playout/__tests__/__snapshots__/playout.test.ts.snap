@@ -1,4 +1,4 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
 exports[`Playout API Basic rundown control 1`] = `
 [
@@ -31,7 +31,6 @@ exports[`Playout API Basic rundown control 2`] = `
   },
   "modified": 0,
   "name": "Default Rundown",
-  "organizationId": null,
   "playlistId": "playlist_randomId9000",
   "showStyleBaseId": "mockShowStyleBase0",
   "showStyleVariantId": "mockShowStyleVariant0",
@@ -73,12 +72,31 @@ exports[`Playout API Basic rundown control 4`] = `
   "name": "Default RundownPlaylist",
   "nextPartInfo": null,
   "nextTimeOffset": null,
-  "organizationId": null,
   "previousPartInfo": null,
   "rehearsal": false,
   "resetTime": 0,
   "rundownIdsInOrder": [],
   "studioId": "mockStudio0",
+  "tTimers": [
+    {
+      "index": 1,
+      "label": "",
+      "mode": null,
+      "state": null,
+    },
+    {
+      "index": 2,
+      "label": "",
+      "mode": null,
+      "state": null,
+    },
+    {
+      "index": 3,
+      "label": "",
+      "mode": null,
+      "state": null,
+    },
+  ],
   "timing": {
     "type": "none",
   },
@@ -99,7 +117,6 @@ exports[`Playout API Basic rundown control 5`] = `
   },
   "modified": 0,
   "name": "Default Rundown",
-  "organizationId": null,
   "playlistId": "playlist_randomId9000",
   "showStyleBaseId": "mockShowStyleBase0",
   "showStyleVariantId": "mockShowStyleVariant0",

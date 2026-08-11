@@ -1,0 +1,59 @@
+{
+	"name": "@sofie-automation/meteor-lib",
+	"version": "26.3.0-2-nrk",
+	"private": true,
+	"description": "Temporary internal library for some types shared by meteor and webui",
+	"main": "dist/index.js",
+	"typings": "dist/index.d.ts",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/nrkno/sofie-core.git",
+		"directory": "packages/meteor-lib"
+	},
+	"bugs": {
+		"url": "https://github.com/nrkno/sofie-core/issues"
+	},
+	"homepage": "https://github.com/nrkno/sofie-core/blob/main/packages/corelib#readme",
+	"scripts": {
+		"lint": "run -T lint meteor-lib",
+		"unit": "run -T jest",
+		"test": "run lint && run unit",
+		"watch": "run -T jest --watch --coverage=false",
+		"cov": "run -T jest --coverage; open-cli coverage/lcov-report/index.html",
+		"cov-open": "open-cli coverage/lcov-report/index.html",
+		"validate:dependencies": "yarn npm audit --environment production && run license-validate",
+		"validate:dev-dependencies": "yarn npm audit --environment development",
+		"license-validate": "run -T sofie-licensecheck"
+	},
+	"engines": {
+		"node": ">=22.20.0"
+	},
+	"files": [
+		"/dist",
+		"/CHANGELOG.md",
+		"/README.md",
+		"/LICENSE"
+	],
+	"dependencies": {
+		"@mos-connection/helper": "^5.0.0-alpha.0",
+		"@sofie-automation/blueprints-integration": "26.3.0-2-nrk",
+		"@sofie-automation/corelib": "26.3.0-2-nrk",
+		"@sofie-automation/shared-lib": "26.3.0-2-nrk",
+		"deep-extend": "0.6.0",
+		"semver": "^7.8.5",
+		"type-fest": "^4.41.0",
+		"underscore": "^1.13.8"
+	},
+	"devDependencies": {
+		"@types/deep-extend": "^0.6.2",
+		"@types/semver": "^7.7.1",
+		"@types/underscore": "^1.13.0"
+	},
+	"peerDependencies": {
+		"i18next": "^26.0.4",
+		"mongodb": "^7.1.1"
+	},
+	"prettier": "@sofie-automation/code-standard-preset/.prettierrc.json",
+	"packageManager": "yarn@4.17.0"
+}

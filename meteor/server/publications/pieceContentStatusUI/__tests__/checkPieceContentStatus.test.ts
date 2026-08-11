@@ -5,6 +5,7 @@ import {
 	getMediaObjectMediaId,
 	PieceContentStreamInfo,
 	checkPieceContentStatusAndDependencies,
+	PieceContentStatusStudio,
 } from '../checkPieceContentStatus'
 import {
 	PackageInfo,
@@ -13,8 +14,10 @@ import {
 	SourceLayerType,
 	IBlueprintPieceGeneric,
 	PieceLifespan,
+	SplitsContent,
 	VTContent,
 } from '@sofie-automation/blueprints-integration'
+import { ShelfButtonSize } from '@sofie-automation/shared-lib/dist/core/model/StudioSettings'
 import { Complete, literal } from '@sofie-automation/corelib/dist/lib'
 import { MongoMock } from '../../../../__mocks__/mongo'
 import {
@@ -31,48 +34,133 @@ import {
 	MediaStream,
 	MediaStreamType,
 } from '@sofie-automation/shared-lib/dist/core/model/MediaObjects'
-import { UIStudio } from '../../../../lib/api/studios'
 import { defaultStudio } from '../../../../__mocks__/defaultCollectionObjects'
-import { testInFiber } from '../../../../__mocks__/helpers/jest'
 import { MediaObjects } from '../../../collections'
 import { PieceDependencies } from '../common'
-import { DBStudio } from '@sofie-automation/corelib/dist/dataModel/Studio'
 import { DEFAULT_MINIMUM_TAKE_SPAN } from '@sofie-automation/shared-lib/dist/core/constants'
+import { PieceContentStatusMessageFactory } from '../messageFactory'
+import { RundownId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 
 const mockMediaObjectsCollection = MongoMock.getInnerMockCollection<MediaObject>(MediaObjects)
 
 describe('lib/mediaObjects', () => {
-	test('buildFormatString', () => {
-		const format1 = buildFormatString(
-			PackageInfo.FieldOrder.TFF,
-			literal<PieceContentStreamInfo>({
-				width: 1920,
-				height: 1080,
-				codec_time_base: '1/25',
-			})
-		)
-		expect(format1).toEqual('1920x1080i2500tff')
+	beforeEach(async () => {
+		await mockMediaObjectsCollection.removeAsync({})
+	})
 
-		const format2 = buildFormatString(
-			PackageInfo.FieldOrder.Progressive,
+	describe('buildFormatString', () => {
+		it('deepscan tff, stream unknown', () => {
+			const format1 = buildFormatString(
+				PackageInfo.FieldOrder.TFF,
+				literal<PieceContentStreamInfo>({
+					width: 1920,
+					height: 1080,
+					codec_time_base: '1/25',
+				})
+			)
+			expect(format1).toEqual('1920x1080i2500tff')
+		})
 
-			literal<PieceContentStreamInfo>({
-				width: 1280,
-				height: 720,
-				codec_time_base: '1001/60000',
-			})
-		)
-		expect(format2).toEqual('1280x720p5994')
+		it('deepscan progressive, stream unknown', () => {
+			const format2 = buildFormatString(
+				PackageInfo.FieldOrder.Progressive,
+				literal<PieceContentStreamInfo>({
+					width: 1280,
+					height: 720,
+					codec_time_base: '1001/60000',
+				})
+			)
+			expect(format2).toEqual('1280x720p5994')
+		})
 
-		const format3 = buildFormatString(
-			PackageInfo.FieldOrder.BFF,
-			literal<PieceContentStreamInfo>({
-				width: 720,
-				height: 576,
-				codec_time_base: '1/25',
-			})
-		)
-		expect(format3).toEqual('720x576i2500bff')
+		it('deepscan bff, stream unknown', () => {
+			const format3 = buildFormatString(
+				PackageInfo.FieldOrder.BFF,
+				literal<PieceContentStreamInfo>({
+					width: 720,
+					height: 576,
+					codec_time_base: '1/25',
+				})
+			)
+			expect(format3).toEqual('720x576i2500bff')
+		})
+
+		it('deepscan tff, stream bff', () => {
+			const format3 = buildFormatString(
+				PackageInfo.FieldOrder.TFF,
+				literal<PieceContentStreamInfo>({
+					width: 720,
+					height: 576,
+					codec_time_base: '1/25',
+					field_order: PackageInfo.FieldOrder.BFF,
+				})
+			)
+			expect(format3).toEqual('720x576i2500bff')
+		})
+
+		it('deepscan bff, stream tff', () => {
+			const format3 = buildFormatString(
+				PackageInfo.FieldOrder.BFF,
+				literal<PieceContentStreamInfo>({
+					width: 720,
+					height: 576,
+					codec_time_base: '1/25',
+					field_order: PackageInfo.FieldOrder.TFF,
+				})
+			)
+			expect(format3).toEqual('720x576i2500tff')
+		})
+
+		it('deepscan progressive, stream tff', () => {
+			const format3 = buildFormatString(
+				PackageInfo.FieldOrder.Progressive,
+				literal<PieceContentStreamInfo>({
+					width: 720,
+					height: 576,
+					codec_time_base: '1/25',
+					field_order: PackageInfo.FieldOrder.TFF,
+				})
+			)
+			expect(format3).toEqual('720x576i2500tff')
+		})
+
+		it('deepscan bff, stream progressive', () => {
+			const format3 = buildFormatString(
+				PackageInfo.FieldOrder.BFF,
+				literal<PieceContentStreamInfo>({
+					width: 720,
+					height: 576,
+					codec_time_base: '1/25',
+					field_order: PackageInfo.FieldOrder.Progressive,
+				})
+			)
+			expect(format3).toEqual('720x576i2500bff')
+		})
+
+		it('deepscan unknown, stream progressive', () => {
+			const format3 = buildFormatString(
+				undefined,
+				literal<PieceContentStreamInfo>({
+					width: 720,
+					height: 576,
+					codec_time_base: '1/25',
+					field_order: PackageInfo.FieldOrder.Progressive,
+				})
+			)
+			expect(format3).toEqual('720x576p2500')
+		})
+
+		it('r_frame_rate', () => {
+			const format3 = buildFormatString(
+				PackageInfo.FieldOrder.Progressive,
+				literal<PieceContentStreamInfo>({
+					width: 720,
+					height: 576,
+					r_frame_rate: '25/1',
+				})
+			)
+			expect(format3).toEqual('720x576p2500')
+		})
 	})
 
 	test('acceptFormat', () => {
@@ -86,9 +174,7 @@ describe('lib/mediaObjects', () => {
 	test('getAcceptedFormats', () => {
 		const acceptedFormats = getAcceptedFormats({
 			supportedMediaFormats: '1920x1080i5000, 1280x720, i5000, i5000tff',
-			mediaPreviewsUrl: '',
 			frameRate: 25,
-			minimumTakeSpan: DEFAULT_MINIMUM_TAKE_SPAN,
 		})
 		expect(acceptedFormats).toEqual([
 			['1920', '1080', 'i', '5000', undefined],
@@ -164,33 +250,333 @@ describe('lib/mediaObjects', () => {
 		expect(mediaId3).toEqual(undefined)
 	})
 
-	testInFiber('checkPieceContentStatus', async () => {
+	test('packageName: media object status uses mediaId or falls back to fileName', async () => {
 		const mockStudioSettings: IStudioSettings = {
 			supportedMediaFormats: '1920x1080i5000, 1280x720, i5000, i5000tff',
 			mediaPreviewsUrl: '',
 			supportedAudioStreams: '4',
 			frameRate: 25,
 			minimumTakeSpan: DEFAULT_MINIMUM_TAKE_SPAN,
+			allowHold: false,
+			allowPieceDirectPlay: false,
+			enableBuckets: false,
+			enableEvaluationForm: false,
+			shelfAdlibButtonSize: ShelfButtonSize.LARGE,
 		}
 
 		const mockDefaultStudio = defaultStudio(protectString('studio0'))
-		const mockStudio: Complete<
-			Pick<
-				DBStudio,
-				'_id' | 'settings' | 'packageContainers' | 'previewContainerIds' | 'thumbnailContainerIds' | 'routeSets'
-			> &
-				Pick<UIStudio, 'mappings'>
-		> = {
+		const mockStudio: Complete<PieceContentStatusStudio> = {
 			_id: mockDefaultStudio._id,
 			settings: mockStudioSettings,
-			packageContainers: mockDefaultStudio.packageContainers,
-			previewContainerIds: ['previews0'],
-			thumbnailContainerIds: ['thumbnails0'],
-			routeSets: mockDefaultStudio.routeSets,
+			packageContainerSettings: {
+				previewContainerIds: ['previews0'],
+				thumbnailContainerIds: ['thumbnails0'],
+			},
+			routeSets: applyAndValidateOverrides(mockDefaultStudio.routeSetsWithOverrides).obj,
 			mappings: applyAndValidateOverrides(mockDefaultStudio.mappingsWithOverrides).obj,
+			packageContainers: applyAndValidateOverrides(mockDefaultStudio.packageContainersWithOverrides).obj,
 		}
 
-		mockMediaObjectsCollection.insert(
+		await mockMediaObjectsCollection.insertAsync(
+			literal<MediaObject>({
+				_id: protectString(''),
+				_attachments: {},
+				_rev: '',
+				cinf: '',
+				collectionId: 'studio0',
+				mediaId: 'TEST_FILE',
+				mediaPath: '',
+				mediaSize: 0,
+				mediaTime: 0,
+				mediainfo: literal<MediaInfo>({
+					name: 'test_file',
+					field_order: PackageInfo.FieldOrder.TFF,
+					streams: [
+						literal<MediaStream>({
+							width: 1920,
+							height: 1080,
+							codec: {
+								type: MediaStreamType.Video,
+								time_base: '1/50',
+							},
+						}),
+						literal<MediaStream>({
+							channels: 1,
+							codec: {
+								type: MediaStreamType.Audio,
+								time_base: '1/25',
+							},
+						}),
+						literal<MediaStream>({
+							channels: 1,
+							codec: {
+								type: MediaStreamType.Audio,
+								time_base: '1/25',
+							},
+						}),
+						literal<MediaStream>({
+							channels: 1,
+							codec: {
+								type: MediaStreamType.Audio,
+								time_base: '1/25',
+							},
+						}),
+						literal<MediaStream>({
+							channels: 1,
+							codec: {
+								type: MediaStreamType.Audio,
+								time_base: '1/25',
+							},
+						}),
+					],
+				}),
+				objId: '',
+				previewPath: '',
+				previewSize: 0,
+				previewTime: 0,
+				studioId: protectString('studio0'),
+				thumbSize: 0,
+				thumbTime: 0,
+				tinf: '',
+			})
+		)
+
+		await mockMediaObjectsCollection.insertAsync(
+			literal<MediaObject>({
+				_id: protectString(''),
+				_attachments: {},
+				_rev: '',
+				cinf: '',
+				collectionId: 'studio0',
+				mediaId: 'TEST_FILE_2',
+				mediaPath: '',
+				mediaSize: 0,
+				mediaTime: 0,
+				mediainfo: literal<MediaInfo>({
+					name: 'test_file_2',
+					field_order: PackageInfo.FieldOrder.Progressive,
+					streams: [
+						literal<MediaStream>({
+							width: 1920,
+							height: 1080,
+							codec: {
+								type: MediaStreamType.Video,
+								time_base: '1/50',
+							},
+						}),
+						literal<MediaStream>({
+							channels: 1,
+							codec: {
+								type: MediaStreamType.Audio,
+								time_base: '1/25',
+							},
+						}),
+						literal<MediaStream>({
+							channels: 1,
+							codec: {
+								type: MediaStreamType.Audio,
+								time_base: '1/25',
+							},
+						}),
+						literal<MediaStream>({
+							channels: 1,
+							codec: {
+								type: MediaStreamType.Audio,
+								time_base: '1/25',
+							},
+						}),
+						literal<MediaStream>({
+							channels: 1,
+							codec: {
+								type: MediaStreamType.Audio,
+								time_base: '1/25',
+							},
+						}),
+					],
+				}),
+				objId: '',
+				previewPath: '',
+				previewSize: 0,
+				previewTime: 0,
+				studioId: protectString('studio0'),
+				thumbSize: 0,
+				thumbTime: 0,
+				tinf: '',
+			})
+		)
+
+		const sourcelayer = literal<ISourceLayer>({
+			_id: '',
+			_rank: 0,
+			name: '',
+			type: SourceLayerType.LIVE_SPEAK,
+		})
+
+		const messageFactory = new PieceContentStatusMessageFactory(undefined)
+		const mockOwnerId = protectString<RundownId>('rundown0')
+
+		const [status1] = await checkPieceContentStatusAndDependencies(
+			mockStudio,
+			mockOwnerId,
+			messageFactory,
+			literal<PieceGeneric>({
+				_id: protectString('piece1'),
+				name: 'Test_file',
+				prerollDuration: 0,
+				externalId: '',
+				lifespan: PieceLifespan.WithinPart,
+				privateData: {},
+				outputLayerId: '',
+				sourceLayerId: '',
+				content: literal<VTContent>({
+					fileName: 'test_file',
+					path: '',
+				}),
+				timelineObjectsString: EmptyPieceTimelineObjectsBlob,
+			}),
+			sourcelayer
+		)
+		expect(status1.packageName).toEqual('TEST_FILE')
+
+		const [status2] = await checkPieceContentStatusAndDependencies(
+			mockStudio,
+			mockOwnerId,
+			messageFactory,
+			literal<PieceGeneric>({
+				_id: protectString('piece2'),
+				name: 'Test_file_2',
+				prerollDuration: 0,
+				externalId: '',
+				lifespan: PieceLifespan.WithinPart,
+				privateData: {},
+				outputLayerId: '',
+				sourceLayerId: '',
+				content: literal<VTContent>({
+					fileName: 'test_file_2',
+					path: '',
+				}),
+				timelineObjectsString: EmptyPieceTimelineObjectsBlob,
+			}),
+			sourcelayer
+		)
+		expect(status2.packageName).toEqual('TEST_FILE_2')
+
+		const [status3] = await checkPieceContentStatusAndDependencies(
+			mockStudio,
+			mockOwnerId,
+			messageFactory,
+			literal<PieceGeneric>({
+				_id: protectString('piece3'),
+				name: 'Test_file_3',
+				prerollDuration: 0,
+				externalId: '',
+				lifespan: PieceLifespan.WithinPart,
+				privateData: {},
+				outputLayerId: '',
+				sourceLayerId: '',
+				content: literal<VTContent>({
+					fileName: 'test_file_3',
+					path: '',
+				}),
+				timelineObjectsString: EmptyPieceTimelineObjectsBlob,
+			}),
+			sourcelayer
+		)
+		expect(status3.packageName).toEqual('TEST_FILE_3')
+	})
+
+	test('packageName: exposed even when ignoreMediaObjectStatus is set', async () => {
+		const mockStudioSettings: IStudioSettings = {
+			supportedMediaFormats: '1920x1080i5000, 1280x720, i5000, i5000tff',
+			mediaPreviewsUrl: '',
+			supportedAudioStreams: '4',
+			frameRate: 25,
+			minimumTakeSpan: DEFAULT_MINIMUM_TAKE_SPAN,
+			allowHold: false,
+			allowPieceDirectPlay: false,
+			enableBuckets: false,
+			enableEvaluationForm: false,
+			shelfAdlibButtonSize: ShelfButtonSize.LARGE,
+		}
+
+		const mockDefaultStudio = defaultStudio(protectString('studio0'))
+		const mockStudio: Complete<PieceContentStatusStudio> = {
+			_id: mockDefaultStudio._id,
+			settings: mockStudioSettings,
+			packageContainerSettings: {
+				previewContainerIds: ['previews0'],
+				thumbnailContainerIds: ['thumbnails0'],
+			},
+			routeSets: applyAndValidateOverrides(mockDefaultStudio.routeSetsWithOverrides).obj,
+			mappings: applyAndValidateOverrides(mockDefaultStudio.mappingsWithOverrides).obj,
+			packageContainers: applyAndValidateOverrides(mockDefaultStudio.packageContainersWithOverrides).obj,
+		}
+
+		const ignorePiece = literal<PieceGeneric>({
+			_id: protectString('pieceIgnore'),
+			name: 'Ignore media status',
+			prerollDuration: 0,
+			externalId: '',
+			lifespan: PieceLifespan.WithinPart,
+			privateData: {},
+			outputLayerId: '',
+			sourceLayerId: '',
+			content: {
+				fileName: 'ignored_file',
+				path: '',
+				ignoreMediaObjectStatus: true,
+			} as any,
+			timelineObjectsString: EmptyPieceTimelineObjectsBlob,
+		})
+
+		const messageFactory = new PieceContentStatusMessageFactory(undefined)
+		const mockOwnerId = protectString<RundownId>('rundown0')
+
+		const [ignoredStatus] = await checkPieceContentStatusAndDependencies(
+			mockStudio,
+			mockOwnerId,
+			messageFactory,
+			ignorePiece,
+			literal<ISourceLayer>({
+				_id: '',
+				_rank: 0,
+				name: '',
+				type: SourceLayerType.VT,
+			})
+		)
+
+		expect(ignoredStatus.status).toEqual(PieceStatusCode.UNKNOWN)
+		expect(ignoredStatus.packageName).toEqual('IGNORED_FILE')
+	})
+
+	test('checkPieceContentStatus', async () => {
+		const mockStudioSettings: IStudioSettings = {
+			supportedMediaFormats: '1920x1080i5000, 1280x720, i5000, i5000tff',
+			mediaPreviewsUrl: '',
+			supportedAudioStreams: '4',
+			frameRate: 25,
+			minimumTakeSpan: DEFAULT_MINIMUM_TAKE_SPAN,
+			allowHold: false,
+			allowPieceDirectPlay: false,
+			enableBuckets: false,
+			enableEvaluationForm: false,
+			shelfAdlibButtonSize: ShelfButtonSize.LARGE,
+		}
+
+		const mockDefaultStudio = defaultStudio(protectString('studio0'))
+		const mockStudio: Complete<PieceContentStatusStudio> = {
+			_id: mockDefaultStudio._id,
+			settings: mockStudioSettings,
+			packageContainerSettings: {
+				previewContainerIds: ['previews0'],
+				thumbnailContainerIds: ['thumbnails0'],
+			},
+			routeSets: applyAndValidateOverrides(mockDefaultStudio.routeSetsWithOverrides).obj,
+			mappings: applyAndValidateOverrides(mockDefaultStudio.mappingsWithOverrides).obj,
+			packageContainers: applyAndValidateOverrides(mockDefaultStudio.packageContainersWithOverrides).obj,
+		}
+
+		await mockMediaObjectsCollection.insertAsync(
 			literal<MediaObject>({
 				_id: protectString(''),
 				_attachments: {},
@@ -277,7 +663,7 @@ describe('lib/mediaObjects', () => {
 			type: SourceLayerType.LIVE_SPEAK,
 		})
 
-		mockMediaObjectsCollection.insert(
+		await mockMediaObjectsCollection.insertAsync(
 			literal<MediaObject>({
 				_id: protectString(''),
 				_attachments: {},
@@ -373,7 +759,17 @@ describe('lib/mediaObjects', () => {
 			timelineObjectsString: EmptyPieceTimelineObjectsBlob,
 		})
 
-		const status1 = await checkPieceContentStatusAndDependencies(mockStudio, piece1, sourcelayer1)
+		const mockOwnerId = protectString<RundownId>('rundown0')
+
+		const messageFactory = new PieceContentStatusMessageFactory(undefined)
+
+		const status1 = await checkPieceContentStatusAndDependencies(
+			mockStudio,
+			mockOwnerId,
+			messageFactory,
+			piece1,
+			sourcelayer1
+		)
 		expect(status1[0].status).toEqual(PieceStatusCode.OK)
 		expect(status1[0].messages).toHaveLength(0)
 		expect(status1[1]).toMatchObject(
@@ -384,7 +780,13 @@ describe('lib/mediaObjects', () => {
 			})
 		)
 
-		const status2 = await checkPieceContentStatusAndDependencies(mockStudio, piece2, sourcelayer1)
+		const status2 = await checkPieceContentStatusAndDependencies(
+			mockStudio,
+			mockOwnerId,
+			messageFactory,
+			piece2,
+			sourcelayer1
+		)
 		expect(status2[0].status).toEqual(PieceStatusCode.SOURCE_BROKEN)
 		expect(status2[0].messages).toHaveLength(1)
 		expect(status2[0].messages[0]).toMatchObject({
@@ -398,7 +800,13 @@ describe('lib/mediaObjects', () => {
 			})
 		)
 
-		const status3 = await checkPieceContentStatusAndDependencies(mockStudio, piece3, sourcelayer1)
+		const status3 = await checkPieceContentStatusAndDependencies(
+			mockStudio,
+			mockOwnerId,
+			messageFactory,
+			piece3,
+			sourcelayer1
+		)
 		expect(status3[0].status).toEqual(PieceStatusCode.SOURCE_MISSING)
 		expect(status3[0].messages).toHaveLength(1)
 		expect(status3[0].messages[0]).toMatchObject({
@@ -411,5 +819,169 @@ describe('lib/mediaObjects', () => {
 				packageContainerPackageStatuses: [],
 			})
 		)
+	})
+
+	describe('SPLITS boxPreviews', () => {
+		const mockStudioSettings: IStudioSettings = {
+			supportedMediaFormats: '1920x1080i5000',
+			mediaPreviewsUrl: 'http://preview/',
+			supportedAudioStreams: '4',
+			frameRate: 25,
+			minimumTakeSpan: DEFAULT_MINIMUM_TAKE_SPAN,
+			allowHold: false,
+			allowPieceDirectPlay: false,
+			enableBuckets: false,
+			enableEvaluationForm: false,
+			shelfAdlibButtonSize: ShelfButtonSize.LARGE,
+		}
+
+		const mockDefaultStudio = defaultStudio(protectString('studio0'))
+		const mockStudio: Complete<PieceContentStatusStudio> = {
+			_id: mockDefaultStudio._id,
+			settings: mockStudioSettings,
+			packageContainerSettings: {
+				previewContainerIds: ['previews0'],
+				thumbnailContainerIds: ['thumbnails0'],
+			},
+			routeSets: applyAndValidateOverrides(mockDefaultStudio.routeSetsWithOverrides).obj,
+			mappings: applyAndValidateOverrides(mockDefaultStudio.mappingsWithOverrides).obj,
+			packageContainers: applyAndValidateOverrides(mockDefaultStudio.packageContainersWithOverrides).obj,
+		}
+
+		const splitsLayer = literal<ISourceLayer>({
+			_id: '',
+			_rank: 0,
+			name: 'Splits',
+			type: SourceLayerType.SPLITS,
+		})
+
+		const messageFactory = new PieceContentStatusMessageFactory(undefined)
+		const mockOwnerId = protectString<RundownId>('rundown0')
+
+		async function insertMediaObject(mediaId: string): Promise<void> {
+			await mockMediaObjectsCollection.insertAsync(
+				literal<MediaObject>({
+					_id: protectString(''),
+					_attachments: {},
+					_rev: '',
+					cinf: '',
+					collectionId: 'studio0',
+					mediaId,
+					mediaPath: '',
+					mediaSize: 0,
+					mediaTime: 0,
+					mediainfo: literal<MediaInfo>({
+						name: mediaId,
+						field_order: PackageInfo.FieldOrder.Progressive,
+						streams: [
+							literal<MediaStream>({
+								width: 1920,
+								height: 1080,
+								codec: {
+									type: MediaStreamType.Video,
+									time_base: '1/50',
+								},
+							}),
+						],
+					}),
+					objId: '',
+					previewPath: 'previews',
+					previewSize: 0,
+					previewTime: 0,
+					studioId: protectString('studio0'),
+					thumbSize: 0,
+					thumbTime: 0,
+					tinf: '',
+				})
+			)
+		}
+
+		test('MediaObject fallback: index-aligned boxPreviews with dots in file names', async () => {
+			await insertMediaObject('CLIPS/HEAD3_SNOW.MP4')
+			await insertMediaObject('CLIPS/OTHER.MP4')
+
+			const [status] = await checkPieceContentStatusAndDependencies(
+				mockStudio,
+				mockOwnerId,
+				messageFactory,
+				literal<PieceGeneric>({
+					_id: protectString('split1'),
+					name: 'Split',
+					prerollDuration: 0,
+					externalId: '',
+					lifespan: PieceLifespan.WithinPart,
+					privateData: {},
+					outputLayerId: '',
+					sourceLayerId: '',
+					content: literal<SplitsContent>({
+						boxSourceConfiguration: [
+							{
+								type: SourceLayerType.CAMERA,
+								studioLabel: 'Cam 1',
+								switcherInput: 1,
+							},
+							{
+								type: SourceLayerType.VT,
+								studioLabel: 'Snow',
+								switcherInput: '',
+								fileName: 'clips/head3_Snow.mp4',
+								path: 'clips/head3_Snow.mp4',
+							},
+							{
+								type: SourceLayerType.VT,
+								studioLabel: 'Other',
+								switcherInput: '',
+								fileName: 'clips/other.mp4',
+								path: 'clips/other.mp4',
+							},
+						],
+					}),
+					timelineObjectsString: EmptyPieceTimelineObjectsBlob,
+				}),
+				splitsLayer
+			)
+
+			expect(status.thumbnailUrl).toBeUndefined()
+			expect(status.previewUrl).toBeUndefined()
+			expect(status.boxPreviews).toHaveLength(3)
+			expect(status.boxPreviews?.[0]).toEqual({})
+			expect(status.boxPreviews?.[1]?.thumbnailUrl).toContain('CLIPS%2FHEAD3_SNOW.MP4')
+			expect(status.boxPreviews?.[2]?.thumbnailUrl).toContain('CLIPS%2FOTHER.MP4')
+		})
+
+		test('case-insensitive fileName matching', async () => {
+			await insertMediaObject('CLIPS/FOO.MP4')
+
+			const [status] = await checkPieceContentStatusAndDependencies(
+				mockStudio,
+				mockOwnerId,
+				messageFactory,
+				literal<PieceGeneric>({
+					_id: protectString('split2'),
+					name: 'Split',
+					prerollDuration: 0,
+					externalId: '',
+					lifespan: PieceLifespan.WithinPart,
+					privateData: {},
+					outputLayerId: '',
+					sourceLayerId: '',
+					content: literal<SplitsContent>({
+						boxSourceConfiguration: [
+							{
+								type: SourceLayerType.VT,
+								studioLabel: 'Foo',
+								switcherInput: '',
+								fileName: 'clips/foo.mp4',
+								path: 'clips/foo.mp4',
+							},
+						],
+					}),
+					timelineObjectsString: EmptyPieceTimelineObjectsBlob,
+				}),
+				splitsLayer
+			)
+
+			expect(status.boxPreviews?.[0]?.thumbnailUrl).toBeDefined()
+		})
 	})
 })

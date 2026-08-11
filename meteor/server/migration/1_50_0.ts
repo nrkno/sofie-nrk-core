@@ -33,11 +33,17 @@ import { JSONBlobStringify, JSONSchema, TSR } from '@sofie-automation/blueprints
 import { DEFAULT_MINIMUM_TAKE_SPAN } from '@sofie-automation/shared-lib/dist/core/constants'
 import { PartId } from '@sofie-automation/shared-lib/dist/core/model/Ids'
 import { protectString } from '@sofie-automation/shared-lib/dist/lib/protectedString'
-import { ExpectedPackageDBType } from '@sofie-automation/corelib/dist/dataModel/ExpectedPackages'
-import { AdLibActionId, PieceId, RundownBaselineAdLibActionId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import {
+	AdLibActionId,
+	BucketAdLibActionId,
+	BucketAdLibId,
+	PieceId,
+	RundownBaselineAdLibActionId,
+} from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { Piece } from '@sofie-automation/corelib/dist/dataModel/Piece'
 import { AdLibPiece } from '@sofie-automation/corelib/dist/dataModel/AdLibPiece'
 import { AdLibAction } from '@sofie-automation/corelib/dist/dataModel/AdlibAction'
+import * as PackagesPreR53 from '@sofie-automation/corelib/dist/dataModel/Old/ExpectedPackagesR52'
 
 // Release 50
 
@@ -83,10 +89,10 @@ function convertMappingsOverrideOps(studio: DBStudio) {
 	return changed && newOverrides
 }
 
-function convertRouteSetMappings(studio: DBStudio) {
+function convertRouteSetMappings(routeSets: Record<string, StudioRouteSet>) {
 	let changed = false
 
-	const newRouteSets = clone(studio.routeSets || {})
+	const newRouteSets = clone(routeSets || {})
 	for (const routeSet of Object.values<StudioRouteSet>(newRouteSets)) {
 		for (const route of routeSet.routes) {
 			if (route.remapping && !route.remapping.options) {
@@ -95,7 +101,7 @@ function convertRouteSetMappings(studio: DBStudio) {
 					..._.pick(route.remapping, ...mappingBaseOptions),
 					options: _.omit(route.remapping, ...mappingBaseOptions),
 				}
-				console.log('new route', route)
+				// console.log('new route', route)
 				changed = true
 			}
 		}
@@ -155,9 +161,9 @@ const oldDeviceTypeToNewMapping = {
 }
 
 const EXPECTED_PACKAGE_TYPES_ADDED_PART_ID = [
-	ExpectedPackageDBType.PIECE,
-	ExpectedPackageDBType.ADLIB_PIECE,
-	ExpectedPackageDBType.ADLIB_ACTION,
+	PackagesPreR53.ExpectedPackageDBType.PIECE,
+	PackagesPreR53.ExpectedPackageDBType.ADLIB_PIECE,
+	PackagesPreR53.ExpectedPackageDBType.ADLIB_ACTION,
 ]
 
 export const addSteps = addMigrationSteps('1.50.0', [
@@ -171,7 +177,7 @@ export const addSteps = addMigrationSteps('1.50.0', [
 			})
 			const badObject = objects.find(
 				(device) =>
-					!!Object.values<unknown>((device.settings as any)?.['devices'] ?? {}).find(
+					!!Object.values<unknown>((device as any).settings?.['devices'] ?? {}).find(
 						(subdev: any) => !subdev?.type || !subdev?.options
 					)
 			)
@@ -187,7 +193,7 @@ export const addSteps = addMigrationSteps('1.50.0', [
 				'settings.device': { $exists: true },
 			})
 			for (const obj of objects) {
-				const newDevices: any = clone((obj.settings as any)?.['devices'] || {})
+				const newDevices: any = clone((obj as any).settings?.['devices'] || {})
 
 				for (const [id, subdev] of Object.entries<any>(newDevices)) {
 					if (!subdev) continue
@@ -247,10 +253,13 @@ export const addSteps = addMigrationSteps('1.50.0', [
 		canBeRunAutomatically: true,
 		validate: async () => {
 			const studios = await Studios.findFetchAsync({ routeSets: { $exists: true } })
-
 			for (const studio of studios) {
-				const newOverrides = convertRouteSetMappings(studio)
-				if (newOverrides) {
+				// Ignore this if the routeSets has been converted into an OverrideWithObjects:
+				if (studio.routeSetsWithOverrides) continue
+				//@ts-expect-error routeSets are not part of the typings:
+				const plainRouteSets = studio.routeSets as any as Record<string, StudioRouteSet>
+				const newRouteSets = convertRouteSetMappings(plainRouteSets)
+				if (newRouteSets) {
 					return `object needs to be updated`
 				}
 			}
@@ -261,7 +270,12 @@ export const addSteps = addMigrationSteps('1.50.0', [
 			const studios = await Studios.findFetchAsync({ routeSets: { $exists: true } })
 
 			for (const studio of studios) {
-				const newRouteSets = convertRouteSetMappings(studio)
+				// Ignore this if the routeSets already has been converted into an OverrideWithObjects:
+				if (studio.routeSetsWithOverrides) continue
+				//@ts-expect-error routeSets are not part of the typings:
+				const plainRouteSets = studio.routeSets as any as Record<string, StudioRouteSet>
+
+				const newRouteSets = convertRouteSetMappings(plainRouteSets)
 
 				if (newRouteSets) {
 					await Studios.updateAsync(studio._id, {
@@ -333,21 +347,19 @@ export const addSteps = addMigrationSteps('1.50.0', [
 				let documentationUrl = ''
 
 				if (device.type === PeripheralDeviceType.MOS) {
-					documentationUrl = 'https://github.com/nrkno/sofie-core'
+					documentationUrl = 'https://github.com/Sofie-Automation/sofie-core'
 				} else if (device.type === PeripheralDeviceType.SPREADSHEET) {
 					documentationUrl = 'https://github.com/SuperFlyTV/spreadsheet-gateway'
 				} else if (device.type === PeripheralDeviceType.PLAYOUT) {
-					documentationUrl = 'https://github.com/nrkno/sofie-core'
-				} else if (device.type === PeripheralDeviceType.MEDIA_MANAGER) {
-					documentationUrl = 'https://github.com/nrkno/sofie-media-management'
+					documentationUrl = 'https://github.com/Sofie-Automation/sofie-core'
 				} else if (device.type === PeripheralDeviceType.INEWS) {
 					documentationUrl = 'https://github.com/olzzon/tv2-inews-ftp-gateway'
 				} else if (device.type === PeripheralDeviceType.PACKAGE_MANAGER) {
-					documentationUrl = 'https://github.com/nrkno/sofie-package-manager'
+					documentationUrl = 'https://github.com/Sofie-Automation/sofie-package-manager'
 				} else if (device.type === PeripheralDeviceType.INPUT) {
-					documentationUrl = 'https://github.com/nrkno/sofie-input-gateway'
+					documentationUrl = 'https://github.com/Sofie-Automation/sofie-input-gateway'
 				} else if (device.type === PeripheralDeviceType.LIVE_STATUS) {
-					documentationUrl = 'https://nrkno.github.io/sofie-core/'
+					documentationUrl = 'https://sofie-automation.github.io/sofie-core/'
 				} else {
 					assertNever(device.type)
 				}
@@ -428,6 +440,7 @@ export const addSteps = addMigrationSteps('1.50.0', [
 					await Studios.updateAsync(studio._id, {
 						$set: {
 							peripheralDeviceSettings: {
+								deviceSettings: wrapDefaultObject({}),
 								playoutDevices: wrapDefaultObject({}),
 								ingestDevices: wrapDefaultObject({}),
 								inputDevices: wrapDefaultObject({}),
@@ -488,11 +501,13 @@ export const addSteps = addMigrationSteps('1.50.0', [
 				'settings.devices': { $exists: true },
 			})
 			for (const device of objects) {
-				if (!device.studioId) continue
+				// @ts-expect-error removed in 1.52
+				const studioId: StudioId = device.studioId
+				if (!studioId) continue
 
 				const newOverrides: SomeObjectOverrideOp[] = []
 
-				for (const [id, subDevice] of Object.entries<unknown>((device.settings as any)?.['devices'] || {})) {
+				for (const [id, subDevice] of Object.entries<unknown>((device as any).settings?.['devices'] || {})) {
 					newOverrides.push(
 						literal<ObjectOverrideSetOp>({
 							op: 'set',
@@ -505,7 +520,7 @@ export const addSteps = addMigrationSteps('1.50.0', [
 					)
 				}
 
-				await Studios.updateAsync(device.studioId, {
+				await Studios.updateAsync(studioId, {
 					$set: {
 						[`peripheralDeviceSettings.playoutDevices.overrides`]: newOverrides,
 					},
@@ -542,11 +557,13 @@ export const addSteps = addMigrationSteps('1.50.0', [
 				'settings.devices': { $exists: true },
 			})
 			for (const device of objects) {
-				if (!device.studioId) continue
+				// @ts-expect-error removed in 1.52
+				const studioId: StudioId = device.studioId
+				if (!studioId) continue
 
 				const newOverrides: SomeObjectOverrideOp[] = []
 
-				for (const [id, subDevice] of Object.entries<unknown>((device.settings as any)?.['devices'] || {})) {
+				for (const [id, subDevice] of Object.entries<unknown>((device as any).settings?.['devices'] || {})) {
 					newOverrides.push(
 						literal<ObjectOverrideSetOp>({
 							op: 'set',
@@ -559,7 +576,7 @@ export const addSteps = addMigrationSteps('1.50.0', [
 					)
 				}
 
-				await Studios.updateAsync(device.studioId, {
+				await Studios.updateAsync(studioId, {
 					$set: {
 						[`peripheralDeviceSettings.ingestDevices.overrides`]: newOverrides,
 					},
@@ -596,11 +613,13 @@ export const addSteps = addMigrationSteps('1.50.0', [
 				'settings.devices': { $exists: true },
 			})
 			for (const device of objects) {
-				if (!device.studioId) continue
+				// @ts-expect-error removed in 1.52
+				const studioId: StudioId = device.studioId
+				if (!studioId) continue
 
 				const newOverrides: SomeObjectOverrideOp[] = []
 
-				for (const [id, subDevice] of Object.entries<unknown>((device.settings as any)?.['devices'] || {})) {
+				for (const [id, subDevice] of Object.entries<unknown>((device as any).settings?.['devices'] || {})) {
 					newOverrides.push(
 						literal<ObjectOverrideSetOp>({
 							op: 'set',
@@ -613,7 +632,7 @@ export const addSteps = addMigrationSteps('1.50.0', [
 					)
 				}
 
-				await Studios.updateAsync(device.studioId, {
+				await Studios.updateAsync(studioId, {
 					$set: {
 						[`peripheralDeviceSettings.inputDevices.overrides`]: newOverrides,
 					},
@@ -682,7 +701,7 @@ export const addSteps = addMigrationSteps('1.50.0', [
 					$set: playlist.nextPartInfo
 						? {
 								'nextPartInfo.manuallySelected': nextPartManual,
-						  }
+							}
 						: undefined,
 					$unset: {
 						nextPartManual: 1,
@@ -856,14 +875,14 @@ export const addSteps = addMigrationSteps('1.50.0', [
 			return false
 		},
 		migrate: async () => {
-			const objects = await ExpectedPackages.findFetchAsync({
+			const objects = (await ExpectedPackages.findFetchAsync({
 				fromPieceType: { $in: EXPECTED_PACKAGE_TYPES_ADDED_PART_ID as any }, // Force the types, as the query does not match due to the interfaces
 				partId: { $exists: false },
-			})
+			})) as unknown as Array<PackagesPreR53.ExpectedPackageDB>
 
-			const neededPieceIds: Array<PieceId | AdLibActionId | RundownBaselineAdLibActionId> = _.compact(
-				objects.map((obj) => obj.pieceId)
-			)
+			const neededPieceIds: Array<
+				PieceId | AdLibActionId | RundownBaselineAdLibActionId | BucketAdLibId | BucketAdLibActionId
+			> = _.compact(objects.map((obj) => obj.pieceId))
 			const [pieces, adlibPieces, adlibActions] = await Promise.all([
 				Pieces.findFetchAsync(
 					{
@@ -900,9 +919,12 @@ export const addSteps = addMigrationSteps('1.50.0', [
 				) as Promise<Pick<AdLibAction, '_id' | 'partId'>[]>,
 			])
 
-			const partIdLookup = new Map<PieceId | AdLibActionId | RundownBaselineAdLibActionId, PartId>()
+			const partIdLookup = new Map<
+				PieceId | AdLibActionId | RundownBaselineAdLibActionId | BucketAdLibId | BucketAdLibActionId,
+				PartId
+			>()
 			for (const piece of pieces) {
-				partIdLookup.set(piece._id, piece.startPartId)
+				if (piece.startPartId) partIdLookup.set(piece._id, piece.startPartId)
 			}
 			for (const adlib of adlibPieces) {
 				if (adlib.partId) partIdLookup.set(adlib._id, adlib.partId)

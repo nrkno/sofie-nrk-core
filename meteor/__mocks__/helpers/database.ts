@@ -1,4 +1,4 @@
-import * as _ from 'underscore'
+import _ from 'underscore'
 import {
 	PeripheralDevice,
 	PeripheralDeviceType,
@@ -14,13 +14,11 @@ import {
 	SourceLayerType,
 	StudioBlueprintManifest,
 	BlueprintManifestType,
-	IngestRundown,
 	BlueprintManifestBase,
 	ShowStyleBlueprintManifest,
 	IShowStyleContext,
 	BlueprintResultRundown,
 	BlueprintResultSegment,
-	IngestSegment,
 	IBlueprintAdLibPiece,
 	IBlueprintRundown,
 	IBlueprintSegment,
@@ -32,44 +30,37 @@ import {
 	StatusCode,
 	IBlueprintPieceType,
 	IBlueprintActionManifest,
+	SofieIngestSegment,
+	SofieIngestRundown,
 } from '@sofie-automation/blueprints-integration'
 import { DBShowStyleBase } from '@sofie-automation/corelib/dist/dataModel/ShowStyleBase'
 import { DBShowStyleVariant } from '@sofie-automation/corelib/dist/dataModel/ShowStyleVariant'
 import { Blueprint } from '@sofie-automation/corelib/dist/dataModel/Blueprint'
-import { ICoreSystem, SYSTEM_ID, stripVersion } from '../../lib/collections/CoreSystem'
+import { ICoreSystem, SYSTEM_ID } from '@sofie-automation/meteor-lib/dist/collections/CoreSystem'
+import { stripVersion } from '../../server/systemStatus/semverUtils'
 import { internalUploadBlueprint } from '../../server/api/blueprints/api'
-import {
-	literal,
-	getCurrentTime,
-	protectString,
-	unprotectString,
-	getRandomId,
-	getRandomString,
-	Complete,
-	normalizeArray,
-} from '../../lib/lib'
+import { literal, getRandomId, getRandomString, normalizeArray } from '@sofie-automation/corelib/dist/lib'
+import { protectString, unprotectString } from '@sofie-automation/corelib/dist/protectedString'
 import { DBRundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
 import { DBSegment } from '@sofie-automation/corelib/dist/dataModel/Segment'
 import { DBPart } from '@sofie-automation/corelib/dist/dataModel/Part'
 import { EmptyPieceTimelineObjectsBlob, Piece } from '@sofie-automation/corelib/dist/dataModel/Piece'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import { RundownBaselineAdLibItem } from '@sofie-automation/corelib/dist/dataModel/RundownBaselineAdLibPiece'
 import { AdLibPiece } from '@sofie-automation/corelib/dist/dataModel/AdLibPiece'
 import { restartRandomId } from '../random'
 import { MongoMock } from '../mongo'
 import { defaultRundownPlaylist, defaultStudio } from '../defaultCollectionObjects'
 import { PackageInfo } from '../../server/coreSystem'
-import { DBTriggeredActions } from '../../lib/collections/TriggeredActions'
-import { WorkerStatus } from '../../lib/collections/Workers'
+import { DBTriggeredActions } from '@sofie-automation/meteor-lib/dist/collections/TriggeredActions'
+import { WorkerStatus } from '@sofie-automation/meteor-lib/dist/collections/Workers'
 import { WorkerThreadStatus } from '@sofie-automation/corelib/dist/dataModel/WorkerThreads'
 import {
 	applyAndValidateOverrides,
 	wrapDefaultObject,
 } from '@sofie-automation/corelib/dist/settings/objectWithOverrides'
-import { UIShowStyleBase } from '../../lib/api/showStyles'
 import {
 	BlueprintId,
-	OrganizationId,
 	RundownId,
 	RundownPlaylistId,
 	ShowStyleBaseId,
@@ -126,9 +117,7 @@ export async function setupMockPeripheralDevice(
 	const defaultDevice: PeripheralDevice = {
 		_id: protectString('mockDevice' + dbI++),
 		name: 'mockDevice',
-		organizationId: null,
-		studioId: studio ? studio._id : undefined,
-		settings: {},
+		studioAndConfigId: studio ? { studioId: studio._id, configId: 'test' } : undefined,
 
 		category: category,
 		type: type,
@@ -138,6 +127,7 @@ export async function setupMockPeripheralDevice(
 		created: 1234,
 		status: {
 			statusCode: StatusCode.GOOD,
+			statusDetails: [],
 		},
 		lastSeen: 1234,
 		lastConnected: 1234,
@@ -171,6 +161,25 @@ export async function setupMockCore(doc?: Partial<ICoreSystem>): Promise<ICoreSy
 		version: '0.0.0',
 		previousVersion: '0.0.0',
 		serviceMessages: {},
+		settingsWithOverrides: wrapDefaultObject({
+			cron: {
+				casparCGRestart: {
+					enabled: true,
+				},
+				storeRundownSnapshots: {
+					enabled: false,
+				},
+			},
+			support: {
+				message: '',
+			},
+			evaluationsMessage: {
+				enabled: false,
+				heading: '',
+				message: '',
+			},
+		}),
+		lastBlueprintConfig: undefined,
 	}
 	const coreSystem = _.extend(defaultCore, doc)
 	await CoreSystem.removeAsync(SYSTEM_ID)
@@ -241,7 +250,6 @@ export async function setupMockShowStyleBase(
 	const defaultShowStyleBase: DBShowStyleBase = {
 		_id: protectString('mockShowStyleBase' + dbI++),
 		name: 'mockShowStyleBase',
-		organizationId: null,
 		outputLayersWithOverrides: wrapDefaultObject(
 			normalizeArray(
 				[
@@ -336,10 +344,7 @@ export function packageBlueprint<T extends BlueprintManifestBase>(
 	})
 	return `({default: (${code})()})`
 }
-export async function setupMockStudioBlueprint(
-	showStyleBaseId: ShowStyleBaseId,
-	organizationId: OrganizationId | null = null
-): Promise<Blueprint> {
+export async function setupMockStudioBlueprint(showStyleBaseId: ShowStyleBaseId): Promise<Blueprint> {
 	const { INTEGRATION_VERSION, TSR_VERSION } = getBlueprintDependencyVersions()
 
 	const BLUEPRINT_TYPE = BlueprintManifestType.STUDIO
@@ -368,7 +373,6 @@ export async function setupMockStudioBlueprint(
 				},
 
 				studioConfigSchema: '{}' as any,
-				studioMigrations: [],
 				getBaseline: () => {
 					return {
 						timelineObjects: [],
@@ -384,12 +388,12 @@ export async function setupMockStudioBlueprint(
 	const blueprintId: BlueprintId = protectString('mockBlueprint' + dbI++)
 	const blueprintName = 'mockBlueprint'
 
-	return internalUploadBlueprint(blueprintId, code, blueprintName, true, organizationId)
+	return internalUploadBlueprint(blueprintId, code, {
+		blueprintName,
+		ignoreIdChange: true,
+	})
 }
-export async function setupMockShowStyleBlueprint(
-	showStyleVariantId: ShowStyleVariantId,
-	organizationId?: OrganizationId | null
-): Promise<Blueprint> {
+export async function setupMockShowStyleBlueprint(showStyleVariantId: ShowStyleVariantId): Promise<Blueprint> {
 	const { INTEGRATION_VERSION, TSR_VERSION } = getBlueprintDependencyVersions()
 
 	const BLUEPRINT_TYPE = BlueprintManifestType.SHOWSTYLE
@@ -425,11 +429,13 @@ export async function setupMockShowStyleBlueprint(
 				},
 
 				showStyleConfigSchema: '{}' as any,
-				showStyleMigrations: [],
 				getShowStyleVariantId: (): string | null => {
 					return SHOW_STYLE_VARIANT_ID
 				},
-				getRundown: (_context: IShowStyleContext, ingestRundown: IngestRundown): BlueprintResultRundown => {
+				getRundown: (
+					_context: IShowStyleContext,
+					ingestRundown: SofieIngestRundown<any, any, any>
+				): BlueprintResultRundown => {
 					const rundown: IBlueprintRundown = {
 						externalId: ingestRundown.externalId,
 						name: ingestRundown.name,
@@ -449,10 +455,14 @@ export async function setupMockShowStyleBlueprint(
 						rundown,
 						globalAdLibPieces: [],
 						globalActions: [],
+						globalPieces: [],
 						baseline: { timelineObjects: [] },
 					}
 				},
-				getSegment: (_context: unknown, ingestSegment: IngestSegment): BlueprintResultSegment => {
+				getSegment: (
+					_context: unknown,
+					ingestSegment: SofieIngestSegment<any, any>
+				): BlueprintResultSegment => {
 					const segment: IBlueprintSegment = {
 						name: ingestSegment.name ? ingestSegment.name : ingestSegment.externalId,
 						privateData: ingestSegment.payload,
@@ -510,7 +520,10 @@ export async function setupMockShowStyleBlueprint(
 	const blueprintId: BlueprintId = protectString('mockBlueprint' + dbI++)
 	const blueprintName = 'mockBlueprint'
 
-	return internalUploadBlueprint(blueprintId, code, blueprintName, true, organizationId)
+	return internalUploadBlueprint(blueprintId, code, {
+		blueprintName,
+		ignoreIdChange: true,
+	})
 }
 export interface DefaultEnvironment {
 	showStyleBaseId: ShowStyleBaseId
@@ -529,21 +542,18 @@ export interface DefaultEnvironment {
 
 	ingestDevice: PeripheralDevice
 }
-export async function setupDefaultStudioEnvironment(
-	organizationId: OrganizationId | null = null
-): Promise<DefaultEnvironment> {
+export async function setupDefaultStudioEnvironment(): Promise<DefaultEnvironment> {
 	const core = await setupMockCore({})
 	const systemTriggeredActions = await setupMockTriggeredActions()
 
 	const showStyleBaseId: ShowStyleBaseId = getRandomId()
 	const showStyleVariantId: ShowStyleVariantId = getRandomId()
 
-	const studioBlueprint = await setupMockStudioBlueprint(showStyleBaseId, organizationId)
-	const showStyleBlueprint = await setupMockShowStyleBlueprint(showStyleVariantId, organizationId)
+	const studioBlueprint = await setupMockStudioBlueprint(showStyleBaseId)
+	const showStyleBlueprint = await setupMockShowStyleBlueprint(showStyleVariantId)
 
 	const showStyleBase = await setupMockShowStyleBase(showStyleBlueprint._id, {
 		_id: showStyleBaseId,
-		organizationId: organizationId,
 	})
 	const triggeredActions = await setupMockTriggeredActions(showStyleBase._id)
 	const showStyleVariant = await setupMockShowStyleVariant(showStyleBase._id, { _id: showStyleVariantId })
@@ -551,14 +561,12 @@ export async function setupDefaultStudioEnvironment(
 	const studio = await setupMockStudio({
 		blueprintId: studioBlueprint._id,
 		supportedShowStyleBase: [showStyleBaseId],
-		organizationId: organizationId,
 	})
 	const ingestDevice = await setupMockPeripheralDevice(
 		PeripheralDeviceCategory.INGEST,
 		PeripheralDeviceType.MOS,
 		PERIPHERAL_SUBTYPE_PROCESS,
-		studio,
-		{ organizationId: organizationId }
+		studio
 	)
 	const { worker, workerThreadStatuses } = await setupMockWorker()
 
@@ -610,7 +618,6 @@ export async function setupDefaultRundown(
 	const sourceLayerIds = Object.keys(applyAndValidateOverrides(env.showStyleBase.sourceLayersWithOverrides).obj)
 
 	const rundown: DBRundown = {
-		organizationId: null,
 		studioId: env.studio._id,
 		showStyleBaseId: env.showStyleBase._id,
 		showStyleVariantId: env.showStyleVariant._id,
@@ -624,8 +631,8 @@ export async function setupDefaultRundown(
 		externalId: 'MOCK_RUNDOWN_' + rundownId,
 		name: 'Default Rundown',
 
-		created: getCurrentTime(),
-		modified: getCurrentTime(),
+		created: Date.now(),
+		modified: Date.now(),
 		importVersions: {
 			studio: '',
 			showStyleBase: '',
@@ -654,7 +661,6 @@ export async function setupDefaultRundown(
 		externalId: 'MOCK_SEGMENT_0',
 		rundownId: rundown._id,
 		name: 'Segment 0',
-		externalModified: 1,
 	}
 	await Segments.mutableCollection.insertAsync(segment0)
 	/* tslint:disable:ter-indent*/
@@ -764,7 +770,6 @@ export async function setupDefaultRundown(
 		externalId: 'MOCK_SEGMENT_2',
 		rundownId: rundown._id,
 		name: 'Segment 1',
-		externalModified: 1,
 	}
 	await Segments.mutableCollection.insertAsync(segment1)
 
@@ -807,7 +812,6 @@ export async function setupDefaultRundown(
 		externalId: 'MOCK_SEGMENT_2',
 		rundownId: rundown._id,
 		name: 'Segment 2',
-		externalModified: 1,
 	}
 	await Segments.mutableCollection.insertAsync(segment2)
 
@@ -883,18 +887,4 @@ export async function setupMockWorker(doc?: Partial<WorkerStatus>): Promise<{
 	await WorkerThreadStatuses.insertAsync(workerThreadStatus1)
 
 	return { worker, workerThreadStatuses: [workerThreadStatus0, workerThreadStatus1] }
-}
-
-// const studioBlueprint
-// const showStyleBlueprint
-// const showStyleVariant
-
-export function convertToUIShowStyleBase(showStyleBase: DBShowStyleBase): UIShowStyleBase {
-	return literal<Complete<UIShowStyleBase>>({
-		_id: showStyleBase._id,
-		name: showStyleBase.name,
-		hotkeyLegend: showStyleBase.hotkeyLegend,
-		sourceLayers: applyAndValidateOverrides(showStyleBase.sourceLayersWithOverrides).obj,
-		outputLayers: applyAndValidateOverrides(showStyleBase.outputLayersWithOverrides).obj,
-	})
 }

@@ -1,7 +1,7 @@
-import { ManualPromise, createManualPromise, getRandomString } from '@sofie-automation/corelib/dist/lib'
+import { getRandomString } from '@sofie-automation/corelib/dist/lib'
 import { Meteor } from 'meteor/meteor'
-import { lazyIgnore } from '../../../lib/lib'
-import { LiveQueryHandle } from '../../lib/lib'
+import { LiveQueryHandle, lazyIgnore } from '../../lib/lib'
+import { waitForAllObserversReady } from './lib'
 
 export interface ReactiveMongoObserverGroupHandle extends LiveQueryHandle {
 	/**
@@ -19,10 +19,10 @@ const REACTIVITY_DEBOUNCE = 20
  * @returns Handle to stop and restart the observer group
  */
 export async function ReactiveMongoObserverGroup(
-	generator: () => Promise<Array<LiveQueryHandle>>
+	generator: () => Promise<Array<Promise<LiveQueryHandle>>>
 ): Promise<ReactiveMongoObserverGroupHandle> {
 	let running = true
-	let pendingStop: ManualPromise<void> | undefined
+	let pendingStop: PromiseWithResolvers<void> | undefined
 	let pendingRestart = false
 	let handles: Array<LiveQueryHandle> | null = null
 
@@ -37,7 +37,7 @@ export async function ReactiveMongoObserverGroup(
 
 	let checkRunning = false
 	const runCheck = async () => {
-		let result: ManualPromise<void> | undefined
+		let result: PromiseWithResolvers<void> | undefined
 		try {
 			if (!running) throw new Meteor.Error(500, 'ObserverGroup has been stopped!')
 
@@ -54,7 +54,7 @@ export async function ReactiveMongoObserverGroup(
 				// Stop the child observers
 				await stopAll()
 
-				result.manualResolve()
+				result.resolve()
 
 				// Stop loop
 				return
@@ -70,17 +70,16 @@ export async function ReactiveMongoObserverGroup(
 
 			// Start the child observers
 			if (!handles) {
-				// handles = await generator()
-				handles = await generator()
+				handles = await waitForAllObserversReady(await generator())
 
 				// check for another pending operation
 				deferCheck()
 			}
 
 			// Inform caller
-			if (result) result.manualResolve()
+			if (result) result.resolve()
 		} catch (e: any) {
-			if (result) result.manualReject(e)
+			if (result) result.reject(e)
 		} finally {
 			checkRunning = false
 		}
@@ -93,12 +92,12 @@ export async function ReactiveMongoObserverGroup(
 		stop: async () => {
 			if (!running) throw new Meteor.Error(500, 'ReactiveMongoObserverGroup is not running!')
 
-			pendingStop = pendingStop || createManualPromise<void>()
+			pendingStop = pendingStop || Promise.withResolvers<void>()
 
 			deferCheck()
 
 			// Block the caller until the stop has completed
-			await pendingStop
+			await pendingStop.promise
 		},
 		restart: () => {
 			if (!running) throw new Meteor.Error(500, 'ReactiveMongoObserverGroup is not running!')

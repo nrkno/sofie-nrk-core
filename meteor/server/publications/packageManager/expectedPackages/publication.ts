@@ -1,13 +1,13 @@
-import { Meteor } from 'meteor/meteor'
-import { PeripheralDeviceReadAccess } from '../../../security/peripheralDevice'
-import { DBStudio } from '@sofie-automation/corelib/dist/dataModel/Studio'
+import { DBStudio, StudioPackageContainer } from '@sofie-automation/corelib/dist/dataModel/Studio'
 import {
 	TriggerUpdate,
 	meteorCustomPublish,
 	setUpCollectionOptimizedObserver,
 	CustomPublishCollection,
+	SetupObserversResult,
 } from '../../../lib/customPublication'
-import { literal, omit, protectString } from '../../../../lib/lib'
+import { literal, omit } from '@sofie-automation/corelib/dist/lib'
+import { protectString } from '@sofie-automation/corelib/dist/protectedString'
 import { logger } from '../../../logging'
 import { ReadonlyDeep } from 'type-fest'
 import { applyAndValidateOverrides } from '@sofie-automation/corelib/dist/settings/objectWithOverrides'
@@ -18,17 +18,19 @@ import {
 	PieceInstanceId,
 	StudioId,
 } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { PeripheralDevices, Studios } from '../../../collections'
+import { Studios } from '../../../collections'
 import { check, Match } from 'meteor/check'
 import { PackageManagerExpectedPackage } from '@sofie-automation/shared-lib/dist/package-manager/publications'
 import { ExpectedPackagesContentObserver } from './contentObserver'
 import { createReactiveContentCache, ExpectedPackagesContentCache } from './contentCache'
 import { buildMappingsToDeviceIdMap } from './util'
-import { updateCollectionForExpectedPackageIds, updateCollectionForPieceInstanceIds } from './generate'
+import { updateCollectionForExpectedPackageIds } from './generate'
 import {
 	PeripheralDevicePubSub,
 	PeripheralDevicePubSubCollectionsNames,
 } from '@sofie-automation/shared-lib/dist/pubsub/peripheralDevice'
+import { checkAccessAndGetPeripheralDevice } from '../../../security/check'
+import { StudioPackageContainerSettings } from '@sofie-automation/shared-lib/dist/core/model/PackageContainer'
 
 interface ExpectedPackagesPublicationArgs {
 	readonly studioId: StudioId
@@ -48,30 +50,30 @@ interface ExpectedPackagesPublicationUpdateProps {
 interface ExpectedPackagesPublicationState {
 	studio: Pick<DBStudio, StudioFields> | undefined
 	layerNameToDeviceIds: Map<string, PeripheralDeviceId[]>
+	packageContainers: Record<string, StudioPackageContainer>
+	packageContainerSettings: StudioPackageContainerSettings
 
 	contentCache: ReadonlyDeep<ExpectedPackagesContentCache>
 }
 
 export type StudioFields =
 	| '_id'
-	| 'routeSets'
+	| 'routeSetsWithOverrides'
 	| 'mappingsWithOverrides'
-	| 'packageContainers'
-	| 'previewContainerIds'
-	| 'thumbnailContainerIds'
+	| 'packageContainersWithOverrides'
+	| 'packageContainerSettingsWithOverrides'
 const studioFieldSpecifier = literal<MongoFieldSpecifierOnesStrict<Pick<DBStudio, StudioFields>>>({
 	_id: 1,
-	routeSets: 1,
+	routeSetsWithOverrides: 1,
 	mappingsWithOverrides: 1,
-	packageContainers: 1,
-	previewContainerIds: 1,
-	thumbnailContainerIds: 1,
+	packageContainersWithOverrides: 1,
+	packageContainerSettingsWithOverrides: 1,
 })
 
 async function setupExpectedPackagesPublicationObservers(
 	args: ReadonlyDeep<ExpectedPackagesPublicationArgs>,
 	triggerUpdate: TriggerUpdate<ExpectedPackagesPublicationUpdateProps>
-): Promise<Meteor.LiveQueryHandle[]> {
+): Promise<SetupObserversResult> {
 	const contentCache = createReactiveContentCache()
 
 	// Push update
@@ -79,7 +81,7 @@ async function setupExpectedPackagesPublicationObservers(
 
 	// Set up observers:
 	return [
-		new ExpectedPackagesContentObserver(args.studioId, contentCache),
+		ExpectedPackagesContentObserver.create(args.studioId, contentCache),
 
 		contentCache.ExpectedPackages.find({}).observeChanges({
 			added: (id) => triggerUpdate({ invalidateExpectedPackageIds: [protectString<ExpectedPackageId>(id)] }),
@@ -100,9 +102,9 @@ async function setupExpectedPackagesPublicationObservers(
 				removed: () => triggerUpdate({ invalidateStudio: true }),
 			},
 			{
-				fields: {
+				projection: {
 					// mappingsHash gets updated when either of these omitted fields changes
-					...omit(studioFieldSpecifier, 'mappingsWithOverrides', 'routeSets'),
+					...omit(studioFieldSpecifier, 'mappingsWithOverrides', 'routeSetsWithOverrides'),
 					mappingsHash: 1,
 				},
 			}
@@ -122,6 +124,9 @@ async function manipulateExpectedPackagesPublicationData(
 	const invalidateAllItems = !updateProps || updateProps.newCache || updateProps.invalidateStudio
 
 	if (!state.layerNameToDeviceIds) state.layerNameToDeviceIds = new Map()
+	if (!state.packageContainers) state.packageContainers = {}
+	if (!state.packageContainerSettings)
+		state.packageContainerSettings = { previewContainerIds: [], thumbnailContainerIds: [] }
 
 	if (invalidateAllItems) {
 		// Everything is invalid, reset everything
@@ -135,15 +140,24 @@ async function manipulateExpectedPackagesPublicationData(
 
 	// Reload the studio, and the layerNameToDeviceIds lookup
 	if (!updateProps || updateProps.invalidateStudio) {
-		state.studio = (await Studios.findOneAsync(args.studioId, { fields: studioFieldSpecifier })) as
+		state.studio = (await Studios.findOneAsync(args.studioId, { projection: studioFieldSpecifier })) as
 			| Pick<DBStudio, StudioFields>
 			| undefined
 		if (!state.studio) {
 			logger.warn(`Pub.expectedPackagesForDevice: studio "${args.studioId}" not found!`)
 			state.layerNameToDeviceIds = new Map()
+			state.packageContainers = {}
+			state.packageContainerSettings = { previewContainerIds: [], thumbnailContainerIds: [] }
 		} else {
 			const studioMappings = applyAndValidateOverrides(state.studio.mappingsWithOverrides).obj
-			state.layerNameToDeviceIds = buildMappingsToDeviceIdMap(state.studio.routeSets, studioMappings)
+			state.layerNameToDeviceIds = buildMappingsToDeviceIdMap(
+				applyAndValidateOverrides(state.studio.routeSetsWithOverrides).obj,
+				studioMappings
+			)
+			state.packageContainers = applyAndValidateOverrides(state.studio.packageContainersWithOverrides).obj
+			state.packageContainerSettings = applyAndValidateOverrides(
+				state.studio.packageContainerSettingsWithOverrides
+			).obj
 		}
 	}
 
@@ -154,34 +168,71 @@ async function manipulateExpectedPackagesPublicationData(
 	}
 
 	let regenerateExpectedPackageIds: Set<ExpectedPackageId>
-	let regeneratePieceInstanceIds: Set<PieceInstanceId>
 	if (invalidateAllItems) {
-		// force every piece to be regenerated
+		// force every package to be regenerated
 		collection.remove(null)
 		regenerateExpectedPackageIds = new Set(state.contentCache.ExpectedPackages.find({}).map((p) => p._id))
-		regeneratePieceInstanceIds = new Set(state.contentCache.PieceInstances.find({}).map((p) => p._id))
 	} else {
 		// only regenerate the reported changes
 		regenerateExpectedPackageIds = new Set(updateProps.invalidateExpectedPackageIds)
-		regeneratePieceInstanceIds = new Set(updateProps.invalidatePieceInstanceIds)
 	}
 
 	await updateCollectionForExpectedPackageIds(
 		state.contentCache,
-		state.studio,
+		state.packageContainerSettings,
 		state.layerNameToDeviceIds,
+		state.packageContainers,
 		collection,
 		args.filterPlayoutDeviceIds,
 		regenerateExpectedPackageIds
 	)
-	await updateCollectionForPieceInstanceIds(
-		state.contentCache,
-		state.studio,
-		state.layerNameToDeviceIds,
-		collection,
-		args.filterPlayoutDeviceIds,
-		regeneratePieceInstanceIds
-	)
+
+	// Ensure the priorities are correct for the packages
+	// We can do this as a post-step, as it means we can generate the packages solely based on the content
+	// If one gets regenerated, its priority will be reset to OTHER. But as it has already changed, this fixup is 'free'
+	// For those not regenerated, we can set the priority to the correct value if it has changed, without any deeper checks
+	updatePackagePriorities(state.contentCache, collection)
+}
+
+const PACKAGE_PRIORITY_PLAYOUT_CURRENT = 0
+const PACKAGE_PRIORITY_PLAYOUT_NEXT = 1
+const PACKAGE_PRIORITY_OTHER = 9
+
+function updatePackagePriorities(
+	contentCache: ReadonlyDeep<ExpectedPackagesContentCache>,
+	collection: CustomPublishCollection<PackageManagerExpectedPackage>
+) {
+	const packagePriorities = new Map<ExpectedPackageId, number>()
+
+	// Compile the map of the expected priority of each package
+	const knownPieceInstances = contentCache.PieceInstances.find({})
+	const playlist = contentCache.RundownPlaylists.findOne({})
+	const currentPartInstanceId = playlist?.currentPartInfo?.partInstanceId
+	for (const pieceInstance of knownPieceInstances) {
+		const packageIds = pieceInstance.neededExpectedPackageIds
+		if (!packageIds) continue
+
+		const packagePriority =
+			pieceInstance.partInstanceId === currentPartInstanceId
+				? PACKAGE_PRIORITY_PLAYOUT_CURRENT
+				: PACKAGE_PRIORITY_PLAYOUT_NEXT
+
+		for (const packageId of packageIds) {
+			const existingPriority = packagePriorities.get(packageId) ?? PACKAGE_PRIORITY_OTHER
+			packagePriorities.set(packageId, Math.min(existingPriority, packagePriority))
+		}
+	}
+
+	// Iterate through and update each package
+	collection.updateAll((pkg) => {
+		const expectedPriority = packagePriorities.get(pkg.expectedPackage._id) ?? PACKAGE_PRIORITY_OTHER
+		if (pkg.priority === expectedPriority) return false
+
+		return {
+			...pkg,
+			priority: expectedPriority,
+		}
+	})
 }
 
 meteorCustomPublish(
@@ -196,34 +247,28 @@ meteorCustomPublish(
 		check(deviceId, String)
 		check(filterPlayoutDeviceIds, Match.Maybe([String]))
 
-		if (await PeripheralDeviceReadAccess.peripheralDeviceContent(deviceId, { userId: this.userId, token })) {
-			const peripheralDevice = await PeripheralDevices.findOneAsync(deviceId)
+		const peripheralDevice = await checkAccessAndGetPeripheralDevice(deviceId, token, this)
 
-			if (!peripheralDevice) throw new Meteor.Error('PeripheralDevice "' + deviceId + '" not found')
-
-			const studioId = peripheralDevice.studioId
-			if (!studioId) {
-				logger.warn(`Pub.packageManagerExpectedPackages: device "${peripheralDevice._id}" has no studioId`)
-				return this.ready()
-			}
-
-			await setUpCollectionOptimizedObserver<
-				PackageManagerExpectedPackage,
-				ExpectedPackagesPublicationArgs,
-				ExpectedPackagesPublicationState,
-				ExpectedPackagesPublicationUpdateProps
-			>(
-				`${PeripheralDevicePubSub.packageManagerExpectedPackages}_${studioId}_${deviceId}_${JSON.stringify(
-					(filterPlayoutDeviceIds || []).sort()
-				)}`,
-				{ studioId, deviceId, filterPlayoutDeviceIds },
-				setupExpectedPackagesPublicationObservers,
-				manipulateExpectedPackagesPublicationData,
-				pub,
-				500 // ms, wait this time before sending an update
-			)
-		} else {
-			logger.warn(`Pub.packageManagerExpectedPackages: Not allowed: "${deviceId}"`)
+		const studioId = peripheralDevice.studioAndConfigId?.studioId
+		if (!studioId) {
+			logger.warn(`Pub.packageManagerExpectedPackages: device "${peripheralDevice._id}" has no studioId`)
+			return this.ready()
 		}
+
+		await setUpCollectionOptimizedObserver<
+			PackageManagerExpectedPackage,
+			ExpectedPackagesPublicationArgs,
+			ExpectedPackagesPublicationState,
+			ExpectedPackagesPublicationUpdateProps
+		>(
+			`${PeripheralDevicePubSub.packageManagerExpectedPackages}_${studioId}_${deviceId}_${JSON.stringify(
+				(filterPlayoutDeviceIds || []).sort()
+			)}`,
+			{ studioId, deviceId, filterPlayoutDeviceIds },
+			setupExpectedPackagesPublicationObservers,
+			manipulateExpectedPackagesPublicationData,
+			pub,
+			500 // ms, wait this time before sending an update
+		)
 	}
 )

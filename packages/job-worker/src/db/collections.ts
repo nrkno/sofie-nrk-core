@@ -9,15 +9,15 @@ import {
 	ChangeStreamDocument,
 	CountOptions,
 } from 'mongodb'
-import { wrapMongoCollection } from './collection'
+import { wrapMongoCollection } from './collection.js'
 import { AdLibAction } from '@sofie-automation/corelib/dist/dataModel/AdlibAction'
 import { AdLibPiece } from '@sofie-automation/corelib/dist/dataModel/AdLibPiece'
 import { Blueprint } from '@sofie-automation/corelib/dist/dataModel/Blueprint'
 import { BucketAdLibAction } from '@sofie-automation/corelib/dist/dataModel/BucketAdLibAction'
 import { BucketAdLib } from '@sofie-automation/corelib/dist/dataModel/BucketAdLibPiece'
-import { ExpectedMediaItem } from '@sofie-automation/corelib/dist/dataModel/ExpectedMediaItem'
 import { ExpectedPlayoutItem } from '@sofie-automation/corelib/dist/dataModel/ExpectedPlayoutItem'
-import { IngestDataCacheObj } from '@sofie-automation/corelib/dist/dataModel/IngestDataCache'
+import { NrcsIngestDataCacheObj } from '@sofie-automation/corelib/dist/dataModel/NrcsIngestDataCache'
+import { SofieIngestDataCacheObj } from '@sofie-automation/corelib/dist/dataModel/SofieIngestDataCache'
 import { DBPart } from '@sofie-automation/corelib/dist/dataModel/Part'
 import { DBPartInstance } from '@sofie-automation/corelib/dist/dataModel/PartInstance'
 import { PeripheralDevice } from '@sofie-automation/corelib/dist/dataModel/PeripheralDevice'
@@ -28,7 +28,7 @@ import { DBRundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
 import { RundownBaselineAdLibAction } from '@sofie-automation/corelib/dist/dataModel/RundownBaselineAdLibAction'
 import { RundownBaselineAdLibItem } from '@sofie-automation/corelib/dist/dataModel/RundownBaselineAdLibPiece'
 import { RundownBaselineObj } from '@sofie-automation/corelib/dist/dataModel/RundownBaselineObj'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import { DBSegment } from '@sofie-automation/corelib/dist/dataModel/Segment'
 import { DBShowStyleBase } from '@sofie-automation/corelib/dist/dataModel/ShowStyleBase'
 import { DBShowStyleVariant } from '@sofie-automation/corelib/dist/dataModel/ShowStyleVariant'
@@ -42,7 +42,8 @@ import { literal } from '@sofie-automation/corelib/dist/lib'
 import { ReadonlyDeep } from 'type-fest'
 import { ExternalMessageQueueObj } from '@sofie-automation/corelib/dist/dataModel/ExternalMessageQueue'
 import { MediaObjects } from '@sofie-automation/corelib/dist/dataModel/MediaObjects'
-import EventEmitter = require('eventemitter3')
+import type { DBNotificationObj } from '@sofie-automation/corelib/dist/dataModel/Notifications'
+import type { EventEmitter } from 'events'
 
 export type MongoQuery<TDoc> = Filter<TDoc>
 export type MongoModifier<TDoc> = UpdateFilter<TDoc>
@@ -52,8 +53,8 @@ export interface IReadOnlyCollection<TDoc extends { _id: ProtectedString<any> }>
 
 	readonly rawCollection: MongoCollection<TDoc>
 
-	findFetch(selector?: MongoQuery<TDoc>, options?: FindOptions<TDoc>): Promise<Array<TDoc>>
-	findOne(selector?: MongoQuery<TDoc> | TDoc['_id'], options?: FindOptions<TDoc>): Promise<TDoc | undefined>
+	findFetch(selector?: MongoQuery<TDoc>, options?: FindOptions): Promise<Array<TDoc>>
+	findOne(selector?: MongoQuery<TDoc> | TDoc['_id'], options?: FindOptions): Promise<TDoc | undefined>
 	count(selector?: MongoQuery<TDoc> | TDoc['_id'], options?: CountOptions): Promise<number>
 
 	/**
@@ -82,8 +83,9 @@ export type IChangeStreamEvents<TDoc extends { _id: ProtectedString<any> }> = {
 	change: [doc: ChangeStreamDocument<TDoc>]
 }
 
-export interface IChangeStream<TDoc extends { _id: ProtectedString<any> }>
-	extends EventEmitter<IChangeStreamEvents<TDoc>> {
+export interface IChangeStream<TDoc extends { _id: ProtectedString<any> }> extends EventEmitter<
+	IChangeStreamEvents<TDoc>
+> {
 	readonly closed: boolean
 
 	close(): Promise<void>
@@ -95,12 +97,13 @@ export interface IDirectCollections {
 	Blueprints: ICollection<Blueprint>
 	BucketAdLibActions: ICollection<BucketAdLibAction>
 	BucketAdLibPieces: ICollection<BucketAdLib>
-	ExpectedMediaItems: ICollection<ExpectedMediaItem>
 	ExpectedPlayoutItems: ICollection<ExpectedPlayoutItem>
-	IngestDataCache: ICollection<IngestDataCacheObj>
+	Notifications: ICollection<DBNotificationObj>
+	SofieIngestDataCache: ICollection<SofieIngestDataCacheObj>
+	NrcsIngestDataCache: ICollection<NrcsIngestDataCacheObj>
 	Parts: ICollection<DBPart>
 	PartInstances: ICollection<DBPartInstance>
-	PeripheralDevices: IReadOnlyCollection<PeripheralDevice>
+	PeripheralDevices: ICollection<PeripheralDevice>
 	PeripheralDeviceCommands: ICollection<PeripheralDeviceCommand>
 	Pieces: ICollection<Piece>
 	PieceInstances: ICollection<PieceInstance>
@@ -150,15 +153,19 @@ export function getMongoCollections(
 				database.collection(CollectionName.BucketAdLibPieces),
 				allowWatchers
 			),
-			ExpectedMediaItems: wrapMongoCollection(
-				database.collection(CollectionName.ExpectedMediaItems),
-				allowWatchers
-			),
 			ExpectedPlayoutItems: wrapMongoCollection(
 				database.collection(CollectionName.ExpectedPlayoutItems),
 				allowWatchers
 			),
-			IngestDataCache: wrapMongoCollection(database.collection(CollectionName.IngestDataCache), allowWatchers),
+			Notifications: wrapMongoCollection(database.collection(CollectionName.Notifications), allowWatchers),
+			SofieIngestDataCache: wrapMongoCollection(
+				database.collection(CollectionName.SofieIngestDataCache),
+				allowWatchers
+			),
+			NrcsIngestDataCache: wrapMongoCollection(
+				database.collection(CollectionName.NrcsIngestDataCache),
+				allowWatchers
+			),
 			Parts: wrapMongoCollection(database.collection(CollectionName.Parts), allowWatchers),
 			PartInstances: wrapMongoCollection(database.collection(CollectionName.PartInstances), allowWatchers),
 			PeripheralDevices: wrapMongoCollection(

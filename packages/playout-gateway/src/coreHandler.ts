@@ -2,6 +2,7 @@ import {
 	CoreConnection,
 	CoreOptions,
 	DDPConnectorOptions,
+	DDPTLSOptions,
 	PeripheralDeviceAPI,
 	PeripheralDeviceCommand,
 	PeripheralDeviceId,
@@ -11,19 +12,21 @@ import {
 	stringifyError,
 	PeripheralDevicePubSub,
 	PeripheralDevicePubSubCollectionsNames,
+	ICoreHandler,
+	CoreConnectionChild,
+	KubernetesRestarter,
 } from '@sofie-automation/server-core-integration'
-import { MediaObject, DeviceOptionsAny, ActionExecutionResult } from 'timeline-state-resolver'
-import * as _ from 'underscore'
-import { DeviceConfig } from './connector'
-import { TSRHandler } from './tsrHandler'
+import { MediaObject, DeviceOptionsAny, ActionExecutionResult, DeviceStatus } from 'timeline-state-resolver'
+import _ from 'underscore'
+import { DeviceConfig } from './connector.js'
+import { TSRHandler } from './tsrHandler.js'
 import { Logger } from 'winston'
-// eslint-disable-next-line node/no-extraneous-import
+
 import { MemUsageReport as ThreadMemUsageReport } from 'threadedclass'
-import { PLAYOUT_DEVICE_CONFIG } from './configManifest'
+import { compilePlayoutGatewayConfigManifest } from './configManifest.js'
 import { BaseRemoteDeviceIntegration } from 'timeline-state-resolver/dist/service/remoteDeviceInstance'
-import { getVersions } from './versions'
-import { CoreConnectionChild } from '@sofie-automation/server-core-integration/dist/lib/CoreConnectionChild'
-import { PlayoutGatewayConfig } from './generated/options'
+import { getVersions } from './versions.js'
+import { PlayoutGatewayConfig } from '@sofie-automation/shared-lib/dist/generated/PlayoutGatewayConfigTypes'
 import { PeripheralDeviceCommandId } from '@sofie-automation/shared-lib/dist/core/model/Ids'
 
 export interface CoreConfig {
@@ -40,7 +43,7 @@ export interface MemoryUsageReport {
 /**
  * Represents a connection between the Gateway and Core
  */
-export class CoreHandler {
+export class CoreHandler implements ICoreHandler {
 	core!: CoreConnection
 	logger: Logger
 	public _observers: Array<Observer<any>> = []
@@ -54,20 +57,26 @@ export class CoreHandler {
 	private _executedFunctions = new Set<PeripheralDeviceCommandId>()
 	private _tsrHandler?: TSRHandler
 	private _coreConfig?: CoreConfig
-	private _certificates?: Buffer[]
 
 	private _statusInitialized = false
 	private _statusDestroyed = false
 
+	public get connectedToCore(): boolean {
+		return this.core && this.core.connected
+	}
+	private _k8sRestarter?: KubernetesRestarter
+
 	constructor(logger: Logger, deviceOptions: DeviceConfig) {
 		this.logger = logger
 		this._deviceOptions = deviceOptions
+		if (KubernetesRestarter.canUseK8sRestarter()) {
+			this._k8sRestarter = new KubernetesRestarter(this.logger, 'sofie-playout-gateway')
+		}
 	}
 
-	async init(config: CoreConfig, certificates: Buffer[]): Promise<void> {
+	async init(config: CoreConfig, tlsOptions: DDPTLSOptions): Promise<void> {
 		this._statusInitialized = false
 		this._coreConfig = config
-		this._certificates = certificates
 
 		this.core = new CoreConnection(this.getCoreConnectionOptions())
 
@@ -86,11 +95,7 @@ export class CoreHandler {
 		const ddpConfig: DDPConnectorOptions = {
 			host: config.host,
 			port: config.port,
-		}
-		if (this._certificates.length) {
-			ddpConfig.tlsOpts = {
-				ca: this._certificates,
-			}
+			tlsOpts: tlsOptions,
 		}
 
 		await this.core.init(ddpConfig)
@@ -116,6 +121,11 @@ export class CoreHandler {
 			this.core.autoSubscribe(PeripheralDevicePubSub.peripheralDeviceCommands, this.core.deviceId),
 			this.core.autoSubscribe(PeripheralDevicePubSub.rundownsForDevice, this.core.deviceId),
 			this.core.autoSubscribe(PeripheralDevicePubSub.expectedPlayoutItemsForDevice, this.core.deviceId),
+			this.core.autoSubscribe(
+				PeripheralDevicePubSub.externalEventSubscriptionsForDevice,
+				'tsr',
+				this.core.deviceId
+			),
 		])
 
 		this.logger.info('Core: Subscriptions are set up!')
@@ -156,11 +166,11 @@ export class CoreHandler {
 			deviceName: 'Playout gateway',
 			watchDog: this._coreConfig ? this._coreConfig.watchdog : true,
 
-			configManifest: PLAYOUT_DEVICE_CONFIG,
+			configManifest: compilePlayoutGatewayConfigManifest(),
 
 			versions: getVersions(this.logger),
 
-			documentationUrl: 'https://github.com/nrkno/sofie-core',
+			documentationUrl: 'https://github.com/Sofie-Automation/sofie-core',
 		}
 
 		if (!options.deviceToken) {
@@ -228,7 +238,7 @@ export class CoreHandler {
 					this.logger.error(`executeFunction error: ${errStr}`)
 				}
 				fcnObject.core.coreMethods.functionReply(cmd._id, errStr, res).catch((error: any) => {
-					this.logger.error(error)
+					this.logger.error(stringifyError(error))
 				})
 			}
 
@@ -239,11 +249,10 @@ export class CoreHandler {
 				}
 				this._executedFunctions.add(cmd._id)
 				// @ts-expect-error Untyped bunch of functions
-				// eslint-disable-next-line @typescript-eslint/ban-types
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
 				const fcn: Function = fcnObject[cmd.functionName]
 				try {
 					if (!fcn) throw Error(`Function "${cmd.functionName}" not found on device "${cmd.deviceId}"!`)
-
 					Promise.resolve(fcn.apply(fcnObject, cmd.args))
 						.then((result) => {
 							cb(null, result)
@@ -261,7 +270,7 @@ export class CoreHandler {
 				fcnObject
 					.executeAction(cmd.actionId, cmd.payload)
 					.then((result) => cb(null, result))
-					.catch((e) => cb(e.toString, null))
+					.catch((e) => cb(stringifyError(e), null))
 			} else if (cmd.actionId) {
 				this.logger.warning(`Could not execute action "${cmd.actionId}", because there is no handler`)
 				cb(`Could not execute action "${cmd.actionId}", because there is no handler`)
@@ -308,25 +317,18 @@ export class CoreHandler {
 			}
 		})
 	}
-	killProcess(): void {
-		this.logger.info('KillProcess command received, shutting down in 1000ms!')
-		setTimeout(() => {
-			// eslint-disable-next-line no-process-exit
-			process.exit(0)
-		}, 1000)
-	}
-	async devicesMakeReady(okToDestroyStuff?: boolean, activeRundownId?: string): Promise<any> {
-		if (this._tsrHandler) {
-			return this._tsrHandler.tsr.devicesMakeReady(okToDestroyStuff, activeRundownId)
+	async killProcess(): Promise<boolean> {
+		this.logger.info('KillProcess command received for playout-gateway')
+		if (this._k8sRestarter) {
+			this.logger.info('Running on kubernetes was true, restarting deployment')
+			return await this._k8sRestarter.restartKube()
 		} else {
-			throw Error('TSR not set up!')
-		}
-	}
-	async devicesStandDown(okToDestroyStuff?: boolean): Promise<any> {
-		if (this._tsrHandler) {
-			return this._tsrHandler.tsr.devicesStandDown(okToDestroyStuff)
-		} else {
-			throw Error('TSR not set up!')
+			this.logger.info('killing process in 1000ms!')
+			setTimeout(() => {
+				// eslint-disable-next-line n/no-process-exit
+				process.exit(0)
+			}, 1000)
+			return true
 		}
 	}
 	pingResponse(message: string): void {
@@ -346,7 +348,7 @@ export class CoreHandler {
 
 		const devices: any[] = []
 		if (this._tsrHandler) {
-			for (const device of this._tsrHandler.tsr.getDevices()) {
+			for (const device of this._tsrHandler.tsr.connectionManager.getConnections()) {
 				devices.push({
 					instanceId: device.instanceId,
 					deviceId: device.deviceId,
@@ -389,23 +391,25 @@ export class CoreHandler {
 
 		return Object.fromEntries(this._tsrHandler.getDebugStates().entries())
 	}
-	async updateCoreStatus(): Promise<any> {
+	getCoreStatus(): PeripheralDeviceAPI.PeripheralDeviceStatusObject {
 		let statusCode = StatusCode.GOOD
-		const messages: Array<string> = []
+		const statusDetails: Array<{ message: string }> = []
 
 		if (!this._statusInitialized) {
 			statusCode = StatusCode.BAD
-			messages.push('Starting up...')
+			statusDetails.push({ message: 'Starting up...' })
 		}
 		if (this._statusDestroyed) {
 			statusCode = StatusCode.BAD
-			messages.push('Shut down')
+			statusDetails.push({ message: 'Shut down' })
 		}
-
-		return this.core.setStatus({
-			statusCode: statusCode,
-			messages: messages,
-		})
+		return {
+			statusCode,
+			statusDetails,
+		}
+	}
+	async updateCoreStatus(): Promise<any> {
+		return this.core.setStatus(this.getCoreStatus())
 	}
 }
 
@@ -416,24 +420,17 @@ export class CoreTSRDeviceHandler {
 	public _deviceId: string
 	public _device!: BaseRemoteDeviceIntegration<DeviceOptionsAny>
 	private _coreParentHandler: CoreHandler
-	private _tsrHandler: TSRHandler
 	private _hasGottenStatusChange = false
 	private _deviceStatus: PeripheralDeviceAPI.PeripheralDeviceStatusObject = {
 		statusCode: StatusCode.BAD,
-		messages: ['Starting up...'],
+		statusDetails: [{ message: 'Starting up...' }],
 	}
 	private disposed = false
 
-	constructor(
-		parent: CoreHandler,
-		device: Promise<BaseRemoteDeviceIntegration<DeviceOptionsAny>>,
-		deviceId: string,
-		tsrHandler: TSRHandler
-	) {
+	constructor(parent: CoreHandler, device: Promise<BaseRemoteDeviceIntegration<DeviceOptionsAny>>, deviceId: string) {
 		this._coreParentHandler = parent
 		this._devicePr = device
 		this._deviceId = deviceId
-		this._tsrHandler = tsrHandler
 	}
 	async init(): Promise<void> {
 		this._device = await this._devicePr
@@ -455,10 +452,19 @@ export class CoreTSRDeviceHandler {
 			)
 		})
 
+		console.log('has got status? ' + this._hasGottenStatusChange)
 		if (!this._hasGottenStatusChange) {
-			this._deviceStatus = await this._device.device.getStatus()
-			this.sendStatus()
+			const rawStatus = await this._device.device.getStatus()
+			if ('statusDetails' in rawStatus) {
+				this._deviceStatus = rawStatus
+			} else {
+				this._deviceStatus = {
+					statusCode: rawStatus.statusCode,
+					statusDetails: (rawStatus.messages ?? []).map((m) => ({ message: m })),
+				}
+			}
 		}
+		this.sendStatus()
 		if (this.disposed) throw new Error('CoreTSRDeviceHandler cant init, is disposed')
 		await this.setupSubscriptionsAndObservers()
 		if (this.disposed) throw new Error('CoreTSRDeviceHandler cant init, is disposed')
@@ -490,12 +496,14 @@ export class CoreTSRDeviceHandler {
 		// setup observers
 		this._coreParentHandler.setupObserverForPeripheralDeviceCommands(this)
 	}
-	statusChanged(deviceStatus: Partial<PeripheralDeviceAPI.PeripheralDeviceStatusObject>): void {
-		this._hasGottenStatusChange = true
+	statusChanged(deviceStatus: DeviceStatus, fromDevice = true): void {
+		console.log('device ' + this._deviceId + ' status set to ' + deviceStatus.statusCode)
+		if (fromDevice) this._hasGottenStatusChange = true
 
 		this._deviceStatus = {
 			...this._deviceStatus,
-			...deviceStatus,
+			statusCode: deviceStatus.statusCode,
+			statusDetails: deviceStatus.statusDetails ?? (deviceStatus.messages ?? []).map((m) => ({ message: m })),
 		}
 		this.sendStatus()
 	}
@@ -545,22 +553,23 @@ export class CoreTSRDeviceHandler {
 	async dispose(subdevice: 'keepSubDevice' | 'removeSubDevice' = 'keepSubDevice'): Promise<void> {
 		this._observers.forEach((obs) => obs.stop())
 
-		await this._tsrHandler.tsr.removeDevice(this._deviceId)
+		if (!this.core) return
+
 		await this.core.setStatus({
 			statusCode: StatusCode.BAD,
-			messages: ['Uninitialized'],
+			statusDetails: [{ message: 'Uninitialized' }],
 		})
 
 		if (subdevice === 'removeSubDevice') await this.core.unInitialize()
 		await this.core.destroy()
 	}
-	killProcess(): void {
-		this._coreParentHandler.killProcess()
+	async killProcess(): Promise<void> {
+		await this._coreParentHandler.killProcess()
 	}
 	async executeAction(actionId: string, payload?: Record<string, any>): Promise<ActionExecutionResult> {
 		this._coreParentHandler.logger.info(`Exec ${actionId} on ${this._deviceId}`)
 		const device = this._device.device
 
-		return device.executeAction(actionId, payload)
+		return device.executeAction(actionId, payload || {})
 	}
 }
