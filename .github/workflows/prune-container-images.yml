@@ -8,7 +8,7 @@ on:
 permissions:
   contents: read
   packages: write
-  
+
 jobs:
   prune-container-images:
     if: ${{ github.repository_owner == 'nrkno' }}
