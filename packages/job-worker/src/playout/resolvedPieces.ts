@@ -1,14 +1,30 @@
 import { PieceInstanceInfiniteId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { ResolvedPieceInstance } from '@sofie-automation/corelib/dist/dataModel/PieceInstance'
 import { SourceLayers } from '@sofie-automation/corelib/dist/dataModel/ShowStyleBase'
-import { JobContext } from '../jobs'
-import { getCurrentTime } from '../lib'
+import { JobContext } from '../jobs/index.js'
+import { getCurrentTime } from '../lib/index.js'
 import {
+	createPartCurrentTimes,
 	processAndPrunePieceInstanceTimings,
 	resolvePrunedPieceInstance,
 } from '@sofie-automation/corelib/dist/playout/processAndPrune'
-import { SelectedPartInstancesTimelineInfo } from './timeline/generate'
-import { PlayoutPartInstanceModel } from './model/PlayoutPartInstanceModel'
+import { SelectedPartInstancesTimelineInfo } from './timeline/generate.js'
+import { PlayoutPartInstanceModel } from './model/PlayoutPartInstanceModel.js'
+
+function getAutoNextExpectedDurationExtension(partInstancesInfo: SelectedPartInstancesTimelineInfo): number {
+	if (!partInstancesInfo.current || !partInstancesInfo.next) return 0
+
+	// Keepalive and outTransition extend the effective expectedDuration, but preroll must stay unchanged.
+	const requiredExtension = Math.max(
+		0,
+		partInstancesInfo.next.calculatedTimings.fromPartKeepalive,
+		partInstancesInfo.current.partInstance.part.outTransition?.duration ?? 0
+	)
+
+	const availablePostrollDuration = partInstancesInfo.current.partInstance.part.availablePostrollDuration ?? 0
+
+	return Math.max(0, Math.min(requiredExtension, availablePostrollDuration))
+}
 
 /**
  * Resolve the PieceInstances for a PartInstance
@@ -26,15 +42,14 @@ export function getResolvedPiecesForCurrentPartInstance(
 ): ResolvedPieceInstance[] {
 	if (now === undefined) now = getCurrentTime()
 
-	const partStarted = partInstance.partInstance.timings?.plannedStartedPlayback
-	const nowInPart = partStarted ? now - partStarted : 0
+	const partTimes = createPartCurrentTimes(now, partInstance.partInstance.timings?.plannedStartedPlayback)
 
 	const preprocessedPieces = processAndPrunePieceInstanceTimings(
 		sourceLayers,
 		partInstance.pieceInstances.map((p) => p.pieceInstance),
-		nowInPart
+		partTimes
 	)
-	return preprocessedPieces.map((instance) => resolvePrunedPieceInstance(nowInPart, instance))
+	return preprocessedPieces.map((instance) => resolvePrunedPieceInstance(partTimes, instance))
 }
 
 export function getResolvedPiecesForPartInstancesOnTimeline(
@@ -45,21 +60,37 @@ export function getResolvedPiecesForPartInstancesOnTimeline(
 	// With no current part, there are no timings to consider
 	if (!partInstancesInfo.current) return []
 
-	const currentPartStarted = partInstancesInfo.current.partStarted ?? now
+	const currentPartStarted = partInstancesInfo.current.partTimes.partStartTime ?? now
+	const currentPartDuration =
+		partInstancesInfo.current.partInstance.part.expectedDuration !== undefined
+			? partInstancesInfo.current.partInstance.part.expectedDuration +
+				partInstancesInfo.current.calculatedTimings.toPartDelay +
+				partInstancesInfo.current.calculatedTimings.toPartPostroll +
+				getAutoNextExpectedDurationExtension(partInstancesInfo)
+			: null
 
 	const nextPartStarted =
 		partInstancesInfo.current.partInstance.part.autoNext &&
 		partInstancesInfo.current.partInstance.part.expectedDuration !== 0 &&
-		partInstancesInfo.current.partInstance.part.expectedDuration !== undefined
-			? currentPartStarted + partInstancesInfo.current.partInstance.part.expectedDuration
+		currentPartDuration !== null
+			? currentPartStarted +
+				currentPartDuration -
+				(partInstancesInfo.next?.calculatedTimings.fromPartRemaining ?? 0)
+			: null
+
+	const currentPartEnd =
+		partInstancesInfo.current.partInstance.part.autoNext &&
+		partInstancesInfo.current.partInstance.part.expectedDuration !== 0 &&
+		currentPartDuration !== null
+			? currentPartStarted + currentPartDuration
 			: null
 
 	// Calculate the next part if needed
 	let nextResolvedPieces: ResolvedPieceInstance[] = []
 	if (partInstancesInfo.next && nextPartStarted != null) {
-		const nowInPart = partInstancesInfo.next.nowInPart
+		const partTimes = partInstancesInfo.next.partTimes
 		nextResolvedPieces = partInstancesInfo.next.pieceInstances.map((instance) =>
-			resolvePrunedPieceInstance(nowInPart, instance)
+			resolvePrunedPieceInstance(partTimes, instance)
 		)
 
 		// Translate start to absolute times
@@ -67,26 +98,26 @@ export function getResolvedPiecesForPartInstancesOnTimeline(
 	}
 
 	// Calculate the current part
-	const nowInCurrentPart = partInstancesInfo.current.nowInPart
+	const currentPartTimes = partInstancesInfo.current.partTimes
 	const currentResolvedPieces = partInstancesInfo.current.pieceInstances.map((instance) =>
-		resolvePrunedPieceInstance(nowInCurrentPart, instance)
+		resolvePrunedPieceInstance(currentPartTimes, instance)
 	)
 
 	// Translate start to absolute times
-	offsetResolvedStartAndCapDuration(currentResolvedPieces, currentPartStarted, nextPartStarted)
+	offsetResolvedStartAndCapDuration(currentResolvedPieces, currentPartStarted, currentPartEnd)
 
 	// Calculate the previous part
 	let previousResolvedPieces: ResolvedPieceInstance[] = []
-	if (partInstancesInfo.previous?.partStarted) {
-		const nowInPart = partInstancesInfo.previous.nowInPart
+	if (partInstancesInfo.previous?.partTimes.partStartTime) {
+		const partTimes = partInstancesInfo.previous.partTimes
 		previousResolvedPieces = partInstancesInfo.previous.pieceInstances.map((instance) =>
-			resolvePrunedPieceInstance(nowInPart, instance)
+			resolvePrunedPieceInstance(partTimes, instance)
 		)
 
 		// Translate start to absolute times
 		offsetResolvedStartAndCapDuration(
 			previousResolvedPieces,
-			partInstancesInfo.previous.partStarted,
+			partInstancesInfo.previous.partTimes.partStartTime,
 			currentPartStarted
 		)
 	}

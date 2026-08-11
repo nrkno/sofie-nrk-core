@@ -2,7 +2,7 @@
 title: Worker Threads & Locks
 ---
 
-Starting with v1.40.0 (_[Release 40](/sofie-core/docs/releases#release-40)_), the core logic of Sofie is split across
+Starting with v1.40.0 (_[Release 40](/sofie-core/releases#release-40)_), the core logic of Sofie is split across
 multiple threads. This has been done to minimise performance bottlenecks such as ingest changes delaying takes. In its
 current state, it should not impact deployment of Sofie.
 
@@ -51,6 +51,6 @@ This lock gives ownership of a specific `Rundown`. It is required to be able to 
 during other times where the `Rundown` is modified or is expected to not change.
 
 :::caution
-It is not allowed to aquire a `RundownLock` while inside of a `PlaylistLock`. This is to avoid deadlocks, as it is very
-common to aquire a `PlaylistLock` inside of a `RundownLock`
+It is not allowed to acquire a `RundownLock` while inside of a `PlaylistLock`. This is to avoid deadlocks, as it is very
+common to acquire a `PlaylistLock` inside of a `RundownLock`
 :::

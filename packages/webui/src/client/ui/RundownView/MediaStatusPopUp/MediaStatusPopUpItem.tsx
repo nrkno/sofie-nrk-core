@@ -1,38 +1,35 @@
-import { useCallback, JSX } from 'react'
-import { PartId, PartInstanceId, SegmentId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { SourceLayerType } from '@sofie-automation/blueprints-integration'
+import { useCallback, type JSX } from 'react'
+import type { PartId, PartInstanceId, SegmentId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import type { SourceLayerType } from '@sofie-automation/blueprints-integration'
 import { PieceStatusCode } from '@sofie-automation/corelib/dist/dataModel/Piece'
 import { unprotectString } from '@sofie-automation/corelib/dist/protectedString'
-import { TimingDataResolution, TimingTickResolution, withTiming } from '../RundownTiming/withTiming'
-import { RundownUtils } from '../../../lib/rundown'
+import { TimingDataResolution, TimingTickResolution, useTiming } from '../RundownTiming/withTiming.js'
+import { RundownUtils } from '../../../lib/rundown.js'
 import classNames from 'classnames'
-import { MediaStatusIndicator } from '../../MediaStatus/MediaStatusIndicator'
-import { scrollToPart, scrollToSegment } from '../../../lib/viewPort'
-import { logger } from '../../../lib/logging'
+import { MediaStatusIndicator } from '../../MediaStatus/MediaStatusIndicator.js'
+import { scrollToPart, scrollToSegment } from '../../../lib/viewPort.js'
+import { logger } from '../../../lib/logging.js'
 
-export const MediaStatusPopUpItem = withTiming<
-	{
-		partId: PartId | undefined
-		segmentId: SegmentId | undefined
-		partInstanceId: PartInstanceId | undefined
-		status: PieceStatusCode
-		isWorkingOn: boolean
-		statusOverlay?: string | undefined
-		sourceLayerType?: SourceLayerType | undefined
-		sourceLayerName?: string | undefined
-		segmentIdentifier?: string | undefined
-		partIdentifier?: string | undefined
-		invalid?: boolean | undefined
-		label: string
-		isAdLib: boolean
-		isLive: boolean
-		isNext: boolean
-	},
-	{}
->({
-	dataResolution: TimingDataResolution.Synced,
-	tickResolution: TimingTickResolution.Low,
-})(function MediaStatusPopUpItem({
+interface IMediaStatusPopUpItemProps {
+	partId: PartId | undefined
+	segmentId: SegmentId | undefined
+	partInstanceId: PartInstanceId | undefined
+	status: PieceStatusCode
+	isWorkingOn: boolean
+	statusOverlay?: string | undefined
+	sourceLayerType?: SourceLayerType | undefined
+	sourceLayerName?: string | undefined
+	segmentIdentifier?: string | undefined
+	partIdentifier?: string | undefined
+	invalid?: boolean | undefined
+	label: string
+	isAdLib: boolean
+	isLive: boolean
+	isNext: boolean
+	followOnAirSegmentsHistory: number
+}
+
+export function MediaStatusPopUpItem({
 	partId,
 	partInstanceId,
 	segmentId,
@@ -45,11 +42,13 @@ export const MediaStatusPopUpItem = withTiming<
 	partIdentifier,
 	invalid,
 	label,
-	timingDurations,
 	isAdLib,
 	isLive,
 	isNext,
-}): JSX.Element {
+	followOnAirSegmentsHistory,
+}: IMediaStatusPopUpItemProps): JSX.Element {
+	const timingDurations = useTiming(TimingTickResolution.Low, TimingDataResolution.Synced)
+
 	const timingId = unprotectString(partInstanceId ?? partId)
 	const thisPartCountdown = timingId ? timingDurations.partCountdown?.[timingId] : undefined
 
@@ -59,14 +58,14 @@ export const MediaStatusPopUpItem = withTiming<
 	const onPartIdentifierClick = useCallback(() => {
 		if (!segmentId || !partId) return
 
-		scrollToPart(partId, false, false, false).catch(logger.error)
-	}, [segmentId, partId])
+		scrollToPart(partId, followOnAirSegmentsHistory, false, false, false).catch(logger.error)
+	}, [segmentId, partId, followOnAirSegmentsHistory])
 
 	const onSegmentIdentifierClick = useCallback(() => {
 		if (!segmentId) return
 
-		scrollToSegment(segmentId, false, false).catch(logger.error)
-	}, [segmentId])
+		scrollToSegment(segmentId, followOnAirSegmentsHistory, false, false).catch(logger.error)
+	}, [segmentId, followOnAirSegmentsHistory])
 
 	return (
 		<tr className="media-status-popup-item">
@@ -109,4 +108,4 @@ export const MediaStatusPopUpItem = withTiming<
 			<td className="media-status-popup-item__label">{label}</td>
 		</tr>
 	)
-})
+}

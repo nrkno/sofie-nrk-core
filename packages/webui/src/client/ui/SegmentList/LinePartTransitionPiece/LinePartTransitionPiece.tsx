@@ -1,5 +1,4 @@
-import React from 'react'
-import { PieceExtended } from '../../../lib/RundownResolver'
+import type { PieceExtended } from '@sofie-automation/corelib/src/dataModel/Piece'
 
 interface IProps {
 	piece: PieceExtended

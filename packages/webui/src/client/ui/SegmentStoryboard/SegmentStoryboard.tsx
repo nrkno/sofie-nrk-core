@@ -1,45 +1,54 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { NoteSeverity } from '@sofie-automation/blueprints-integration'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
-import { IContextMenuContext } from '../RundownView'
-import { IOutputLayerUi, PartUi, PieceUi, SegmentNoteCounts, SegmentUi } from '../SegmentContainer/withResolvedSegment'
+import {
+	type DBRundownPlaylist,
+	RundownHoldState,
+} from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
+import type { IContextMenuContext } from '../RundownView.js'
+import type { IOutputLayerUi, PartUi, SegmentNoteCounts, SegmentUi } from '../SegmentContainer/withResolvedSegment.js'
 import { ContextMenuTrigger } from '@jstarpl/react-contextmenu'
-import { CriticalIconSmall, WarningIconSmall } from '../../lib/ui/icons/notifications'
-import { SegmentDuration } from '../RundownView/RundownTiming/SegmentDuration'
-import { PartCountdown } from '../RundownView/RundownTiming/PartCountdown'
-import { contextMenuHoldToDisplayTime, useCombinedRefs } from '../../lib/lib'
+import { CriticalIconSmall, WarningIconSmall } from '../../lib/ui/icons/notifications.js'
+import { SegmentDuration } from '../RundownView/RundownTiming/SegmentDuration.js'
+import { PartCountdown } from '../RundownView/RundownTiming/PartCountdown.js'
+import { contextMenuHoldToDisplayTime, useCombinedRefs, useRundownViewEventBusListener } from '../../lib/lib.js'
 import { isPartPlayable } from '@sofie-automation/corelib/dist/dataModel/Part'
 import { useTranslation } from 'react-i18next'
-import { UIStateStorage } from '../../lib/UIStateStorage'
-import { literal, unprotectString } from '../../lib/tempLib'
-import { lockPointer, scrollToPart, unlockPointer } from '../../lib/viewPort'
-import { StoryboardPart } from './StoryboardPart'
+import { UIStateStorage } from '../../lib/UIStateStorage.js'
+import { literal } from '@sofie-automation/corelib/dist/lib'
+import { unprotectString } from '@sofie-automation/shared-lib/dist/lib/protectedString'
+import { lockPointer, scrollToPart, unlockPointer } from '../../lib/viewPort.js'
+import { StoryboardPart } from './StoryboardPart.js'
 import classNames from 'classnames'
-import RundownViewEventBus, {
-	GoToPartEvent,
-	GoToPartInstanceEvent,
-	HighlightEvent,
+import {
+	type GoToPartEvent,
+	type GoToPartInstanceEvent,
+	type HighlightEvent,
 	RundownViewEvents,
 } from '@sofie-automation/meteor-lib/dist/triggers/RundownViewEventBus'
-import { getElementWidth } from '../../utils/dimensions'
-import { HOVER_TIMEOUT } from '../Shelf/DashboardPieceButton'
+import { getElementWidth } from '../../utils/dimensions.js'
 import { Meteor } from 'meteor/meteor'
-import { hidePointerLockCursor, showPointerLockCursor } from '../../lib/PointerLockCursor'
-import { SegmentScrollbar } from './SegmentScrollbar'
+import { hidePointerLockCursor, showPointerLockCursor } from '../../lib/PointerLockCursor.js'
+import { SegmentScrollbar } from './SegmentScrollbar.js'
 import {
 	filterSecondaryOutputLayers,
 	filterSecondarySourceLayers,
-} from './StoryboardPartSecondaryPieces/StoryboardPartSecondaryPieces'
+} from './StoryboardPartSecondaryPieces/StoryboardPartSecondaryPieces.js'
 import { motion } from 'motion/react'
-import { SegmentViewMode } from '../SegmentContainer/SegmentViewModes'
-import { ErrorBoundary } from '../../lib/ErrorBoundary'
-import { SwitchViewModeButton } from '../SegmentContainer/SwitchViewModeButton'
-import { UIStudio } from '@sofie-automation/meteor-lib/dist/api/studios'
-import { PartId, SegmentId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { RundownHoldState } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
-import { SegmentTimeAnchorTime } from '../RundownView/RundownTiming/SegmentTimeAnchorTime'
-import * as RundownResolver from '../../lib/RundownResolver'
-import { logger } from '../../lib/logging'
+import { SegmentViewMode } from '../SegmentContainer/SegmentViewModes.js'
+import { ErrorBoundary } from '../../lib/ErrorBoundary.js'
+import { SwitchViewModeButton } from '../SegmentContainer/SwitchViewModeButton.js'
+import type { PartId, SegmentId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import { logger } from '../../lib/logging.js'
+import type { UIStudio } from '@sofie-automation/corelib/src/dataModel/Studio.js'
+import type { PieceUi } from '@sofie-automation/corelib/src/dataModel/Piece.js'
+import {
+	isLoopRunning as getIsLoopRunning,
+	isEndOfLoopingShow as getIsEndOfLoopingShow,
+	isQuickLoopStart as getIsQuickLoopStart,
+	isQuickLoopEnd as getIsQuickLoopEnd,
+	isEntirePlaylistLooping as getIsEntirePlaylistLooping,
+} from '@sofie-automation/corelib/src/playout/stateCacheResolver.js'
+import { HOVER_TIMEOUT } from '../Shelf/DashboardPieceButton/types.js'
 
 interface IProps {
 	id: string
@@ -108,7 +117,7 @@ export const SegmentStoryboard = React.memo(
 					? {
 							partId: p.partId,
 							ident: p.instance.part.identifier,
-					  }
+						}
 					: null
 			)
 			.filter((entry) => entry !== null) as Array<{ partId: PartId; ident?: string }>
@@ -159,7 +168,7 @@ export const SegmentStoryboard = React.memo(
 		}
 
 		const onClickPartIdent = (partId: PartId) => {
-			scrollToPart(partId, false, true, true).catch((error) => {
+			scrollToPart(partId, props.studio.settings.followOnAirSegmentsHistory ?? 0, false, true, true).catch((error) => {
 				if (!error.toString().match(/another scroll/)) logger.error('scrollToPart', error)
 			})
 		}
@@ -199,8 +208,8 @@ export const SegmentStoryboard = React.memo(
 			squishedPartsNum > 1 ? Math.max(4, (spaceLeft - PART_WIDTH) / (squishedPartsNum - 1)) : null
 
 		const playlistHasNextPart = !!props.playlist.nextPartInfo
-		const isPlaylistLooping = RundownResolver.isLoopRunning(props.playlist)
-		const isEntirePlaylistLooping = RundownResolver.isEntirePlaylistLooping(props.playlist)
+		const isPlaylistLooping = getIsLoopRunning(props.playlist)
+		const isEntirePlaylistLooping = getIsEntirePlaylistLooping(props.playlist)
 
 		renderedParts.forEach((part, index) => {
 			const isLivePart = part.instance._id === props.playlist.currentPartInfo?.partInstanceId
@@ -221,14 +230,14 @@ export const SegmentStoryboard = React.memo(
 					isNextPart={isNextPart}
 					isLastPartInSegment={part.instance._id === lastValidPartId}
 					isLastSegment={props.isLastSegment}
-					isEndOfLoopingShow={RundownResolver.isEndOfLoopingShow(
+					isEndOfLoopingShow={getIsEndOfLoopingShow(
 						props.playlist,
 						props.isLastSegment,
 						part.instance._id === lastValidPartId,
 						part.instance.part
 					)}
-					isQuickLoopStart={RundownResolver.isQuickLoopStart(part.partId, props.playlist)}
-					isQuickLoopEnd={RundownResolver.isQuickLoopEnd(part.partId, props.playlist)}
+					isQuickLoopStart={getIsQuickLoopStart(part.partId, props.playlist)}
+					isQuickLoopEnd={getIsQuickLoopEnd(part.partId, props.playlist)}
 					isPlaylistLooping={isPlaylistLooping}
 					isEntirePlaylistLooping={isEntirePlaylistLooping}
 					doesPlaylistHaveNextPart={playlistHasNextPart}
@@ -244,8 +253,8 @@ export const SegmentStoryboard = React.memo(
 								? 'background'
 								: undefined
 							: squishedHover === index
-							? 'hover'
-							: undefined
+								? 'hover'
+								: undefined
 					}
 					style={
 						needsToBeSquished && squishedPartCardStride
@@ -257,7 +266,7 @@ export const SegmentStoryboard = React.memo(
 												? renderedParts.length + index
 												: renderedParts.length - index
 											: undefined,
-							  }
+								}
 							: undefined
 					}
 					onHoverOver={() => needsToBeSquished && setSquishedHover(index)}
@@ -325,19 +334,11 @@ export const SegmentStoryboard = React.memo(
 				if (highlightTimeout.current) Meteor.clearTimeout(highlightTimeout.current)
 			}
 		}, [])
-		useEffect(() => {
-			RundownViewEventBus.on(RundownViewEvents.REWIND_SEGMENTS, onRewindSegment)
-			RundownViewEventBus.on(RundownViewEvents.GO_TO_PART, onGoToPart)
-			RundownViewEventBus.on(RundownViewEvents.GO_TO_PART_INSTANCE, onGoToPartInstance)
-			RundownViewEventBus.on(RundownViewEvents.HIGHLIGHT, onHighlight)
 
-			return () => {
-				RundownViewEventBus.off(RundownViewEvents.REWIND_SEGMENTS, onRewindSegment)
-				RundownViewEventBus.off(RundownViewEvents.GO_TO_PART, onGoToPart)
-				RundownViewEventBus.off(RundownViewEvents.GO_TO_PART_INSTANCE, onGoToPartInstance)
-				RundownViewEventBus.off(RundownViewEvents.HIGHLIGHT, onHighlight)
-			}
-		}, [onRewindSegment, onGoToPart, onGoToPartInstance, onHighlight])
+		useRundownViewEventBusListener(RundownViewEvents.REWIND_SEGMENTS, onRewindSegment)
+		useRundownViewEventBusListener(RundownViewEvents.GO_TO_PART, onGoToPart)
+		useRundownViewEventBusListener(RundownViewEvents.GO_TO_PART_INSTANCE, onGoToPartInstance)
+		useRundownViewEventBusListener(RundownViewEvents.HIGHLIGHT, onHighlight)
 
 		useLayoutEffect(() => {
 			if (!listRef.current) return
@@ -408,32 +409,35 @@ export const SegmentStoryboard = React.memo(
 			}
 		}
 
-		const onSegmentWheel = (e: WheelEvent) => {
-			let scrollDelta = 0
-			if (
-				(!e.ctrlKey && e.altKey && !e.metaKey && !e.shiftKey) ||
-				(e.ctrlKey && !e.metaKey && !e.shiftKey && e.altKey)
-			) {
-				// this.props.onScroll(Math.max(0, this.props.scrollLeft + e.deltaY / this.props.timeScale), e)
-				scrollDelta = e.deltaY * -1
-				e.preventDefault()
-			} else if (!e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) {
-				// no modifier
-				if (e.deltaX !== 0) {
-					// this.props.onScroll(Math.max(0, this.props.scrollLeft + e.deltaX / this.props.timeScale), e)
-					scrollDelta = e.deltaX * -1
+		const onSegmentWheel = useCallback(
+			(e: WheelEvent) => {
+				let scrollDelta = 0
+				if (
+					(!e.ctrlKey && e.altKey && !e.metaKey && !e.shiftKey) ||
+					(e.ctrlKey && !e.metaKey && !e.shiftKey && e.altKey)
+				) {
+					// this.props.onScroll(Math.max(0, this.props.scrollLeft + e.deltaY / this.props.timeScale), e)
+					scrollDelta = e.deltaY * -1
 					e.preventDefault()
+				} else if (!e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) {
+					// no modifier
+					if (e.deltaX !== 0) {
+						// this.props.onScroll(Math.max(0, this.props.scrollLeft + e.deltaX / this.props.timeScale), e)
+						scrollDelta = e.deltaX * -1
+						e.preventDefault()
+					}
 				}
-			}
 
-			if (scrollDelta !== 0) {
-				setScrollLeft((value) => {
-					const newScrollLeft = Math.max(0, Math.min(value - scrollDelta, maxScrollLeft))
-					props.onScroll(newScrollLeft, e)
-					return newScrollLeft
-				})
-			}
-		}
+				if (scrollDelta !== 0) {
+					setScrollLeft((value) => {
+						const newScrollLeft = Math.max(0, Math.min(value - scrollDelta, maxScrollLeft))
+						props.onScroll(newScrollLeft, e)
+						return newScrollLeft
+					})
+				}
+			},
+			[maxScrollLeft, props.onScroll]
+		)
 
 		useEffect(() => {
 			if (!grabbed) return
@@ -520,7 +524,7 @@ export const SegmentStoryboard = React.memo(
 			return () => {
 				segment.removeEventListener('wheel', onSegmentWheel)
 			}
-		}, [innerRef.current])
+		}, [onSegmentWheel])
 
 		const onScrollbarChange = useCallback((left: number) => {
 			setScrollLeft(Math.max(0, Math.min(left, maxScrollLeft)))
@@ -583,9 +587,7 @@ export const SegmentStoryboard = React.memo(
 							{criticalNotes > 0 && (
 								<div
 									className="segment-timeline__title__notes__note segment-timeline__title__notes__note--critical"
-									onClick={() =>
-										props.onHeaderNoteClick && props.onHeaderNoteClick(props.segment._id, NoteSeverity.ERROR)
-									}
+									onClick={() => props.onHeaderNoteClick?.(props.segment._id, NoteSeverity.ERROR)}
 									aria-label={t('Critical problems')}
 								>
 									<CriticalIconSmall />
@@ -595,9 +597,7 @@ export const SegmentStoryboard = React.memo(
 							{warningNotes > 0 && (
 								<div
 									className="segment-timeline__title__notes__note segment-timeline__title__notes__note--warning"
-									onClick={() =>
-										props.onHeaderNoteClick && props.onHeaderNoteClick(props.segment._id, NoteSeverity.WARNING)
-									}
+									onClick={() => props.onHeaderNoteClick?.(props.segment._id, NoteSeverity.WARNING)}
 									aria-label={t('Warnings')}
 								>
 									<WarningIconSmall />
@@ -633,33 +633,23 @@ export const SegmentStoryboard = React.memo(
 							/>
 						)}
 				</div>
-				{props.segment.segmentTiming?.expectedStart || props.segment.segmentTiming?.expectedEnd ? (
-					<div className="segment-timeline__expectedTime">
-						<SegmentTimeAnchorTime
-							segment={props.segment}
-							isLiveSegment={props.isLiveSegment}
-							labelClassName="segment-timeline__duration__label"
+				<div className="segment-timeline__timeUntil" onClick={onTimeUntilClick}>
+					{props.playlist && props.parts && props.parts.length > 0 && props.showCountdownToSegment && (
+						<PartCountdown
+							partId={countdownToPartId}
+							hideOnZero={!useTimeOfDayCountdowns}
+							useWallClock={useTimeOfDayCountdowns}
+							playlist={props.playlist}
+							label={
+								useTimeOfDayCountdowns ? (
+									<span className="segment-timeline__timeUntil__label">{t('On Air At')}</span>
+								) : (
+									<span className="segment-timeline__timeUntil__label">{t('On Air In')}</span>
+								)
+							}
 						/>
-					</div>
-				) : (
-					<div className="segment-timeline__timeUntil" onClick={onTimeUntilClick}>
-						{props.playlist && props.parts && props.parts.length > 0 && props.showCountdownToSegment && (
-							<PartCountdown
-								partId={countdownToPartId}
-								hideOnZero={!useTimeOfDayCountdowns}
-								useWallClock={useTimeOfDayCountdowns}
-								playlist={props.playlist}
-								label={
-									useTimeOfDayCountdowns ? (
-										<span className="segment-timeline__timeUntil__label">{t('On Air At')}</span>
-									) : (
-										<span className="segment-timeline__timeUntil__label">{t('On Air In')}</span>
-									)
-								}
-							/>
-						)}
-					</div>
-				)}
+					)}
+				</div>
 
 				<div className="segment-timeline__mos-id">{props.segment.externalId}</div>
 				<div className="segment-timeline__source-layers" role="tree" aria-label={t('Sources')}>

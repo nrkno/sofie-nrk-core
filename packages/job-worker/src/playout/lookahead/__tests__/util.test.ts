@@ -2,17 +2,17 @@ import { RundownPlaylistId, SegmentId, PartId, RundownId } from '@sofie-automati
 import { DBPart } from '@sofie-automation/corelib/dist/dataModel/Part'
 import { MappingsExt } from '@sofie-automation/corelib/dist/dataModel/Studio'
 import { protectString } from '@sofie-automation/corelib/dist/protectedString'
-import { getCurrentTime } from '../../../lib'
+import { getCurrentTime } from '../../../lib/index.js'
 import { LookaheadMode, PlaylistTimingType, TSR } from '@sofie-automation/blueprints-integration'
-import { getOrderedPartsAfterPlayhead } from '../util'
-import { MockJobContext, setupDefaultJobEnvironment } from '../../../__mocks__/context'
-import { runJobWithPlayoutModel } from '../../../playout/lock'
-import { defaultRundownPlaylist } from '../../../__mocks__/defaultCollectionObjects'
-import _ = require('underscore')
-import { wrapPartToTemporaryInstance } from '../../../__mocks__/partinstance'
+import { getOrderedPartsAfterPlayhead } from '../util.js'
+import { MockJobContext, setupDefaultJobEnvironment } from '../../../__mocks__/context.js'
+import { runJobWithPlayoutModel } from '../../../playout/lock.js'
+import { defaultRundownPlaylist } from '../../../__mocks__/defaultCollectionObjects.js'
+import _ from 'underscore'
 import { wrapDefaultObject } from '@sofie-automation/corelib/dist/settings/objectWithOverrides'
-import { QuickLoopMarkerType } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import { QuickLoopMarkerType } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import { ForceQuickLoopAutoNext } from '@sofie-automation/shared-lib/dist/core/model/StudioSettings'
+import { wrapPartToTemporaryInstance } from '@sofie-automation/corelib/dist/playout/stateCacheResolver'
 
 describe('getOrderedPartsAfterPlayhead', () => {
 	let context!: MockJobContext
@@ -51,7 +51,6 @@ describe('getOrderedPartsAfterPlayhead', () => {
 			activationId: protectString('active'),
 		})
 		await context.mockCollections.Rundowns.insertOne({
-			organizationId: null,
 			studioId: context.studioId,
 			showStyleBaseId: protectString('showStyleBase0'),
 			showStyleVariantId: protectString('showStyleVariante0'),

@@ -1,6 +1,6 @@
-import type { IBlueprintConfig } from '../common'
+import type { IBlueprintConfig } from '../common.js'
 import type { ReadonlyDeep } from 'type-fest'
-import type { BlueprintConfigCoreConfig, BlueprintManifestBase, BlueprintManifestType, IConfigMessage } from './base'
+import type { BlueprintConfigCoreConfig, BlueprintManifestBase, BlueprintManifestType, IConfigMessage } from './base.js'
 import type { JSONSchema } from '@sofie-automation/shared-lib/dist/lib/JSONSchemaTypes'
 import type { JSONBlob } from '@sofie-automation/shared-lib/dist/lib/JSONBlob'
 import type {
@@ -9,28 +9,65 @@ import type {
 	IStudioBaselineContext,
 	IStudioUserContext,
 	IProcessIngestDataContext,
-} from '../context'
-import type { IBlueprintShowStyleBase } from '../showStyle'
+	ISystemSnapshotCreatedContext,
+	IBlueprintSystemSnapshotInfo,
+	BlueprintSnapshotType as _BlueprintSnapshotType,
+} from '../context/index.js'
+import type { IBlueprintShowStyleBase } from '../showStyle.js'
 import type {
 	ExtendedIngestRundown,
 	NrcsIngestChangeDetails,
 	IngestRundown,
 	MutableIngestRundown,
 	UserOperationChange,
-} from '../ingest'
-import type { ExpectedPlayoutItemGeneric, IBlueprintResultRundownPlaylist, IBlueprintRundownDB } from '../documents'
-import type { BlueprintMappings } from '../studio'
-import type { TimelineObjectCoreExt, TSR } from '../timeline'
-import type { ExpectedPackage } from '../package'
+	PlayoutOperationChange,
+} from '../ingest.js'
+import type {
+	ExpectedPlayoutItemGeneric,
+	IBlueprintResultRundownPlaylist,
+	IBlueprintRundownDB,
+} from '../documents/index.js'
+import type { BlueprintMappings } from '../studio.js'
+import type { TimelineObjectCoreExt, TSR } from '../timeline.js'
+import type { ExpectedPackage } from '../package.js'
 import type {
 	StudioRouteSet,
 	StudioRouteSetExclusivityGroup,
 } from '@sofie-automation/shared-lib/dist/core/model/StudioRouteSet'
-import type { StudioPackageContainer } from '@sofie-automation/shared-lib/dist/core/model/PackageContainer'
+import type {
+	StudioPackageContainer,
+	StudioPackageContainerSettings,
+} from '@sofie-automation/shared-lib/dist/core/model/PackageContainer'
 import type { IStudioSettings } from '@sofie-automation/shared-lib/dist/core/model/StudioSettings'
+import type { MosDeviceConfig } from '@sofie-automation/shared-lib/dist/generated/MosGatewayDevicesTypes'
+import type { MosGatewayConfig } from '@sofie-automation/shared-lib/dist/generated/MosGatewayOptionsTypes'
+import type { PlayoutGatewayConfig } from '@sofie-automation/shared-lib/dist/generated/PlayoutGatewayConfigTypes'
+import type { LiveStatusGatewayConfig } from '@sofie-automation/shared-lib/dist/generated/LiveStatusGatewayOptionsTypes'
 
-export interface StudioBlueprintManifest<TRawConfig = IBlueprintConfig, TProcessedConfig = unknown>
-	extends BlueprintManifestBase {
+/**
+ * Context provided to device status message functions.
+ * Contains the device name, device ID, and any additional context from the TSR status detail.
+ */
+export interface DeviceStatusContext {
+	/** Human-readable name of the device */
+	deviceName: string
+	/** Internal device ID */
+	deviceId?: string
+	/** Additional context values from the TSR error (e.g., host, port, channel, etc.) */
+	[key: string]: unknown
+}
+
+/**
+ * A function that receives device status context and returns a custom status message.
+ * Return `undefined` to fall back to the default TSR message.
+ * Return an empty string `''` to suppress the message entirely.
+ */
+export type DeviceStatusMessageFunction = (context: DeviceStatusContext) => string | undefined
+
+export interface StudioBlueprintManifest<
+	TRawConfig = IBlueprintConfig,
+	TProcessedConfig = unknown,
+> extends BlueprintManifestBase {
 	blueprintType: BlueprintManifestType.STUDIO
 
 	/** A list of config items this blueprint expects to be available on the Studio */
@@ -41,6 +78,64 @@ export interface StudioBlueprintManifest<TRawConfig = IBlueprintConfig, TProcess
 
 	/** Translations connected to the studio (as stringified JSON) */
 	translations?: string
+
+	/**
+	 * Alternate device status messages, to override the default messages from TSR devices.
+	 * Keys are status code strings from TSR devices (e.g., 'DEVICE_ATEM_DISCONNECTED').
+	 *
+	 * Import status codes from 'timeline-state-resolver-types' for type safety.
+	 * Values can be:
+	 * - String templates using {{variable}} syntax for interpolation with context values
+	 * - Functions that receive DeviceStatusContext and return a custom message string
+	 * - Empty string to suppress the status message entirely
+	 *
+	 * @example
+	 * ```typescript
+	 * import { AtemStatusCode, CasparCGStatusCode } from 'timeline-state-resolver-types'
+	 *
+	 * deviceStatusMessages: {
+	 *   // String template with placeholders
+	 *   [AtemStatusCode.DISCONNECTED]: 'Vision mixer offline - check network to {{host}}',
+	 *   [AtemStatusCode.PSU_FAULT]: 'PSU {{psuNumber}} needs attention',
+	 *
+	 *   // Function for complex conditional logic
+	 *   [CasparCGStatusCode.CHANNEL_ERROR]: (context) => {
+	 *     const channel = context.channel as number
+	 *     if (channel === 1) return 'Primary graphics output failed!'
+	 *     return `Graphics channel ${channel} error on ${context.deviceName}`
+	 *   },
+	 *
+	 *   // Suppress a noisy message
+	 *   [SomeStatusCode.NOISY_STATUS]: '',
+	 * }
+	 * ```
+	 */
+	deviceStatusMessages?: Record<string, string | DeviceStatusMessageFunction>
+
+	/**
+	 * Alternate device action error messages, to override the default messages from TSR devices.
+	 * Keys are action error code strings from TSR devices (e.g., 'ACTION_HTTPSEND_REQUEST_FAILED').
+	 *
+	 * Similar to deviceStatusMessages but applies to device action execution failures
+	 * (e.g., HTTP Send failures, device restart failures) rather than ongoing status errors.
+	 *
+	 * Import action error codes from 'timeline-state-resolver-types' for type safety.
+	 * Values can be:
+	 * - String templates using {{variable}} syntax for interpolation with context values
+	 * - Functions that receive DeviceStatusContext and return a custom message string
+	 * - Empty string to suppress the message entirely (action result will show as generic error)
+	 *
+	 * @example
+	 * ```typescript
+	 * import { HttpSendActionErrorCode } from 'timeline-state-resolver-types'
+	 *
+	 * deviceActionMessages: {
+	 *   [HttpSendActionErrorCode.REQUEST_FAILED]: 'Failed to trigger graphics: {{errorMessage}}',
+	 *   [HttpSendActionErrorCode.MISSING_URL]: 'HTTP action not configured - missing URL',
+	 * }
+	 * ```
+	 */
+	deviceActionMessages?: Record<string, string | DeviceStatusMessageFunction>
 
 	/** Returns the items used to build the baseline (default state) of a studio, this is the baseline used when there's no active rundown */
 	getBaseline: (context: IStudioBaselineContext) => BlueprintResultStudioBaseline
@@ -95,6 +190,15 @@ export interface StudioBlueprintManifest<TRawConfig = IBlueprintConfig, TProcess
 	 */
 	validateConfigFromAPI?: (context: ICommonContext, apiConfig: object) => Array<IConfigMessage>
 
+	/** Validate the rundown payload passed to this blueprint according to the API schema, returning a list of error messages. */
+	validateRundownPayloadFromAPI?: (context: ICommonContext, payload: unknown) => Array<string>
+
+	/** Validate the segment payload passed to this blueprint according to the API schema, returning a list of error messages. */
+	validateSegmentPayloadFromAPI?: (context: ICommonContext, payload: unknown) => Array<string>
+
+	/** Validate the part payload passed to this blueprint according to the API schema, returning a list of error messages. */
+	validatePartPayloadFromAPI?: (context: ICommonContext, payload: unknown) => Array<string>
+
 	/**
 	 * Optional method to transform from an API blueprint config to the database blueprint config if these are required to be different.
 	 * If this method is not defined the config object will be used directly
@@ -115,7 +219,28 @@ export interface StudioBlueprintManifest<TRawConfig = IBlueprintConfig, TProcess
 		mutableIngestRundown: MutableIngestRundown<any, any, any>,
 		nrcsIngestRundown: IngestRundown,
 		previousNrcsIngestRundown: IngestRundown | undefined,
-		changes: NrcsIngestChangeDetails | UserOperationChange
+		changes: NrcsIngestChangeDetails | UserOperationChange | PlayoutOperationChange
+	) => Promise<void>
+
+	/**
+	 * Called after a system snapshot has been stored to disk.
+	 *
+	 * Use this to run studio-level side effects (e.g. TSR actions on playout devices) at snapshot time.
+	 * The callback receives {@link ISystemSnapshotCreatedContext} with `listPlayoutDevices` and `executeTSRAction`.
+	 *
+	 * Invoked once per studio:
+	 * - Studio-scoped snapshots (`studioId` in snapshot options): once for that studio.
+	 * - Full-system snapshots (no `studioId`): once per studio included in the snapshot.
+	 * - Debug snapshots: once for the target studio when `info.type` is `'debug'` ({@link _BlueprintSnapshotType}).
+	 *
+	 * Errors are logged by Core and do not fail snapshot storage.
+	 *
+	 * @param context Studio context and TSR actions for the studio worker job.
+	 * @param info Metadata about the snapshot (not the snapshot JSON).
+	 */
+	onSystemSnapshotCreated?: (
+		context: ISystemSnapshotCreatedContext,
+		info: IBlueprintSystemSnapshotInfo
 	) => Promise<void>
 }
 
@@ -147,17 +272,19 @@ export interface BlueprintResultApplyStudioConfig {
 	/** Parent device settings */
 	parentDevices: Record<string, BlueprintParentDeviceSettings>
 	/** Playout-gateway subdevices */
-	playoutDevices: Record<string, TSR.DeviceOptionsAny>
+	playoutDevices: Record<string, { parentConfigId?: string; options: TSR.DeviceOptionsAny }>
 	/** Ingest-gateway subdevices, the types here depend on the gateway you use */
-	ingestDevices: Record<string, unknown>
+	ingestDevices: Record<string, { parentConfigId?: string; options: BlueprintMosDeviceConfig | unknown }>
 	/** Input-gateway subdevices */
-	inputDevices: Record<string, unknown>
+	inputDevices: Record<string, { parentConfigId?: string; options: unknown }>
 	/** Route Sets */
 	routeSets?: Record<string, StudioRouteSet>
 	/** Route Set Exclusivity Groups */
 	routeSetExclusivityGroups?: Record<string, StudioRouteSetExclusivityGroup>
 	/** Package Containers */
 	packageContainers?: Record<string, StudioPackageContainer>
+	/** Which Package Containers are used for media previews/thumbnails in GUI */
+	packageContainerSettings?: StudioPackageContainerSettings
 
 	studioSettings?: IStudioSettings
 }
@@ -169,6 +296,14 @@ export interface BlueprintParentDeviceSettings {
 
 	options: Record<string, any>
 }
+
+export type BlueprintMosGatewayConfig = MosGatewayConfig
+
+export type BlueprintMosDeviceConfig = MosDeviceConfig
+
+export type BlueprintPlayoutGatewayConfig = PlayoutGatewayConfig
+
+export type BlueprintLiveStatusGatewayConfig = LiveStatusGatewayConfig
 
 export interface IStudioConfigPreset<TConfig = IBlueprintConfig> {
 	name: string

@@ -3,42 +3,18 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
-## [1.52.18-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.17-nrk...v1.52.18-nrk) (2026-04-17)
-
-**Note:** Version bump only for package playout-gateway
-
-
-
-
-
-## [1.52.17-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.16-nrk...v1.52.17-nrk) (2026-04-10)
-
-**Note:** Version bump only for package playout-gateway
-
-
-
-
-
-## [1.52.16-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.15-nrk...v1.52.16-nrk) (2026-03-02)
+# [26.3.0-2](https://github.com/Sofie-Automation/sofie-core/compare/v26.3.0-1...v26.3.0-2) (2026-02-18)
 
 
 ### Bug Fixes
 
-* remove over-eager debug logging filtering from connectionManager ([567105f](https://github.com/Sofie-Automation/sofie-core/commit/567105f381580bf9c39b36a8d48e7ac90d3e954d))
+* Add missing 'rootDir' to tsconfig ([20e7d12](https://github.com/Sofie-Automation/sofie-core/commit/20e7d12aabdf4c9cf36f8a271435fce8aa253c2d))
 
 
 
 
 
-## [1.52.15-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.14-nrk...v1.52.15-nrk) (2026-01-22)
-
-**Note:** Version bump only for package playout-gateway
-
-
-
-
-
-## [1.52.14-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.13-nrk...v1.52.14-nrk) (2025-12-16)
+# [26.3.0-1](https://github.com/Sofie-Automation/sofie-core/compare/v26.3.0-0...v26.3.0-1) (2026-02-11)
 
 **Note:** Version bump only for package playout-gateway
 
@@ -46,127 +22,25 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 
 
-## [1.52.13-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.12-nrk...v1.52.13-nrk) (2025-12-05)
-
-**Note:** Version bump only for package playout-gateway
-
-
-
-
-
-## [1.52.11-nrk.0](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.11-nrk...v1.52.11-nrk.0) (2025-11-26)
-
-**Note:** Version bump only for package playout-gateway
-
-
-
-
-
-## [1.52.11-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.10-nrk...v1.52.11-nrk) (2025-11-20)
-
-
-### Features
-
-* kairos ([fe2ab51](https://github.com/Sofie-Automation/sofie-core/commit/fe2ab512121b1bd1b7e2b6c54af7c9939e71b619))
-
-
-
-
-
-## [1.52.10-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.9-nrk...v1.52.10-nrk) (2025-10-29)
-
-
-### Features
-
-* add health endpoints to MOS Gateway ([9f01196](https://github.com/Sofie-Automation/sofie-core/commit/9f0119665197a6cd0c628967618c5bd234049e75))
-* add health endpoints to Playout Gateway ([c5b8122](https://github.com/Sofie-Automation/sofie-core/commit/c5b8122f7ea3c5ac5715513d69390176055d08e5))
-* add health endpoints to Playout Gateway ([45b7213](https://github.com/Sofie-Automation/sofie-core/commit/45b721330eec8c4fc3895c622b5f8d2137d92105))
-
-
-
-
-
-## [1.52.9-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.8-nrk...v1.52.9-nrk) (2025-09-29)
+# [26.3.0-0](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.0...v26.3.0-0) (2026-02-04)
 
 
 ### Bug Fixes
 
+* docker images using CMD instead of ENTRYPOINT ([e1beb6e](https://github.com/Sofie-Automation/sofie-core/commit/e1beb6e082c7c9ce4a8009feceb58eb7ef89f308))
 * **PGW:** handle situation when device is not initialized yet ([6060e7e](https://github.com/Sofie-Automation/sofie-core/commit/6060e7e2645dfbc19fde263de35f545d9200e02c))
-* TSR dep ([ff083c4](https://github.com/Sofie-Automation/sofie-core/commit/ff083c46eb8ce78f432afa6f32c8bc9e2370fcde))
-* update TSR dep ([08625a6](https://github.com/Sofie-Automation/sofie-core/commit/08625a6b1ed4778b988f3f3c093904880e650b0b))
+* remove over-eager debug logging filtering from connectionManager ([#1594](https://github.com/Sofie-Automation/sofie-core/issues/1594)) ([462a27a](https://github.com/Sofie-Automation/sofie-core/commit/462a27a3c68176fbcf3c5ab3d22fa0f79037db1d))
+* update mos-connection for missing mosID bug fix ([#9](https://github.com/Sofie-Automation/sofie-core/issues/9)) ([e8e07e3](https://github.com/Sofie-Automation/sofie-core/commit/e8e07e3e86e0a6e4d1bb5802f0e782ad323f424e))
+* update tsr and remove deprecated playout-gateway methods ([#1525](https://github.com/Sofie-Automation/sofie-core/issues/1525)) ([5b9c7ad](https://github.com/Sofie-Automation/sofie-core/commit/5b9c7ad68375301722057ef4927bab13ce6896c1))
 
 
+### Features
 
-
-
-## [1.52.8-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.7-nrk...v1.52.8-nrk) (2025-09-08)
-
-
-### Bug Fixes
-
-* update tsr ([995ffd4](https://github.com/Sofie-Automation/sofie-core/commit/995ffd451c89655eee5c93044cd1749a0a74d7f8))
-
-
-
-
-
-## [1.52.7-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.6-nrk...v1.52.7-nrk) (2025-09-03)
-
-**Note:** Version bump only for package playout-gateway
-
-
-
-
-
-## [1.52.6-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.4-nrk...v1.52.6-nrk) (2025-08-28)
-
-
-### Bug Fixes
-
-* use TSR with TSR-Action: Atem Macro support ([cc46834](https://github.com/Sofie-Automation/sofie-core/commit/cc468340a10a89dece88d153719a04a291b31869))
-
-
-
-
-
-## [1.52.5-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.4-nrk...v1.52.5-nrk) (2025-08-13)
-
-**Note:** Version bump only for package playout-gateway
-
-
-
-
-
-## [1.52.4-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.3-nrk...v1.52.4-nrk) (2025-08-11)
-
-
-### Bug Fixes
-
-* update mos-connection for missing mosID bug fix ([#9](https://github.com/Sofie-Automation/sofie-core/issues/9)) ([e55cb5e](https://github.com/Sofie-Automation/sofie-core/commit/e55cb5e8ebf9c66c46bce78cbae55f5731cda244))
-
-
-
-
-
-## [1.52.3-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.2-nrk...v1.52.3-nrk) (2025-08-07)
-
-**Note:** Version bump only for package playout-gateway
-
-
-
-
-
-## [1.52.2-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.1+nrk...v1.52.2-nrk) (2025-08-04)
-
-**Note:** Version bump only for package playout-gateway
-
-
-
-
-
-## [1.52.1](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.0+nrk...v1.52.1) (2025-07-07)
-
-**Note:** Version bump only for package playout-gateway
+* add health endpoints to MOS- and Playout-Gateway ([5b590dd](https://github.com/Sofie-Automation/sofie-core/commit/5b590ddbaf86ee90d338837867a4d3bfc2e11c97))
+* add object to timeline to trigger a regeneration at point in time ([ad450c3](https://github.com/Sofie-Automation/sofie-core/commit/ad450c39ceef5fcf3373905dd6a55adf4dd9cbb6))
+* enable support for tsr plugins ([51a2379](https://github.com/Sofie-Automation/sofie-core/commit/51a237969092deda4972734e04e2aea01b78fe5a))
+* move GW config types to generated in shared lib ([f54d9ca](https://github.com/Sofie-Automation/sofie-core/commit/f54d9ca63bc00a05915aac45e0be5b595c980567))
+* update meteor to 3.3.2 ([#1529](https://github.com/Sofie-Automation/sofie-core/issues/1529)) ([9bd232e](https://github.com/Sofie-Automation/sofie-core/commit/9bd232e8f0561a46db8cc6143c5353d7fa531206))
 
 
 
@@ -204,13 +78,13 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 
 
-## [1.51.8](https://github.com/nrkno/sofie-core/compare/v1.51.7...v1.51.8) (2025-06-24)
+# [1.52.0-in-testing.0](https://github.com/nrkno/sofie-core/compare/v1.51.6...v1.52.0-in-testing.0) (2025-02-04)
 
-**Note:** Version bump only for package playout-gateway
+### Features
 
-
-
-
+- meteor 3.0.4 ([8670727](https://github.com/nrkno/sofie-core/commit/8670727bba5ac9cffe0e5d36b4bd45d6664482be))
+- modify datastore in `onRundownActivate` SOFIE-3310 ([#1240](https://github.com/nrkno/sofie-core/issues/1240)) ([8a0759f](https://github.com/nrkno/sofie-core/commit/8a0759f610497e37493e8a798aa0dd13f4f57119))
+- update meteor to 3.1 and node to 22 ([61b6854](https://github.com/nrkno/sofie-core/commit/61b6854261a03f04e81416b9d37ee995e3a10108))
 
 ## [1.51.7](https://github.com/nrkno/sofie-core/compare/v1.51.6...v1.51.7) (2025-05-06)
 
@@ -225,221 +99,127 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## [1.51.6](https://github.com/nrkno/sofie-core/compare/v1.51.5...v1.51.6) (2025-01-14)
 
-
 ### Bug Fixes
 
-* **PoGw:** filter log output to ensure that message field in JSONL output is never an object ([0d2b844](https://github.com/nrkno/sofie-core/commit/0d2b84451751a859d6a3d67e0f3083c735905578))
-
-
-
-
+- **PoGw:** filter log output to ensure that message field in JSONL output is never an object ([0d2b844](https://github.com/nrkno/sofie-core/commit/0d2b84451751a859d6a3d67e0f3083c735905578))
 
 ## [1.51.5](https://github.com/nrkno/sofie-core/compare/v1.51.4...v1.51.5) (2025-01-07)
 
 **Note:** Version bump only for package playout-gateway
 
-
-
-
-
 ## [1.51.4](https://github.com/nrkno/sofie-core/compare/v1.51.3...v1.51.4) (2024-12-04)
 
 **Note:** Version bump only for package playout-gateway
 
-
-
-
-
 ## [1.51.3](https://github.com/nrkno/sofie-core/compare/v1.51.2...v1.51.3) (2024-11-21)
-
 
 ### Bug Fixes
 
-* change CMD in GHA Dockerfile ([b13ba2d](https://github.com/nrkno/sofie-core/commit/b13ba2d60afb5a95314fcd217b4e63b4b5f241fa))
-
-
-
-
+- change CMD in GHA Dockerfile ([b13ba2d](https://github.com/nrkno/sofie-core/commit/b13ba2d60afb5a95314fcd217b4e63b4b5f241fa))
 
 ## [1.51.2](https://github.com/nrkno/sofie-core/compare/v1.51.1...v1.51.2) (2024-11-21)
 
 **Note:** Version bump only for package playout-gateway
 
-
-
-
-
 ## [1.51.1](https://github.com/nrkno/sofie-core/compare/v1.51.1-2...v1.51.1) (2024-11-13)
 
 **Note:** Version bump only for package playout-gateway
 
-
-
-
-
 ## [1.51.1-2](https://github.com/nrkno/sofie-core/compare/v1.51.1-1...v1.51.1-2) (2024-10-24)
 
 **Note:** Version bump only for package playout-gateway
 
-
-
-
-
 ## [1.51.1-2](https://github.com/nrkno/sofie-core/compare/v1.51.1-1...v1.51.1-2) (2024-10-24)
 
 **Note:** Version bump only for package playout-gateway
-
-
-
-
 
 ## [1.51.1-1](https://github.com/nrkno/sofie-core/compare/v1.51.1-0...v1.51.1-1) (2024-10-18)
 
 **Note:** Version bump only for package playout-gateway
 
+## [1.51.1-0](https://github.com/nrkno/sofie-core/compare/v1.51.0...v1.51.1-0) (2024-10-18)
 
-
-
+**Note:** Version bump only for package playout-gateway
 
 ## [1.51.1-0](https://github.com/nrkno/sofie-core/compare/v1.51.0...v1.51.1-0) (2024-10-18)
 
 **Note:** Version bump only for package playout-gateway
 
-
-
-
-
-## [1.51.1-0](https://github.com/nrkno/sofie-core/compare/v1.51.0...v1.51.1-0) (2024-10-18)
-
-**Note:** Version bump only for package playout-gateway
-
-
-
-
-
 # [1.51.0](https://github.com/nrkno/sofie-core/compare/v1.51.0-in-testing.3...v1.51.0) (2024-10-07)
 
 **Note:** Version bump only for package playout-gateway
 
-
-
-
-
 # [1.51.0](https://github.com/nrkno/sofie-core/compare/v1.51.0-in-testing.3...v1.51.0) (2024-10-07)
 
 **Note:** Version bump only for package playout-gateway
-
-
-
-
 
 # [1.51.0-in-testing.3](https://github.com/nrkno/sofie-core/compare/v1.51.0-in-testing.2...v1.51.0-in-testing.3) (2024-09-25)
 
 **Note:** Version bump only for package playout-gateway
 
-
-
-
-
 # [1.51.0-in-testing.2](https://github.com/nrkno/sofie-core/compare/v1.51.0-in-testing.1...v1.51.0-in-testing.2) (2024-09-24)
 
 **Note:** Version bump only for package playout-gateway
 
+# [1.51.0-in-testing.1](https://github.com/nrkno/sofie-core/compare/v1.51.0-in-testing.0...v1.51.0-in-testing.1) (2024-09-06)
 
+### Bug Fixes
 
-
+- playout-gateway not passing datastore to tsr at startup ([82f6fb2](https://github.com/nrkno/sofie-core/commit/82f6fb2720992581f26ff18d161e787784195c95))
+- update TSR dependency (to fix timeline bug) ([746e0d2](https://github.com/nrkno/sofie-core/commit/746e0d2c822b95927172e76cbd6a4436d1a99192))
 
 # [1.51.0-in-testing.1](https://github.com/nrkno/sofie-core/compare/v1.51.0-in-testing.0...v1.51.0-in-testing.1) (2024-09-06)
 
-
 ### Bug Fixes
 
-* playout-gateway not passing datastore to tsr at startup ([82f6fb2](https://github.com/nrkno/sofie-core/commit/82f6fb2720992581f26ff18d161e787784195c95))
-* update TSR dependency (to fix timeline bug) ([746e0d2](https://github.com/nrkno/sofie-core/commit/746e0d2c822b95927172e76cbd6a4436d1a99192))
-
-
-
-
-
-# [1.51.0-in-testing.1](https://github.com/nrkno/sofie-core/compare/v1.51.0-in-testing.0...v1.51.0-in-testing.1) (2024-09-06)
-
-
-### Bug Fixes
-
-* playout-gateway not passing datastore to tsr at startup ([82f6fb2](https://github.com/nrkno/sofie-core/commit/82f6fb2720992581f26ff18d161e787784195c95))
-* update TSR dependency (to fix timeline bug) ([746e0d2](https://github.com/nrkno/sofie-core/commit/746e0d2c822b95927172e76cbd6a4436d1a99192))
-
-
-
-
+- playout-gateway not passing datastore to tsr at startup ([82f6fb2](https://github.com/nrkno/sofie-core/commit/82f6fb2720992581f26ff18d161e787784195c95))
+- update TSR dependency (to fix timeline bug) ([746e0d2](https://github.com/nrkno/sofie-core/commit/746e0d2c822b95927172e76cbd6a4436d1a99192))
 
 # [1.51.0-in-testing.0](https://github.com/nrkno/sofie-core/compare/v1.50.4...v1.51.0-in-testing.0) (2024-08-19)
 
-
 ### Features
 
-* Ensure peripheralDevice subdevice removal when requested ([#1227](https://github.com/nrkno/sofie-core/issues/1227)) ([d5cafe8](https://github.com/nrkno/sofie-core/commit/d5cafe8db5e453f87f8d46262f23e118b580d4d5))
-
-
+- Ensure peripheralDevice subdevice removal when requested ([#1227](https://github.com/nrkno/sofie-core/issues/1227)) ([d5cafe8](https://github.com/nrkno/sofie-core/commit/d5cafe8db5e453f87f8d46262f23e118b580d4d5))
 
 ## [1.50.5-LSG-updates](https://github.com/nrkno/sofie-core/compare/v1.50.4-LSG-updates...v1.50.5-LSG-updates) (2024-08-08)
 
-
-
 ## [1.50.4-LSG-updates](https://github.com/nrkno/sofie-core/compare/v1.50.3-LSG-updates...v1.50.4-LSG-updates) (2024-07-30)
-
 
 ### Bug Fixes
 
-* improve error logging: use stringifyError() ([8da63de](https://github.com/nrkno/sofie-core/commit/8da63dec44915439ea436eee9697f3774241537b))
-* include timestamp when logging to file ([#1207](https://github.com/nrkno/sofie-core/issues/1207)) ([2dcca21](https://github.com/nrkno/sofie-core/commit/2dcca215403cc0256c78f5f8f5f6befa2a1ca683))
-* **playout-gateway:** improve handling and typing of TSR events (fixes some logging issues) ([26a8613](https://github.com/nrkno/sofie-core/commit/26a8613cd64d7e077dfd7ff2092555c1b7805f4d))
-* use helper function to keep the scope of 'unsafe' code small ([c58a6de](https://github.com/nrkno/sofie-core/commit/c58a6de80597373e158316d33661ac0e8a07956a))
-
+- improve error logging: use stringifyError() ([8da63de](https://github.com/nrkno/sofie-core/commit/8da63dec44915439ea436eee9697f3774241537b))
+- include timestamp when logging to file ([#1207](https://github.com/nrkno/sofie-core/issues/1207)) ([2dcca21](https://github.com/nrkno/sofie-core/commit/2dcca215403cc0256c78f5f8f5f6befa2a1ca683))
+- **playout-gateway:** improve handling and typing of TSR events (fixes some logging issues) ([26a8613](https://github.com/nrkno/sofie-core/commit/26a8613cd64d7e077dfd7ff2092555c1b7805f4d))
+- use helper function to keep the scope of 'unsafe' code small ([c58a6de](https://github.com/nrkno/sofie-core/commit/c58a6de80597373e158316d33661ac0e8a07956a))
 
 ### Features
 
-* backport of release51 live-status-gateway onto release50 ([0a87a95](https://github.com/nrkno/sofie-core/commit/0a87a9519ca1f344429e9b4d47a44c1a9acddff2))
-* refactor server-core-integration subscription handling to reduce duplication ([8eaedd2](https://github.com/nrkno/sofie-core/commit/8eaedd22e8efb9750f00ff472301c6b3f2d0f0af))
-* typed publications in gateways/peripheraldevices SOFIE-1183 ([#1056](https://github.com/nrkno/sofie-core/issues/1056)) ([0c3c1bf](https://github.com/nrkno/sofie-core/commit/0c3c1bfd2bb779034976dc34e49aa6e664ea874b))
-
-
-
-
+- backport of release51 live-status-gateway onto release50 ([0a87a95](https://github.com/nrkno/sofie-core/commit/0a87a9519ca1f344429e9b4d47a44c1a9acddff2))
+- refactor server-core-integration subscription handling to reduce duplication ([8eaedd2](https://github.com/nrkno/sofie-core/commit/8eaedd22e8efb9750f00ff472301c6b3f2d0f0af))
+- typed publications in gateways/peripheraldevices SOFIE-1183 ([#1056](https://github.com/nrkno/sofie-core/issues/1056)) ([0c3c1bf](https://github.com/nrkno/sofie-core/commit/0c3c1bfd2bb779034976dc34e49aa6e664ea874b))
 
 # [1.51.0-in-testing.0](https://github.com/nrkno/sofie-core/compare/v1.50.4...v1.51.0-in-testing.0) (2024-08-19)
 
-
 ### Features
 
-* Ensure peripheralDevice subdevice removal when requested ([#1227](https://github.com/nrkno/sofie-core/issues/1227)) ([d5cafe8](https://github.com/nrkno/sofie-core/commit/d5cafe8db5e453f87f8d46262f23e118b580d4d5))
-
-
+- Ensure peripheralDevice subdevice removal when requested ([#1227](https://github.com/nrkno/sofie-core/issues/1227)) ([d5cafe8](https://github.com/nrkno/sofie-core/commit/d5cafe8db5e453f87f8d46262f23e118b580d4d5))
 
 ## [1.50.5-LSG-updates](https://github.com/nrkno/sofie-core/compare/v1.50.4-LSG-updates...v1.50.5-LSG-updates) (2024-08-08)
 
-
-
 ## [1.50.4-LSG-updates](https://github.com/nrkno/sofie-core/compare/v1.50.3-LSG-updates...v1.50.4-LSG-updates) (2024-07-30)
-
 
 ### Bug Fixes
 
-* improve error logging: use stringifyError() ([8da63de](https://github.com/nrkno/sofie-core/commit/8da63dec44915439ea436eee9697f3774241537b))
-* include timestamp when logging to file ([#1207](https://github.com/nrkno/sofie-core/issues/1207)) ([2dcca21](https://github.com/nrkno/sofie-core/commit/2dcca215403cc0256c78f5f8f5f6befa2a1ca683))
-* **playout-gateway:** improve handling and typing of TSR events (fixes some logging issues) ([26a8613](https://github.com/nrkno/sofie-core/commit/26a8613cd64d7e077dfd7ff2092555c1b7805f4d))
-* use helper function to keep the scope of 'unsafe' code small ([c58a6de](https://github.com/nrkno/sofie-core/commit/c58a6de80597373e158316d33661ac0e8a07956a))
-
+- improve error logging: use stringifyError() ([8da63de](https://github.com/nrkno/sofie-core/commit/8da63dec44915439ea436eee9697f3774241537b))
+- include timestamp when logging to file ([#1207](https://github.com/nrkno/sofie-core/issues/1207)) ([2dcca21](https://github.com/nrkno/sofie-core/commit/2dcca215403cc0256c78f5f8f5f6befa2a1ca683))
+- **playout-gateway:** improve handling and typing of TSR events (fixes some logging issues) ([26a8613](https://github.com/nrkno/sofie-core/commit/26a8613cd64d7e077dfd7ff2092555c1b7805f4d))
+- use helper function to keep the scope of 'unsafe' code small ([c58a6de](https://github.com/nrkno/sofie-core/commit/c58a6de80597373e158316d33661ac0e8a07956a))
 
 ### Features
 
-* backport of release51 live-status-gateway onto release50 ([0a87a95](https://github.com/nrkno/sofie-core/commit/0a87a9519ca1f344429e9b4d47a44c1a9acddff2))
-* refactor server-core-integration subscription handling to reduce duplication ([8eaedd2](https://github.com/nrkno/sofie-core/commit/8eaedd22e8efb9750f00ff472301c6b3f2d0f0af))
-* typed publications in gateways/peripheraldevices SOFIE-1183 ([#1056](https://github.com/nrkno/sofie-core/issues/1056)) ([0c3c1bf](https://github.com/nrkno/sofie-core/commit/0c3c1bfd2bb779034976dc34e49aa6e664ea874b))
-
-
-
-
+- backport of release51 live-status-gateway onto release50 ([0a87a95](https://github.com/nrkno/sofie-core/commit/0a87a9519ca1f344429e9b4d47a44c1a9acddff2))
+- refactor server-core-integration subscription handling to reduce duplication ([8eaedd2](https://github.com/nrkno/sofie-core/commit/8eaedd22e8efb9750f00ff472301c6b3f2d0f0af))
+- typed publications in gateways/peripheraldevices SOFIE-1183 ([#1056](https://github.com/nrkno/sofie-core/issues/1056)) ([0c3c1bf](https://github.com/nrkno/sofie-core/commit/0c3c1bfd2bb779034976dc34e49aa6e664ea874b))
 
 ## [1.50.5](https://github.com/nrkno/tv-automation-server-core/compare/v1.50.4...v1.50.5) (2024-09-19)
 
@@ -447,140 +227,85 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 **Note:** Version bump only for package playout-gateway
 
-
-
-
-
 ## [1.50.4](https://github.com/nrkno/tv-automation-server-core/compare/v1.50.3-LSG-updates...v1.50.4) (2024-07-30)
-
 
 ### Bug Fixes
 
-* improve error logging: use stringifyError() ([8da63de](https://github.com/nrkno/tv-automation-server-core/commit/8da63dec44915439ea436eee9697f3774241537b))
-
-
-
-
+- improve error logging: use stringifyError() ([8da63de](https://github.com/nrkno/tv-automation-server-core/commit/8da63dec44915439ea436eee9697f3774241537b))
 
 ## [1.50.3](https://github.com/nrkno/tv-automation-server-core/compare/v1.50.2...v1.50.3) (2024-06-24)
 
 **Note:** Version bump only for package playout-gateway
 
-
-
-
-
 ## [1.50.2](https://github.com/nrkno/tv-automation-server-core/compare/v1.49.6...v1.50.2) (2024-05-15)
-
-
 
 ## [1.50.1](https://github.com/nrkno/tv-automation-server-core/compare/v1.49.5-0...v1.50.1) (2024-03-11)
 
-
 ### Bug Fixes
 
-* strip unused node dependencies from docker images ([#1159](https://github.com/nrkno/tv-automation-server-core/issues/1159)) ([6d86132](https://github.com/nrkno/tv-automation-server-core/commit/6d86132c1bc36219f04f00d5360940dfcbd6df7c))
-
-
+- strip unused node dependencies from docker images ([#1159](https://github.com/nrkno/tv-automation-server-core/issues/1159)) ([6d86132](https://github.com/nrkno/tv-automation-server-core/commit/6d86132c1bc36219f04f00d5360940dfcbd6df7c))
 
 ## [1.50.1-0](https://github.com/nrkno/tv-automation-server-core/compare/v1.50.0...v1.50.1-0) (2024-03-05)
 
-
-
 # [1.50.0](https://github.com/nrkno/tv-automation-server-core/compare/v1.49.4...v1.50.0) (2024-02-23)
-
 
 ### Bug Fixes
 
-* improve disposal of core connection ([dc52fe5](https://github.com/nrkno/tv-automation-server-core/commit/dc52fe5b362e308f157e5009b0f8359ba6c63630))
-* playout device config changes not being detected ([a28eae9](https://github.com/nrkno/tv-automation-server-core/commit/a28eae9f78f1aeb59316c2fb450b9da4e79213a9))
-* update tsr ([673e631](https://github.com/nrkno/tv-automation-server-core/commit/673e6313a30459ce1f8519f06df40b1b7363a7af))
-
+- improve disposal of core connection ([dc52fe5](https://github.com/nrkno/tv-automation-server-core/commit/dc52fe5b362e308f157e5009b0f8359ba6c63630))
+- playout device config changes not being detected ([a28eae9](https://github.com/nrkno/tv-automation-server-core/commit/a28eae9f78f1aeb59316c2fb450b9da4e79213a9))
+- update tsr ([673e631](https://github.com/nrkno/tv-automation-server-core/commit/673e6313a30459ce1f8519f06df40b1b7363a7af))
 
 ### Reverts
 
-* Revert "chore: improve logging" ([c2f4a11](https://github.com/nrkno/tv-automation-server-core/commit/c2f4a111bfeaf90ee9387c21184262354b9b60af))
-
-
+- Revert "chore: improve logging" ([c2f4a11](https://github.com/nrkno/tv-automation-server-core/commit/c2f4a111bfeaf90ee9387c21184262354b9b60af))
 
 # [1.50.0-in-testing.5](https://github.com/nrkno/tv-automation-server-core/compare/v1.50.0-in-testing.4...v1.50.0-in-testing.5) (2023-08-25)
 
-
-
 # [1.50.0-in-testing.4](https://github.com/nrkno/tv-automation-server-core/compare/v1.49.0-in-testing.7...v1.50.0-in-testing.4) (2023-08-23)
-
-
 
 # [1.50.0-in-testing.2](https://github.com/nrkno/tv-automation-server-core/compare/v1.50.0-in-testing.1...v1.50.0-in-testing.2) (2023-07-17)
 
-
 ### Features
 
-* bumps nightly tsr and types ([77f0bf2](https://github.com/nrkno/tv-automation-server-core/commit/77f0bf2efe569ea7cc348f981c3f17e55273c6e4))
-* move gateway settings onto Studio SOFIE-1330 ([#907](https://github.com/nrkno/tv-automation-server-core/issues/907)) ([523c061](https://github.com/nrkno/tv-automation-server-core/commit/523c061c51296e21814deeeabbe9aafca21cd5a6))
-* peripheral device tidying ([#906](https://github.com/nrkno/tv-automation-server-core/issues/906)) ([0795ae5](https://github.com/nrkno/tv-automation-server-core/commit/0795ae5c0517114a34e350d5a5afbf7a731e9794))
-* trs actions in blueprints rundown hooks ([bb5e442](https://github.com/nrkno/tv-automation-server-core/commit/bb5e4422fa32e1af1e520e0c288360b304da4289))
-
-
-
-
+- bumps nightly tsr and types ([77f0bf2](https://github.com/nrkno/tv-automation-server-core/commit/77f0bf2efe569ea7cc348f981c3f17e55273c6e4))
+- move gateway settings onto Studio SOFIE-1330 ([#907](https://github.com/nrkno/tv-automation-server-core/issues/907)) ([523c061](https://github.com/nrkno/tv-automation-server-core/commit/523c061c51296e21814deeeabbe9aafca21cd5a6))
+- peripheral device tidying ([#906](https://github.com/nrkno/tv-automation-server-core/issues/906)) ([0795ae5](https://github.com/nrkno/tv-automation-server-core/commit/0795ae5c0517114a34e350d5a5afbf7a731e9794))
+- trs actions in blueprints rundown hooks ([bb5e442](https://github.com/nrkno/tv-automation-server-core/commit/bb5e4422fa32e1af1e520e0c288360b304da4289))
 
 ## [1.50.1](https://github.com/nrkno/tv-automation-server-core/compare/v1.50.1-0...v1.50.1) (2024-03-11)
 
-
 ### Bug Fixes
 
-* strip unused node dependencies from docker images ([#1159](https://github.com/nrkno/tv-automation-server-core/issues/1159)) ([6d86132](https://github.com/nrkno/tv-automation-server-core/commit/6d86132c1bc36219f04f00d5360940dfcbd6df7c))
-
-
-
-
+- strip unused node dependencies from docker images ([#1159](https://github.com/nrkno/tv-automation-server-core/issues/1159)) ([6d86132](https://github.com/nrkno/tv-automation-server-core/commit/6d86132c1bc36219f04f00d5360940dfcbd6df7c))
 
 ## [1.50.1-0](https://github.com/nrkno/tv-automation-server-core/compare/v1.50.0...v1.50.1-0) (2024-03-05)
 
 **Note:** Version bump only for package playout-gateway
 
-
-
-
-
 # [1.50.0](https://github.com/nrkno/tv-automation-server-core/compare/v1.49.4...v1.50.0) (2024-02-23)
-
 
 ### Bug Fixes
 
-* improve disposal of core connection ([dc52fe5](https://github.com/nrkno/tv-automation-server-core/commit/dc52fe5b362e308f157e5009b0f8359ba6c63630))
-* playout device config changes not being detected ([a28eae9](https://github.com/nrkno/tv-automation-server-core/commit/a28eae9f78f1aeb59316c2fb450b9da4e79213a9))
-* update tsr ([673e631](https://github.com/nrkno/tv-automation-server-core/commit/673e6313a30459ce1f8519f06df40b1b7363a7af))
-
+- improve disposal of core connection ([dc52fe5](https://github.com/nrkno/tv-automation-server-core/commit/dc52fe5b362e308f157e5009b0f8359ba6c63630))
+- playout device config changes not being detected ([a28eae9](https://github.com/nrkno/tv-automation-server-core/commit/a28eae9f78f1aeb59316c2fb450b9da4e79213a9))
+- update tsr ([673e631](https://github.com/nrkno/tv-automation-server-core/commit/673e6313a30459ce1f8519f06df40b1b7363a7af))
 
 ### Reverts
 
-* Revert "chore: improve logging" ([c2f4a11](https://github.com/nrkno/tv-automation-server-core/commit/c2f4a111bfeaf90ee9387c21184262354b9b60af))
-
-
+- Revert "chore: improve logging" ([c2f4a11](https://github.com/nrkno/tv-automation-server-core/commit/c2f4a111bfeaf90ee9387c21184262354b9b60af))
 
 # [1.50.0-in-testing.5](https://github.com/nrkno/tv-automation-server-core/compare/v1.50.0-in-testing.4...v1.50.0-in-testing.5) (2023-08-25)
 
-
-
 # [1.50.0-in-testing.4](https://github.com/nrkno/tv-automation-server-core/compare/v1.49.0-in-testing.7...v1.50.0-in-testing.4) (2023-08-23)
-
-
 
 # [1.50.0-in-testing.2](https://github.com/nrkno/tv-automation-server-core/compare/v1.50.0-in-testing.1...v1.50.0-in-testing.2) (2023-07-17)
 
-
 ### Features
 
-* bumps nightly tsr and types ([77f0bf2](https://github.com/nrkno/tv-automation-server-core/commit/77f0bf2efe569ea7cc348f981c3f17e55273c6e4))
-* move gateway settings onto Studio SOFIE-1330 ([#907](https://github.com/nrkno/tv-automation-server-core/issues/907)) ([523c061](https://github.com/nrkno/tv-automation-server-core/commit/523c061c51296e21814deeeabbe9aafca21cd5a6))
-* peripheral device tidying ([#906](https://github.com/nrkno/tv-automation-server-core/issues/906)) ([0795ae5](https://github.com/nrkno/tv-automation-server-core/commit/0795ae5c0517114a34e350d5a5afbf7a731e9794))
-* trs actions in blueprints rundown hooks ([bb5e442](https://github.com/nrkno/tv-automation-server-core/commit/bb5e4422fa32e1af1e520e0c288360b304da4289))
-
-
-
-
+- bumps nightly tsr and types ([77f0bf2](https://github.com/nrkno/tv-automation-server-core/commit/77f0bf2efe569ea7cc348f981c3f17e55273c6e4))
+- move gateway settings onto Studio SOFIE-1330 ([#907](https://github.com/nrkno/tv-automation-server-core/issues/907)) ([523c061](https://github.com/nrkno/tv-automation-server-core/commit/523c061c51296e21814deeeabbe9aafca21cd5a6))
+- peripheral device tidying ([#906](https://github.com/nrkno/tv-automation-server-core/issues/906)) ([0795ae5](https://github.com/nrkno/tv-automation-server-core/commit/0795ae5c0517114a34e350d5a5afbf7a731e9794))
+- trs actions in blueprints rundown hooks ([bb5e442](https://github.com/nrkno/tv-automation-server-core/commit/bb5e4422fa32e1af1e520e0c288360b304da4289))
 
 # [1.50.0-in-testing.5](https://github.com/nrkno/tv-automation-server-core/compare/v1.50.0-in-testing.4...v1.50.0-in-testing.5) (2023-08-25)
 
@@ -612,22 +337,13 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## [1.49.3](https://github.com/nrkno/tv-automation-server-core/compare/v1.49.2...v1.49.3) (2023-12-21)
 
-
 ### Bug Fixes
 
-* suppress quantel disconnection warnings temporarily ([f9c1dae](https://github.com/nrkno/tv-automation-server-core/commit/f9c1dae2fcc346cb2c10d89ccf1a812aec6d0bc0))
-
-
-
-
+- suppress quantel disconnection warnings temporarily ([f9c1dae](https://github.com/nrkno/tv-automation-server-core/commit/f9c1dae2fcc346cb2c10d89ccf1a812aec6d0bc0))
 
 ## [1.49.2](https://github.com/nrkno/tv-automation-server-core/compare/v1.49.1...v1.49.2) (2023-11-29)
 
 **Note:** Version bump only for package playout-gateway
-
-
-
-
 
 ## [1.49.1](https://github.com/nrkno/tv-automation-server-core/compare/v1.49.0...v1.49.1) (2023-10-20)
 

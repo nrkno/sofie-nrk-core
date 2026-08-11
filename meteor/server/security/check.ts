@@ -1,6 +1,6 @@
 import { PeripheralDeviceId, RundownId, RundownPlaylistId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { Meteor } from 'meteor/meteor'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import { DBRundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
 import { assertConnectionHasOneOfPermissions, RequestCredentials } from './auth'
 import { PeripheralDevices, RundownPlaylists, Rundowns } from '../collections'
@@ -24,18 +24,14 @@ export async function checkAccessToPlaylist(
 		projection: {
 			_id: 1,
 			studioId: 1,
-			organizationId: 1,
 			name: 1,
 		},
-	})) as Pick<DBRundownPlaylist, '_id' | 'studioId' | 'organizationId' | 'name'> | undefined
+	})) as Pick<DBRundownPlaylist, '_id' | 'studioId' | 'name'> | undefined
 	if (!playlist) throw new Meteor.Error(404, `RundownPlaylist "${playlistId}" not found`)
 
 	return playlist
 }
-export type VerifiedRundownPlaylistForUserAction = Pick<
-	DBRundownPlaylist,
-	'_id' | 'studioId' | 'organizationId' | 'name'
->
+export type VerifiedRundownPlaylistForUserAction = Pick<DBRundownPlaylist, '_id' | 'studioId' | 'name'>
 
 /**
  * Check that the current user has write access to the specified rundown, and ensure that the rundown exists

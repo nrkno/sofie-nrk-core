@@ -1,10 +1,10 @@
 import { RundownId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { DBPart } from '@sofie-automation/corelib/dist/dataModel/Part'
 import { DBPartInstance } from '@sofie-automation/corelib/dist/dataModel/PartInstance'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import { DBSegment } from '@sofie-automation/corelib/dist/dataModel/Segment'
 import { sortPartsInSortedSegments } from '@sofie-automation/corelib/dist/playout/playlist'
-import { JobContext } from '../../jobs'
+import { JobContext } from '../../jobs/index.js'
 
 export async function getSelectedPartInstances(
 	context: JobContext,
@@ -16,13 +16,13 @@ export async function getSelectedPartInstances(
 }> {
 	const [currentPartInstance, nextPartInstance, previousPartInstance] = await Promise.all([
 		playlist.currentPartInfo
-			? await context.directCollections.PartInstances.findOne(playlist.currentPartInfo.partInstanceId)
+			? context.directCollections.PartInstances.findOne(playlist.currentPartInfo.partInstanceId)
 			: null,
 		playlist.nextPartInfo
-			? await context.directCollections.PartInstances.findOne(playlist.nextPartInfo.partInstanceId)
+			? context.directCollections.PartInstances.findOne(playlist.nextPartInfo.partInstanceId)
 			: null,
 		playlist.previousPartInfo
-			? await context.directCollections.PartInstances.findOne(playlist.previousPartInfo.partInstanceId)
+			? context.directCollections.PartInstances.findOne(playlist.previousPartInfo.partInstanceId)
 			: null,
 	])
 

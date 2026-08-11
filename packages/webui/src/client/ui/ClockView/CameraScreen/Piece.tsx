@@ -1,10 +1,11 @@
 import React, { useContext, useMemo } from 'react'
-import { PartId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import type { PartId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import classNames from 'classnames'
-import { CanvasSizeContext } from '.'
-import { PieceExtended } from '../../../lib/RundownResolver'
-import { PieceElement } from '../../SegmentContainer/PieceElement'
-import { getSplitItems } from '../../SegmentContainer/getSplitItems'
+import { CanvasSizeContext } from './index.js'
+import { PieceElement } from '../../SegmentContainer/PieceElement.js'
+import { getSplitItems } from '../../SegmentContainer/getSplitItems.js'
+import { useContentStatusForPieceInstance } from '../../SegmentTimeline/withMediaObjectStatus.js'
+import type { PieceExtended } from '@sofie-automation/corelib/src/dataModel/Piece.js'
 
 const PIECE_TYPE_INDICATOR_BORDER_RADIUS = 11
 
@@ -24,6 +25,7 @@ export const Piece = React.memo(function Piece({
 	isLive: boolean
 }): JSX.Element | null {
 	const canvasWidth = useContext(CanvasSizeContext)
+	const contentStatus = useContentStatusForPieceInstance(piece.instance)
 
 	const indicatorPadding = -1 * PIECE_TYPE_INDICATOR_BORDER_RADIUS
 	let pixelLeft = Math.max(indicatorPadding, left * zoom) + PIECE_TYPE_INDICATOR_BORDER_RADIUS
@@ -40,11 +42,11 @@ export const Piece = React.memo(function Piece({
 				? {
 						width: `100%`,
 						transform: `translate(${pixelLeft}px, 0)`,
-				  }
+					}
 				: {
 						width: `${pixelWidth}px`,
 						transform: `translate(${pixelLeft}px, 0)`,
-				  },
+					},
 		[width, pixelLeft, pixelWidth]
 	)
 
@@ -58,7 +60,7 @@ export const Piece = React.memo(function Piece({
 					partId={partId}
 					style={style}
 				>
-					{getSplitItems(piece, 'camera-screen__piece-sub-background')}
+					{getSplitItems(piece, 'camera-screen__piece-sub-background', contentStatus?.boxPreviews)}
 				</PieceElement>
 			) : null}
 			<PieceElement
@@ -67,7 +69,7 @@ export const Piece = React.memo(function Piece({
 				layer={piece.sourceLayer}
 				piece={piece}
 			>
-				{getSplitItems(piece, 'camera-screen__piece-type-indicator-sub-background')}
+				{getSplitItems(piece, 'camera-screen__piece-type-indicator-sub-background', contentStatus?.boxPreviews)}
 			</PieceElement>
 			<div className="camera-screen__piece-label">{piece.instance.piece.name}</div>
 		</div>

@@ -12,12 +12,12 @@ import {
 	IBlueprintSegment,
 	ISegmentUserContext,
 	IShowStyleContext,
-	IStudioSettings,
 	IngestSegment,
 	PlaylistTimingType,
 	ShowStyleBlueprintManifest,
 	StudioBlueprintManifest,
 } from '@sofie-automation/blueprints-integration'
+import type { IStudioSettings } from '@sofie-automation/shared-lib/dist/core/model/StudioSettings'
 import {
 	RundownId,
 	RundownPlaylistId,
@@ -30,16 +30,16 @@ import { clone } from '@sofie-automation/corelib/dist/lib'
 import { protectString } from '@sofie-automation/corelib/dist/protectedString'
 import { EventsJobFunc } from '@sofie-automation/corelib/dist/worker/events'
 import { IngestJobFunc } from '@sofie-automation/corelib/dist/worker/ingest'
-import { StudioJobFunc } from '@sofie-automation/corelib/dist/worker/studio'
+import { StudioJobFunc, StudioJobs } from '@sofie-automation/corelib/dist/worker/studio'
 import { ReadonlyDeep } from 'type-fest'
-import { WrappedShowStyleBlueprint, WrappedStudioBlueprint } from '../blueprints/cache'
+import { WrappedShowStyleBlueprint, WrappedStudioBlueprint } from '../blueprints/cache.js'
 import {
 	ProcessedShowStyleConfig,
 	ProcessedStudioConfig,
 	preprocessShowStyleConfig,
 	preprocessStudioConfig,
-} from '../blueprints/config'
-import { IDirectCollections } from '../db'
+} from '../blueprints/config.js'
+import { IDirectCollections } from '../db/index.js'
 import {
 	ApmSpan,
 	JobContext,
@@ -47,18 +47,19 @@ import {
 	ProcessedShowStyleBase,
 	ProcessedShowStyleCompound,
 	ProcessedShowStyleVariant,
-} from '../jobs'
-import { PlaylistLock, RundownLock } from '../jobs/lock'
-import { BaseModel } from '../modelBase'
-import { createShowStyleCompound } from '../showStyles'
-import { IMockCollections, getMockCollections } from './collection'
-// import _ = require('underscore')
+	QueueJobOptions,
+} from '../jobs/index.js'
+import { PlaylistLock, RundownLock } from '../jobs/lock.js'
+import { BaseModel } from '../modelBase.js'
+import { createShowStyleCompound } from '../showStyles.js'
+import { IMockCollections, getMockCollections } from './collection.js'
+// import _ from 'underscore'
 import { TimelineComplete } from '@sofie-automation/corelib/dist/dataModel/Timeline'
 import { JSONBlobStringify } from '@sofie-automation/shared-lib/dist/lib/JSONBlob'
-import { removeRundownPlaylistFromDb } from '../ingest/__tests__/lib'
-import { processShowStyleBase, processShowStyleVariant } from '../jobs/showStyle'
-import { defaultStudio } from './defaultCollectionObjects'
-import { convertStudioToJobStudio } from '../jobs/studio'
+import { removeRundownPlaylistFromDb } from '../ingest/__tests__/lib.js'
+import { processShowStyleBase, processShowStyleVariant } from '../jobs/showStyle.js'
+import { defaultStudio } from './defaultCollectionObjects.js'
+import { convertStudioToJobStudio } from '../jobs/studio.js'
 
 export function setupDefaultJobEnvironment(
 	studioId?: StudioId,
@@ -167,9 +168,14 @@ export class MockJobContext implements JobContext {
 		throw new Error('Method not implemented.')
 	}
 	async queueStudioJob<T extends keyof StudioJobFunc>(
-		_name: T,
-		_data: Parameters<StudioJobFunc[T]>[0]
+		name: T,
+		_data: Parameters<StudioJobFunc[T]>[0],
+		_options?: QueueJobOptions
 	): Promise<void> {
+		// Silently ignore the cleanup job - it's a background task that doesn't need to run in tests
+		if (name === StudioJobs.CleanupOrphanedExpectedPackageReferences) {
+			return
+		}
 		throw new Error('Method not implemented.')
 	}
 	async queueEventJob<T extends keyof EventsJobFunc>(
@@ -370,6 +376,7 @@ const MockShowStyleBlueprint: () => ShowStyleBlueprintManifest = () => ({
 			rundown,
 			globalAdLibPieces: [],
 			globalActions: [],
+			globalPieces: [],
 			baseline: { timelineObjects: [] },
 		}
 	},

@@ -1,7 +1,7 @@
-import { ISourceLayerItemProps, SourceLayerItem } from './SourceLayerItem'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
-import { useContentStatusForPieceInstance } from './withMediaObjectStatus'
-import { UIStudio } from '@sofie-automation/meteor-lib/dist/api/studios'
+import { type ISourceLayerItemProps, SourceLayerItem } from './SourceLayerItem.js'
+import type { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
+import { useContentStatusForPieceInstance } from './withMediaObjectStatus.js'
+import type { UIStudio } from '@sofie-automation/corelib/src/dataModel/Studio.js'
 
 interface IPropsHeader extends Omit<ISourceLayerItemProps, 'contentStatus'> {
 	playlist: DBRundownPlaylist

@@ -1,11 +1,14 @@
-import { IngestPart, IngestPlaylist, IngestRundown, IngestSegment } from './ingest'
+import { IngestPart, IngestPlaylist, IngestRundown, IngestSegment } from './ingest.js'
 
 export interface SofieIngestPlaylist extends IngestPlaylist {
 	/** Ingest cache of rundowns in this playlist. */
 	rundowns: SofieIngestRundown[]
 }
-export interface SofieIngestRundown<TRundownPayload = unknown, TSegmentPayload = unknown, TPartPayload = unknown>
-	extends IngestRundown<TRundownPayload, TSegmentPayload, TPartPayload> {
+export interface SofieIngestRundown<
+	TRundownPayload = unknown,
+	TSegmentPayload = unknown,
+	TPartPayload = unknown,
+> extends IngestRundown<TRundownPayload, TSegmentPayload, TPartPayload> {
 	/** Array of segments in this rundown */
 	segments: SofieIngestSegment<TSegmentPayload, TPartPayload>[]
 
@@ -19,8 +22,10 @@ export interface SofieIngestRundown<TRundownPayload = unknown, TSegmentPayload =
 	 */
 	userEditStates: Record<string, boolean>
 }
-export interface SofieIngestSegment<TSegmentPayload = unknown, TPartPayload = unknown>
-	extends IngestSegment<TSegmentPayload, TPartPayload> {
+export interface SofieIngestSegment<TSegmentPayload = unknown, TPartPayload = unknown> extends IngestSegment<
+	TSegmentPayload,
+	TPartPayload
+> {
 	/** Array of parts in this segment */
 	parts: SofieIngestPart<TPartPayload>[]
 

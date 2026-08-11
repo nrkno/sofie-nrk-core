@@ -1,16 +1,18 @@
-import { PieceUi } from './SegmentTimelineContainer'
-import { RundownUtils } from '../../lib/rundown'
-import { IAdLibListItem } from '../Shelf/AdLibListItem'
-import { BucketAdLibUi, BucketAdLibActionUi } from '../Shelf/RundownViewBuckets'
-import { AdLibPieceUi } from '../../lib/shelf'
-import { UIBucketContentStatuses, UIPieceContentStatuses } from '../Collections'
-import { Piece } from '@sofie-automation/corelib/dist/dataModel/Piece'
-import { PieceContentStatusObj } from '@sofie-automation/meteor-lib/dist/api/pieceContentStatus'
-import { useTracker } from '../../lib/ReactMeteorData/ReactMeteorData'
-import { PieceInstance } from '@sofie-automation/corelib/dist/dataModel/PieceInstance'
-import { UIBucketContentStatus, UIPieceContentStatus } from '@sofie-automation/meteor-lib/dist/api/rundownNotifications'
-import { AdLibPiece } from '@sofie-automation/corelib/dist/dataModel/AdLibPiece'
-import { ReadonlyDeep } from 'type-fest'
+import { RundownUtils } from '../../lib/rundown.js'
+import type { IAdLibListItem } from '../Shelf/AdLibListItem.js'
+import type { BucketAdLibUi, BucketAdLibActionUi } from '../Shelf/RundownViewBuckets.js'
+import type { AdLibPieceUi } from '../../lib/shelf.js'
+import { UIBucketContentStatuses, UIPieceContentStatuses } from '../Collections.js'
+import type { Piece, PieceUi } from '@sofie-automation/corelib/dist/dataModel/Piece'
+import type {
+	PieceContentStatusObj,
+	UIPieceContentStatus,
+} from '@sofie-automation/corelib/dist/dataModel/PieceContentStatus'
+import { useTracker } from '../../lib/ReactMeteorData/ReactMeteorData.js'
+import type { PieceInstance } from '@sofie-automation/corelib/dist/dataModel/PieceInstance'
+import type { UIBucketContentStatus } from '@sofie-automation/meteor-lib/dist/api/rundownNotifications'
+import type { AdLibPiece } from '@sofie-automation/corelib/dist/dataModel/AdLibPiece'
+import type { ReadonlyDeep } from 'type-fest'
 
 function unwrapPieceInstance(piece: BucketAdLibUi | IAdLibListItem | AdLibPieceUi | PieceUi | BucketAdLibActionUi) {
 	if (RundownUtils.isPieceInstance(piece)) {
@@ -63,7 +65,7 @@ export function useContentStatusForAdlibPiece(
 				? UIPieceContentStatuses.findOne({
 						pieceId: piece._id,
 						rundownId: piece.rundownId || { $exists: false },
-				  })?.status
+					})?.status
 				: undefined,
 		[piece?._id, piece?.rundownId]
 	)
@@ -79,7 +81,7 @@ export function useContentStatusForPiece(
 						pieceId: piece._id,
 						rundownId: piece.startRundownId || { $exists: false },
 						segmentId: piece.startSegmentId || { $exists: false },
-				  })?.status
+					})?.status
 				: undefined,
 		[piece?._id, piece?.startRundownId, piece?.startSegmentId]
 	)

@@ -1,7 +1,7 @@
-import { ExpectedPackage } from './package'
-import { SomeContent } from './content'
-import { ITranslatableMessage } from './translations'
-import { ExpectedPlayoutItemGeneric } from './documents'
+import { ExpectedPackage } from './package.js'
+import { SomeContent } from './content.js'
+import { ITranslatableMessage } from './translations.js'
+import { ExpectedPlayoutItemGeneric } from './documents/index.js'
 import { JSONBlob } from '@sofie-automation/shared-lib/dist/lib/JSONBlob'
 import { JSONSchema } from '@sofie-automation/shared-lib/dist/lib/JSONSchemaTypes'
 
@@ -96,6 +96,9 @@ export interface IBlueprintActionManifest<TPrivateData = unknown, TPublicData = 
 	 * Note: Only valid for items returned from getSegment
 	 */
 	partId?: string
+
+	/** When something bad has happened, we can mark the action as invalid, which will prevent the user from executing it */
+	invalid?: boolean
 
 	/**
 	 * Set to true if ad-lib action should can be used in any showstyle-variant. Default: false = only used by the current variant.

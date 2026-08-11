@@ -12,7 +12,7 @@
 		--pointer: 'no-pointer';
 	}
 
-	#render-target > .container-fluid > .rundown-view {
+	#render-target > .container-fluid-custom > .rundown-view {
 		background: #000;
 
 		> .rundown-view__label {
@@ -54,12 +54,12 @@
 		}
 	}
 
-	#render-target > .container-fluid > .rundown-view__shelf.dark.full-viewport > .rundown-view__shelf__contents {
+	#render-target > .container-fluid-custom > .rundown-view__shelf.dark.full-viewport > .rundown-view__shelf__contents {
 		background: #000;
 	}
 
 	#render-target
-		> .container-fluid
+		> .container-fluid-custom
 		> .rundown-view__shelf.dark.full-viewport
 		> .rundown-view__shelf__contents
 		> .rundown-view__shelf__contents__pane {
@@ -113,8 +113,8 @@
 					max-height: 100%;
 					overflow: hidden;
 
-					> .dashboard-panel__panel__button,
-					> span > .dashboard-panel__panel__button {
+					> .dashboard-panel__panel__button-wrapper > .dashboard-panel__panel__button,
+					> span > .dashboard-panel__panel__button-wrapper > .dashboard-panel__panel__button {
 						> .dashboard-panel__panel__button__label {
 							top: 4px;
 						}
@@ -125,14 +125,9 @@
 				}
 			}
 		}
-
-		> .buckets {
-			> .dashboard-panel__panel--bucket {
-			}
-		}
 	}
 
-	#render-target .container-fluid .notification-pop-ups {
+	#render-target .container-fluid-custom .notification-pop-ups {
 		display: none;
 	}
 
@@ -144,7 +139,7 @@
 /** Stream Deck Original */
 @media screen and (width: 360px) and (height: 216px), (height: 218px) {
 	#render-target
-		> .container-fluid
+		> .container-fluid-custom
 		> .rundown-view__shelf.dark.full-viewport
 		> .rundown-view__shelf__contents
 		> .rundown-view__shelf__contents__pane {
@@ -155,12 +150,23 @@
 			--dashboard-panel-margin-width: 0em;
 			--dashboard-panel-margin-height: 0em;
 
-			.dashboard-panel > .dashboard-panel__panel > .dashboard-panel__panel__button,
-			.dashboard-panel > .dashboard-panel__panel > span > .dashboard-panel__panel__button {
+			.dashboard-panel
+				> .dashboard-panel__panel
+				> .dashboard-panel__panel__button-wrapper
+				> .dashboard-panel__panel__button,
+			.dashboard-panel
+				> .dashboard-panel__panel
+				> span
+				> .dashboard-panel__panel__button-wrapper
+				> .dashboard-panel__panel__button {
 				width: 71px;
 				height: 71px;
-				margin: 0px 1px 1px 0px;
 				font-size: 13px;
+			}
+
+			.dashboard-panel > .dashboard-panel__panel > .dashboard-panel__panel__button-wrapper,
+			.dashboard-panel > .dashboard-panel__panel > span > .dashboard-panel__panel__button-wrapper {
+				margin: 0px 1px 1px 0px;
 			}
 		}
 	}
@@ -169,7 +175,7 @@
 /** Stream Deck XL */
 @media screen and (width: 768px) and (height: 384px) {
 	#render-target
-		> .container-fluid
+		> .container-fluid-custom
 		> .rundown-view__shelf.dark.full-viewport
 		> .rundown-view__shelf__contents
 		> .rundown-view__shelf__contents__pane {
@@ -180,12 +186,23 @@
 			--dashboard-panel-margin-width: 0em;
 			--dashboard-panel-margin-height: 0em;
 
-			.dashboard-panel > .dashboard-panel__panel > .dashboard-panel__panel__button,
-			.dashboard-panel > .dashboard-panel__panel > span > .dashboard-panel__panel__button {
+			.dashboard-panel
+				> .dashboard-panel__panel
+				> .dashboard-panel__panel__button-wrapper
+				> .dashboard-panel__panel__button,
+			.dashboard-panel
+				> .dashboard-panel__panel
+				> span
+				> .dashboard-panel__panel__button-wrapper
+				> .dashboard-panel__panel__button {
 				width: 95px;
 				height: 95px;
-				margin: 0px 1px 1px 0px;
 				font-size: 15px;
+			}
+
+			.dashboard-panel > .dashboard-panel__panel > .dashboard-panel__panel__button-wrapper,
+			.dashboard-panel > .dashboard-panel__panel > span > .dashboard-panel__panel__button-wrapper {
+				margin: 0px 1px 1px 0px;
 			}
 		}
 	}
@@ -194,7 +211,7 @@
 /** Stream Deck Mini */
 @media screen and (width: 240px) and (height: 160px) {
 	#render-target
-		> .container-fluid
+		> .container-fluid-custom
 		> .rundown-view__shelf.dark.full-viewport
 		> .rundown-view__shelf__contents
 		> .rundown-view__shelf__contents__pane {
@@ -205,12 +222,23 @@
 			--dashboard-panel-margin-width: 0em;
 			--dashboard-panel-margin-height: 0em;
 
-			.dashboard-panel > .dashboard-panel__panel > .dashboard-panel__panel__button,
-			.dashboard-panel > .dashboard-panel__panel > span > .dashboard-panel__panel__button {
+			.dashboard-panel
+				> .dashboard-panel__panel
+				> .dashboard-panel__panel__button-wrapper
+				> .dashboard-panel__panel__button,
+			.dashboard-panel
+				> .dashboard-panel__panel
+				> span
+				> .dashboard-panel__panel__button-wrapper
+				> .dashboard-panel__panel__button {
 				width: 79px;
 				height: 79px;
-				margin: 0px 1px 1px 0px;
 				font-size: 13px;
+			}
+
+			.dashboard-panel > .dashboard-panel__panel > .dashboard-panel__panel__button-wrapper,
+			.dashboard-panel > .dashboard-panel__panel > span > .dashboard-panel__panel__button-wrapper {
+				margin: 0px 1px 1px 0px;
 			}
 		}
 	}

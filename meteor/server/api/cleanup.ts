@@ -2,20 +2,20 @@ import { ProtectedString } from '@sofie-automation/shared-lib/dist/lib/protected
 import { getCurrentTime } from '../lib/lib'
 import { CollectionCleanupResult } from '@sofie-automation/meteor-lib/dist/api/system'
 import { MongoQuery } from '@sofie-automation/corelib/dist/mongo'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import {
 	getActiveRundownPlaylistsInStudioFromDb,
 	getExpiredRemovedPackageInfos,
 	getOrphanedPackageInfos,
 	removePackageInfos,
 } from './studio/lib'
-import { Settings } from '../Settings'
+import { getCoreSystemAsync } from '../coreSystem/collection'
+import { applyAndValidateOverrides } from '@sofie-automation/corelib/dist/settings/objectWithOverrides'
+import { DEFAULT_MAXIMUM_DATA_AGE } from '@sofie-automation/shared-lib/dist/core/constants'
 import { CollectionName } from '@sofie-automation/corelib/dist/dataModel/Collections'
 import {
 	BlueprintId,
 	BucketId,
-	MediaWorkFlowId,
-	OrganizationId,
 	PartId,
 	PartInstanceId,
 	PeripheralDeviceId,
@@ -32,16 +32,12 @@ import {
 	BucketAdLibs,
 	Buckets,
 	Evaluations,
-	ExpectedMediaItems,
 	ExpectedPackages,
 	ExpectedPackageWorkStatuses,
 	ExpectedPlayoutItems,
 	ExternalMessageQueue,
 	NrcsIngestDataCache,
 	MediaObjects,
-	MediaWorkFlows,
-	MediaWorkFlowSteps,
-	Organizations,
 	PackageContainerPackageStatuses,
 	PackageContainerStatuses,
 	PackageInfos,
@@ -87,6 +83,18 @@ export async function cleanupOldDataInner(actuallyCleanup = false): Promise<Coll
 		if (notAllowedReason) return `Could not run the cleanup function due to: ${notAllowedReason}`
 	}
 
+	const coreSystem = await getCoreSystemAsync()
+	const systemSettings = coreSystem && applyAndValidateOverrides(coreSystem.settingsWithOverrides).obj
+	// Guard against a misconfigured value (<= 0, NaN, Infinity) which would otherwise cause overly-aggressive
+	// purging of recent data. Fall back to the default in that case.
+	const configuredMaximumDataAge = systemSettings?.maximumDataAge
+	const maximumDataAge =
+		typeof configuredMaximumDataAge === 'number' &&
+		Number.isFinite(configuredMaximumDataAge) &&
+		configuredMaximumDataAge > 0
+			? configuredMaximumDataAge
+			: DEFAULT_MAXIMUM_DATA_AGE
+
 	const result: CollectionCleanupResult = {}
 	const addToResult = (collectionName: CollectionName, docsToRemove: number) => {
 		if (!result[collectionName]) {
@@ -107,7 +115,7 @@ export async function cleanupOldDataInner(actuallyCleanup = false): Promise<Coll
 	): Promise<ID[]> => {
 		const collectionName = getCollectionKey(collection)
 
-		const ids = (await collection.findFetchAsync(query, { fields: { _id: 1 } })).map((doc) => doc._id)
+		const ids = (await collection.findFetchAsync(query, { projection: { _id: 1 } })).map((doc) => doc._id)
 		const count = ids.length
 		if (actuallyCleanup) {
 			await collection.mutableCollection.removeAsync(query)
@@ -123,51 +131,17 @@ export async function cleanupOldDataInner(actuallyCleanup = false): Promise<Coll
 	{
 		addToResult(CollectionName.CoreSystem, 0) // Do nothing
 	}
-	// Organizations
-	{
-		addToResult(CollectionName.Organizations, 0) // Do nothing
-	}
 
-	// Documents owned by Organizations:
-	const organizationIds = await getAllIdsInCollection(Organizations)
-	const removedStudioIds = new Set<StudioId>()
 	const removedShowStyleBases = new Set<ShowStyleBaseId>()
 	const removedBlueprints = new Set<BlueprintId>()
 	const removedDeviceIds = new Set<PeripheralDeviceId>()
-	{
-		const ownedByOrganizationId = async <
-			DBInterface extends { _id: ID; organizationId: OrganizationId | null | undefined },
-			ID extends ProtectedString<any>
-		>(
-			collection: AsyncOnlyReadOnlyMongoCollection<DBInterface>
-		): Promise<ID[]> => {
-			return await removeByQuery(collection.mutableCollection as AsyncOnlyMongoCollection<any>, {
-				$and: [
-					{
-						organizationId: { $nin: organizationIds },
-					},
-					{
-						organizationId: { $exists: true },
-					},
-					{
-						organizationId: { $ne: null },
-					},
-				],
-			})
-		}
-		;(await ownedByOrganizationId(Studios)).forEach((id) => removedStudioIds.add(id))
-		;(await ownedByOrganizationId(ShowStyleBases)).forEach((id) => removedShowStyleBases.add(id))
-		;(await ownedByOrganizationId(Blueprints)).forEach((id) => removedBlueprints.add(id))
-		;(await ownedByOrganizationId(PeripheralDevices)).forEach((id) => removedDeviceIds.add(id))
-	}
 
 	// Documents owned by PeripheralDevices:
-	const removedMediaWorkFlows = new Set<MediaWorkFlowId>()
 	const deviceIds = await getAllIdsInCollection(PeripheralDevices, removedDeviceIds)
 	{
 		const ownedByDeviceId = async <
 			DBInterface extends { _id: ID; deviceId: PeripheralDeviceId },
-			ID extends ProtectedString<any>
+			ID extends ProtectedString<any>,
 		>(
 			collection: AsyncOnlyReadOnlyMongoCollection<DBInterface>
 		): Promise<ID[]> => {
@@ -176,7 +150,6 @@ export async function cleanupOldDataInner(actuallyCleanup = false): Promise<Coll
 			})
 		}
 		await ownedByDeviceId(ExpectedPackageWorkStatuses)
-		;(await ownedByDeviceId(MediaWorkFlows)).forEach((id) => removedMediaWorkFlows.add(id))
 		await ownedByDeviceId(PackageContainerPackageStatuses)
 		await ownedByDeviceId(PackageContainerStatuses)
 		await ownedByDeviceId(PackageInfos)
@@ -184,13 +157,13 @@ export async function cleanupOldDataInner(actuallyCleanup = false): Promise<Coll
 	}
 
 	// Documents owned by Studios:
-	const studioIds = await getAllIdsInCollection(Studios, removedStudioIds)
+	const studioIds = await getAllIdsInCollection(Studios)
 	const removedRundownPlaylists = new Set<RundownPlaylistId>()
 	const removedBuckets = new Set<BucketId>()
 	{
 		const ownedByStudioId = async <
 			DBInterface extends { _id: ID; studioId: StudioId },
-			ID extends ProtectedString<any>
+			ID extends ProtectedString<any>,
 		>(
 			collection: AsyncOnlyReadOnlyMongoCollection<DBInterface>
 		): Promise<ID[]> => {
@@ -248,7 +221,7 @@ export async function cleanupOldDataInner(actuallyCleanup = false): Promise<Coll
 	{
 		const ownedByRundownPlaylistId = async <
 			DBInterface extends { _id: ID; playlistId: RundownPlaylistId },
-			ID extends ProtectedString<any>
+			ID extends ProtectedString<any>,
 		>(
 			collection: AsyncOnlyReadOnlyMongoCollection<DBInterface>
 		): Promise<ID[]> => {
@@ -265,7 +238,7 @@ export async function cleanupOldDataInner(actuallyCleanup = false): Promise<Coll
 	{
 		const ownedByRundownId = async <
 			DBInterface extends { _id: ID; rundownId: RundownId },
-			ID extends ProtectedString<any>
+			ID extends ProtectedString<any>,
 		>(
 			collection: AsyncOnlyReadOnlyMongoCollection<DBInterface>
 		): Promise<ID[]> => {
@@ -316,7 +289,7 @@ export async function cleanupOldDataInner(actuallyCleanup = false): Promise<Coll
 					{
 						// Remove any from long running rundowns where they have long since expired:
 						reset: true,
-						'timings.plannedStoppedPlayback': { $lt: getCurrentTime() - Settings.maximumDataAge },
+						'timings.plannedStoppedPlayback': { $lt: getCurrentTime() - maximumDataAge },
 						'part._id': { $nin: partIds },
 					},
 				],
@@ -336,62 +309,13 @@ export async function cleanupOldDataInner(actuallyCleanup = false): Promise<Coll
 	// Evaluations
 	{
 		await removeByQuery(Evaluations, {
-			timestamp: { $lt: getCurrentTime() - Settings.maximumDataAge },
+			timestamp: { $lt: getCurrentTime() - maximumDataAge },
 		})
-	}
-	// ExpectedMediaItems
-	{
-		const bucketIds = await getAllIdsInCollection(Buckets, removedBuckets)
-		const emiFromBuckets = await ExpectedMediaItems.findFetchAsync(
-			{
-				$and: [
-					{
-						bucketId: { $exists: true },
-						rundownId: { $exists: false },
-					},
-					{
-						bucketId: { $nin: bucketIds },
-					},
-				],
-			},
-			{ fields: { _id: 1 } }
-		)
-		const emiFromRundowns = await ExpectedMediaItems.findFetchAsync(
-			{
-				$and: [
-					{
-						bucketId: { $exists: false },
-						rundownId: { $exists: true },
-					},
-					{
-						rundownId: { $nin: rundownIds },
-					},
-				],
-			},
-			{ fields: { _id: 1 } }
-		)
-		addToResult(CollectionName.ExpectedMediaItems, emiFromBuckets.length)
-		addToResult(CollectionName.ExpectedMediaItems, emiFromRundowns.length)
-		if (actuallyCleanup) {
-			await ExpectedMediaItems.mutableCollection.removeAsync({
-				_id: { $in: [...emiFromBuckets, ...emiFromRundowns].map((o) => o._id) },
-			})
-		}
 	}
 	// ExternalMessageQueue
 	{
 		await removeByQuery(ExternalMessageQueue, {
-			$or: [
-				{ created: { $lt: getCurrentTime() - Settings.maximumDataAge } },
-				{ expires: { $lt: getCurrentTime() } },
-			],
-		})
-	}
-	// MediaWorkFlowSteps
-	{
-		const mediaWorkFlowIds = await getAllIdsInCollection(MediaWorkFlows, removedMediaWorkFlows)
-		await removeByQuery(MediaWorkFlowSteps, {
-			workFlowId: { $nin: mediaWorkFlowIds },
+			$or: [{ created: { $lt: getCurrentTime() - maximumDataAge } }, { expires: { $lt: getCurrentTime() } }],
 		})
 	}
 	// PackageInfos
@@ -415,14 +339,14 @@ export async function cleanupOldDataInner(actuallyCleanup = false): Promise<Coll
 	// Snapshots
 	{
 		await removeByQuery(Snapshots, {
-			created: { $lt: getCurrentTime() - Settings.maximumDataAge },
+			created: { $lt: getCurrentTime() - maximumDataAge },
 		})
 	}
 
 	// UserActionsLog
 	{
 		await removeByQuery(UserActionsLog, {
-			timestamp: { $lt: getCurrentTime() - Settings.maximumDataAge },
+			timestamp: { $lt: getCurrentTime() - maximumDataAge },
 		})
 	}
 	// Workers
@@ -481,7 +405,7 @@ async function isAllowedToRunCleanup(): Promise<string | void> {
 	// HACK: TODO - should we check this?
 	// if (isAnyQueuedWorkRunning()) return `Another sync-function is running, try again later`
 
-	const studios = await Studios.findFetchAsync({}, { fields: { _id: 1 } })
+	const studios = await Studios.findFetchAsync({}, { projection: { _id: 1 } })
 	for (const studio of studios) {
 		const activePlaylist: DBRundownPlaylist | undefined = (
 			await getActiveRundownPlaylistsInStudioFromDb(studio._id)
@@ -500,7 +424,7 @@ async function getAllIdsInCollection<DBInterface extends { _id: ID }, ID extends
 		await collection.findFetchAsync(
 			{},
 			{
-				fields: {
+				projection: {
 					_id: 1,
 				},
 			}

@@ -54,8 +54,8 @@ import {
 	DEFAULT_MINIMUM_TAKE_SPAN,
 	DEFAULT_FALLBACK_PART_DURATION,
 } from '@sofie-automation/shared-lib/dist/core/constants'
-import { Bucket } from '@sofie-automation/meteor-lib/dist/collections/Buckets'
-import { ForceQuickLoopAutoNext } from '@sofie-automation/shared-lib/dist/core/model/StudioSettings'
+import { Bucket } from '@sofie-automation/corelib/dist/dataModel/Bucket'
+import { ForceQuickLoopAutoNext, ShelfButtonSize } from '@sofie-automation/shared-lib/dist/core/model/StudioSettings'
 import { PlaylistSnapshotOptions, SystemSnapshotOptions } from '@sofie-automation/meteor-lib/dist/api/shapshot'
 
 /*
@@ -74,18 +74,24 @@ export async function showStyleBaseFrom(
 	let showStyleBase: DBShowStyleBase | undefined
 	if (existingId) showStyleBase = await ShowStyleBases.findOneAsync(existingId)
 
-	const newOutputLayers = apiShowStyleBase.outputLayers.reduce<Record<string, IOutputLayer>>((acc, op) => {
-		acc[op.id] = { _id: op.id, name: op.name, _rank: op.rank, isPGM: op.isPgm }
-		return acc
-	}, {} as Record<string, IOutputLayer>)
+	const newOutputLayers = apiShowStyleBase.outputLayers.reduce<Record<string, IOutputLayer>>(
+		(acc, op) => {
+			acc[op.id] = { _id: op.id, name: op.name, _rank: op.rank, isPGM: op.isPgm }
+			return acc
+		},
+		{} as Record<string, IOutputLayer>
+	)
 	const outputLayers = showStyleBase
 		? updateOverrides(showStyleBase.outputLayersWithOverrides, newOutputLayers)
 		: wrapDefaultObject({})
 
-	const newSourceLayers = apiShowStyleBase.sourceLayers.reduce<Record<string, ISourceLayer>>((acc, op) => {
-		acc[op.id] = sourceLayerFrom(op)
-		return acc
-	}, {} as Record<string, ISourceLayer>)
+	const newSourceLayers = apiShowStyleBase.sourceLayers.reduce<Record<string, ISourceLayer>>(
+		(acc, op) => {
+			acc[op.id] = sourceLayerFrom(op)
+			return acc
+		},
+		{} as Record<string, ISourceLayer>
+	)
 	const sourceLayers = showStyleBase
 		? updateOverrides(showStyleBase.sourceLayersWithOverrides, newSourceLayers)
 		: wrapDefaultObject({})
@@ -101,7 +107,7 @@ export async function showStyleBaseFrom(
 			? updateOverrides(
 					showStyleBase.blueprintConfigWithOverrides,
 					await ShowStyleBaseBlueprintConfigFromAPI(apiShowStyleBase, blueprintManifest)
-			  )
+				)
 			: convertObjectIntoOverrides(await ShowStyleBaseBlueprintConfigFromAPI(apiShowStyleBase, blueprintManifest))
 	}
 
@@ -110,11 +116,10 @@ export async function showStyleBaseFrom(
 		name: apiShowStyleBase.name,
 		blueprintId: protectString(apiShowStyleBase.blueprintId),
 		blueprintConfigPresetId: apiShowStyleBase.blueprintConfigPresetId,
-		organizationId: null,
 		outputLayersWithOverrides: outputLayers,
 		sourceLayersWithOverrides: sourceLayers,
 		blueprintConfigWithOverrides: blueprintConfig,
-		_rundownVersionHash: '',
+		_rundownVersionHash: showStyleBase?._rundownVersionHash ?? '',
 		lastBlueprintConfig: undefined,
 		lastBlueprintFixUpHash: undefined,
 	}
@@ -170,7 +175,7 @@ export async function APIShowStyleVariantFrom(
 	}
 }
 
-export function sourceLayerFrom(apiSourceLayer: APISourceLayer): ISourceLayer {
+export function sourceLayerFrom(apiSourceLayer: APISourceLayer): Complete<ISourceLayer> {
 	let layerType: SourceLayerType
 	switch (apiSourceLayer.layerType) {
 		case 'audio':
@@ -230,10 +235,21 @@ export function sourceLayerFrom(apiSourceLayer: APISourceLayer): ISourceLayer {
 		_rank: apiSourceLayer.rank,
 		type: layerType,
 		exclusiveGroup: apiSourceLayer.exclusiveGroup,
+		isRemoteInput: apiSourceLayer.isRemoteInput,
+		isGuestInput: apiSourceLayer.isGuestInput,
+		isClearable: apiSourceLayer.isClearable,
+		isSticky: apiSourceLayer.isSticky,
+		stickyOriginalOnly: apiSourceLayer.stickyOriginalOnly,
+		isQueueable: apiSourceLayer.isQueueable,
+		isHidden: apiSourceLayer.isHidden,
+		allowDisable: apiSourceLayer.allowDisable,
+		onPresenterScreen: apiSourceLayer.onPresenterScreen,
+		onListViewColumn: apiSourceLayer.onListViewColumn,
+		onListViewAdLibColumn: apiSourceLayer.onListViewAdLibColumn,
 	}
 }
 
-export function APISourceLayerFrom(sourceLayer: ISourceLayer): APISourceLayer {
+export function APISourceLayerFrom(sourceLayer: ISourceLayer): Complete<APISourceLayer> {
 	let layerType: APISourceLayer['layerType']
 	switch (sourceLayer.type) {
 		case SourceLayerType.AUDIO:
@@ -293,6 +309,17 @@ export function APISourceLayerFrom(sourceLayer: ISourceLayer): APISourceLayer {
 		rank: sourceLayer._rank,
 		layerType,
 		exclusiveGroup: sourceLayer.exclusiveGroup,
+		isRemoteInput: sourceLayer.isRemoteInput,
+		isGuestInput: sourceLayer.isGuestInput,
+		isClearable: sourceLayer.isClearable,
+		isSticky: sourceLayer.isSticky,
+		stickyOriginalOnly: sourceLayer.stickyOriginalOnly,
+		isQueueable: sourceLayer.isQueueable,
+		isHidden: sourceLayer.isHidden,
+		allowDisable: sourceLayer.allowDisable,
+		onPresenterScreen: sourceLayer.onPresenterScreen,
+		onListViewColumn: sourceLayer.onListViewColumn,
+		onListViewAdLibColumn: sourceLayer.onListViewAdLibColumn,
 	}
 }
 
@@ -304,44 +331,60 @@ export async function studioFrom(apiStudio: APIStudio, existingId?: StudioId): P
 	}
 	if (!blueprint) return undefined
 
-	let studio: DBStudio | undefined
-	if (existingId) studio = await Studios.findOneAsync(existingId)
+	let existingStudio: DBStudio | undefined
+	if (existingId) existingStudio = await Studios.findOneAsync(existingId)
 
 	const blueprintManifest = evalBlueprint(blueprint) as StudioBlueprintManifest
+
+	return buildStudioFromResolved({
+		apiStudio,
+		existingStudio,
+		blueprintManifest,
+		blueprintId: blueprint._id,
+		studioId: existingId ?? getRandomId(),
+	})
+}
+
+export async function buildStudioFromResolved({
+	apiStudio,
+	existingStudio,
+	blueprintManifest,
+	blueprintId,
+	studioId,
+}: {
+	apiStudio: APIStudio
+	existingStudio?: DBStudio
+	blueprintManifest: StudioBlueprintManifest
+	blueprintId: BlueprintId
+	studioId: StudioId
+}): Promise<DBStudio> {
 	let blueprintConfig: ObjectWithOverrides<IBlueprintConfig>
 	if (typeof blueprintManifest.blueprintConfigFromAPI !== 'function') {
-		blueprintConfig = studio
-			? updateOverrides(studio.blueprintConfigWithOverrides, apiStudio.config as IBlueprintConfig)
+		blueprintConfig = existingStudio
+			? updateOverrides(existingStudio.blueprintConfigWithOverrides, apiStudio.config as IBlueprintConfig)
 			: wrapDefaultObject({})
 	} else {
-		blueprintConfig = studio
+		blueprintConfig = existingStudio
 			? updateOverrides(
-					studio.blueprintConfigWithOverrides,
+					existingStudio.blueprintConfigWithOverrides,
 					await StudioBlueprintConfigFromAPI(apiStudio, blueprintManifest)
-			  )
+				)
 			: convertObjectIntoOverrides(await StudioBlueprintConfigFromAPI(apiStudio, blueprintManifest))
 	}
 
 	const studioSettings = studioSettingsFrom(apiStudio.settings)
 
 	return {
-		_id: existingId ?? getRandomId(),
-		name: apiStudio.name,
-		blueprintId: blueprint?._id,
-		blueprintConfigPresetId: apiStudio.blueprintConfigPresetId,
-		blueprintConfigWithOverrides: blueprintConfig,
-		settingsWithOverrides: studio
-			? updateOverrides(studio.settingsWithOverrides, studioSettings)
-			: wrapDefaultObject(studioSettings),
-		supportedShowStyleBase: apiStudio.supportedShowStyleBase?.map((id) => protectString<ShowStyleBaseId>(id)) ?? [],
-		organizationId: null,
+		// fill in the blanks if there is no existing studio
 		mappingsWithOverrides: wrapDefaultObject({}),
 		routeSetsWithOverrides: wrapDefaultObject({}),
 		_rundownVersionHash: '',
 		routeSetExclusivityGroupsWithOverrides: wrapDefaultObject({}),
 		packageContainersWithOverrides: wrapDefaultObject({}),
-		previewContainerIds: [],
-		thumbnailContainerIds: [],
+		packageContainerSettingsWithOverrides: wrapDefaultObject({
+			previewContainerIds: [],
+			thumbnailContainerIds: [],
+		}),
 		peripheralDeviceSettings: {
 			deviceSettings: wrapDefaultObject({}),
 			playoutDevices: wrapDefaultObject({}),
@@ -350,6 +393,20 @@ export async function studioFrom(apiStudio: APIStudio, existingId?: StudioId): P
 		},
 		lastBlueprintConfig: undefined,
 		lastBlueprintFixUpHash: undefined,
+
+		// take what existing studio might have
+		...existingStudio,
+
+		// override what apiStudio can
+		_id: studioId,
+		name: apiStudio.name,
+		blueprintId,
+		blueprintConfigPresetId: apiStudio.blueprintConfigPresetId,
+		blueprintConfigWithOverrides: blueprintConfig,
+		settingsWithOverrides: existingStudio
+			? updateOverrides(existingStudio.settingsWithOverrides, studioSettings)
+			: wrapDefaultObject(studioSettings),
+		supportedShowStyleBase: apiStudio.supportedShowStyleBase?.map((id) => protectString<ShowStyleBaseId>(id)) ?? [],
 	}
 }
 
@@ -378,6 +435,7 @@ export function studioSettingsFrom(apiStudioSettings: APIStudioSettings): Comple
 		multiGatewayNowSafeLatency: apiStudioSettings.multiGatewayNowSafeLatency,
 		allowRundownResetOnAir: apiStudioSettings.allowRundownResetOnAir,
 		preserveOrphanedSegmentPositionInRundown: apiStudioSettings.preserveOrphanedSegmentPositionInRundown,
+		allowTestingAdlibsToPersist: apiStudioSettings.allowTestingAdlibsToPersist,
 		minimumTakeSpan: apiStudioSettings.minimumTakeSpan ?? DEFAULT_MINIMUM_TAKE_SPAN,
 		enableQuickLoop: apiStudioSettings.enableQuickLoop,
 		forceQuickLoopAutoNext: forceQuickLoopAutoNextFrom(apiStudioSettings.forceQuickLoopAutoNext),
@@ -388,6 +446,18 @@ export function studioSettingsFrom(apiStudioSettings: APIStudioSettings): Comple
 		allowPieceDirectPlay: apiStudioSettings.allowPieceDirectPlay ?? true, // Backwards compatible
 		enableBuckets: apiStudioSettings.enableBuckets ?? true, // Backwards compatible
 		enableEvaluationForm: apiStudioSettings.enableEvaluationForm ?? true, // Backwards compatible
+		shelfAdlibButtonSize: apiStudioSettings.shelfAdlibButtonSize ?? ShelfButtonSize.LARGE,
+		mockPieceContentStatus: apiStudioSettings.mockPieceContentStatus,
+		rundownGlobalPiecesPrepareTime: apiStudioSettings.rundownGlobalPiecesPrepareTime,
+		autoRewindLeavingSegment: apiStudioSettings.autoRewindLeavingSegment,
+		disableBlurBorder: apiStudioSettings.disableBlurBorder,
+		allowGrabbingTimeline: apiStudioSettings.allowGrabbingTimeline,
+		useCountdownToFreezeFrame: apiStudioSettings.useCountdownToFreezeFrame,
+		// defaultShelfDisplayOptions is intentionally not exposed through the REST API
+		defaultShelfDisplayOptions: undefined,
+		defaultDisplayDuration: apiStudioSettings.defaultDisplayDuration,
+		defaultTimeScale: apiStudioSettings.defaultTimeScale,
+		followOnAirSegmentsHistory: apiStudioSettings.followOnAirSegmentsHistory,
 	}
 }
 
@@ -409,10 +479,21 @@ export function APIStudioSettingsFrom(settings: IStudioSettings): Complete<APISt
 		fallbackPartDuration: settings.fallbackPartDuration,
 		enableUserEdits: settings.enableUserEdits,
 		allowAdlibTestingSegment: settings.allowAdlibTestingSegment,
+		allowTestingAdlibsToPersist: settings.allowTestingAdlibsToPersist,
 		allowHold: settings.allowHold,
 		allowPieceDirectPlay: settings.allowPieceDirectPlay,
 		enableBuckets: settings.enableBuckets,
 		enableEvaluationForm: settings.enableEvaluationForm,
+		shelfAdlibButtonSize: settings.shelfAdlibButtonSize,
+		mockPieceContentStatus: settings.mockPieceContentStatus,
+		rundownGlobalPiecesPrepareTime: settings.rundownGlobalPiecesPrepareTime,
+		autoRewindLeavingSegment: settings.autoRewindLeavingSegment,
+		disableBlurBorder: settings.disableBlurBorder,
+		allowGrabbingTimeline: settings.allowGrabbingTimeline,
+		useCountdownToFreezeFrame: settings.useCountdownToFreezeFrame,
+		defaultDisplayDuration: settings.defaultDisplayDuration,
+		defaultTimeScale: settings.defaultTimeScale,
+		followOnAirSegmentsHistory: settings.followOnAirSegmentsHistory,
 	}
 }
 
@@ -482,9 +563,6 @@ export function APIPeripheralDeviceFrom(device: PeripheralDevice): APIPeripheral
 		case PeripheralDeviceType.LIVE_STATUS:
 			deviceType = 'live_status'
 			break
-		case PeripheralDeviceType.MEDIA_MANAGER:
-			deviceType = 'media_manager'
-			break
 		case PeripheralDeviceType.MOS:
 			deviceType = 'mos'
 			break
@@ -542,7 +620,7 @@ async function getBlueprint(
 		? await Blueprints.findOneAsync({
 				_id: blueprintId,
 				blueprintType,
-		  })
+			})
 		: undefined
 	if (!blueprint) throw new Meteor.Error(404, `Blueprint "${blueprintId}" not found!`)
 
@@ -718,4 +796,55 @@ export function playlistSnapshotOptionsFrom(options: APIPlaylistSnapshotOptions)
 		withArchivedDocuments: !!options.withArchivedDocuments,
 		withTimeline: !!options.withTimeline,
 	}
+}
+
+export async function validateAPIRundownPayload(
+	blueprintId: BlueprintId | undefined,
+	rundownPayload: unknown
+): Promise<string[] | undefined> {
+	const blueprint = await getBlueprint(blueprintId, BlueprintManifestType.STUDIO)
+	const blueprintManifest = evalBlueprint(blueprint) as StudioBlueprintManifest
+
+	if (typeof blueprintManifest.validateRundownPayloadFromAPI !== 'function') {
+		logger.info(`Blueprint ${blueprintManifest.blueprintId} does not support rundown payload validation`)
+		return []
+	}
+
+	const blueprintContext = new CommonContext('validateAPIRundownPayload', `blueprint:${blueprint._id}`)
+
+	return blueprintManifest.validateRundownPayloadFromAPI(blueprintContext, rundownPayload)
+}
+
+export async function validateAPISegmentPayload(
+	blueprintId: BlueprintId | undefined,
+	segmentPayload: unknown
+): Promise<string[] | undefined> {
+	const blueprint = await getBlueprint(blueprintId, BlueprintManifestType.STUDIO)
+	const blueprintManifest = evalBlueprint(blueprint) as StudioBlueprintManifest
+
+	if (typeof blueprintManifest.validateSegmentPayloadFromAPI !== 'function') {
+		logger.info(`Blueprint ${blueprintManifest.blueprintId} does not support segment payload validation`)
+		return []
+	}
+
+	const blueprintContext = new CommonContext('validateAPISegmentPayload', `blueprint:${blueprint._id}`)
+
+	return blueprintManifest.validateSegmentPayloadFromAPI(blueprintContext, segmentPayload)
+}
+
+export async function validateAPIPartPayload(
+	blueprintId: BlueprintId | undefined,
+	partPayload: unknown
+): Promise<string[] | undefined> {
+	const blueprint = await getBlueprint(blueprintId, BlueprintManifestType.STUDIO)
+	const blueprintManifest = evalBlueprint(blueprint) as StudioBlueprintManifest
+
+	if (typeof blueprintManifest.validatePartPayloadFromAPI !== 'function') {
+		logger.info(`Blueprint ${blueprintManifest.blueprintId} does not support part payload validation`)
+		return []
+	}
+
+	const blueprintContext = new CommonContext('validateAPIPartPayload', `blueprint:${blueprint._id}`)
+
+	return blueprintManifest.validatePartPayloadFromAPI(blueprintContext, partPayload)
 }

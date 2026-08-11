@@ -1,36 +1,42 @@
 import { assertNever, getRandomId, generateTranslation } from '@sofie-automation/corelib/dist/lib'
 import { SegmentOrphanedReason } from '@sofie-automation/corelib/dist/dataModel/Segment'
 import { DBPart, isPartPlayable } from '@sofie-automation/corelib/dist/dataModel/Part'
-import { JobContext } from '../jobs'
+import { JobContext } from '../jobs/index.js'
 import { PartId, PartInstanceId, RundownId, SegmentId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { PlayoutModel } from './model/PlayoutModel'
-import { PlayoutPartInstanceModel } from './model/PlayoutPartInstanceModel'
-import { PlayoutSegmentModel } from './model/PlayoutSegmentModel'
+import { PlayoutModel } from './model/PlayoutModel.js'
+import { PlayoutPartInstanceModel } from './model/PlayoutPartInstanceModel.js'
+import { PlayoutSegmentModel } from './model/PlayoutSegmentModel.js'
 import {
 	fetchPiecesThatMayBeActiveForPart,
+	getBaselineInfinitesForPart,
 	getPieceInstancesForPart,
 	syncPlayheadInfinitesForNextPartInstance,
-} from './infinites'
+} from './infinites.js'
 import { PRESERVE_UNSYNCED_PLAYING_SEGMENT_CONTENTS } from '@sofie-automation/shared-lib/dist/core/constants'
 import { IngestJobs } from '@sofie-automation/corelib/dist/worker/ingest'
-import _ = require('underscore')
-import { resetPartInstancesWithPieceInstances } from './lib'
-import { RundownHoldState } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import _ from 'underscore'
+import { resetPartInstancesWithPieceInstances } from './lib.js'
+import { RundownHoldState } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import { UserError, UserErrorMessage } from '@sofie-automation/corelib/dist/error'
-import { SelectNextPartResult } from './selectNextPart'
+import { SelectNextPartResult } from './selectNextPart.js'
 import { ReadonlyDeep } from 'type-fest'
 import { QueueNextSegmentResult } from '@sofie-automation/corelib/dist/worker/studio'
 import { protectString } from '@sofie-automation/corelib/dist/protectedString'
-import { OnSetAsNextContext } from '../blueprints/context'
-import { logger } from '../logging'
-import { WatchedPackagesHelper } from '../blueprints/context/watchedPackages'
+import { OnSetAsNextContext } from '../blueprints/context/index.js'
+import { logger } from '../logging.js'
+import { WatchedPackagesHelper } from '../blueprints/context/watchedPackages.js'
 import { stringifyError } from '@sofie-automation/shared-lib/dist/lib/stringifyError'
 import {
 	PartAndPieceInstanceActionService,
 	applyActionSideEffects,
-} from '../blueprints/context/services/PartAndPieceInstanceActionService'
+} from '../blueprints/context/services/PartAndPieceInstanceActionService.js'
 import { NoteSeverity } from '@sofie-automation/blueprints-integration'
-import { convertNoteToNotification } from '../notifications/util'
+import { convertNoteToNotification } from '../notifications/util.js'
+import { PersistentPlayoutStateStore } from '../blueprints/context/services/PersistantStateStore.js'
+import { DBPartInstance } from '@sofie-automation/corelib/dist/dataModel/PartInstance'
+import { PlayoutPartInstanceModelImpl } from './model/implementation/PlayoutPartInstanceModelImpl.js'
+import { QuickLoopService } from './model/services/QuickLoopService.js'
+import { recalculateTTimerProjections } from './tTimers.js'
 
 /**
  * Set or clear the nexted part, from a given PartInstance, or SelectNextPartResult
@@ -45,7 +51,7 @@ export async function setNextPart(
 	playoutModel: PlayoutModel,
 	rawNextPart: ReadonlyDeep<Omit<SelectNextPartResult, 'index'>> | PlayoutPartInstanceModel | null,
 	setManually: boolean,
-	nextTimeOffset?: number | undefined
+	nextTimeOffset?: number
 ): Promise<void> {
 	const span = context.startSpan('setNextPart')
 
@@ -80,7 +86,7 @@ export async function setNextPart(
 				? {
 						part: moveNextToPart.selectedPart,
 						consumesQueuedSegmentId: false,
-				  }
+					}
 				: null,
 			true
 		)
@@ -94,6 +100,9 @@ export async function setNextPart(
 
 	await cleanupOrphanedItems(context, playoutModel)
 
+	// Recalculate T-Timer projections based on the new next part
+	recalculateTTimerProjections(context, playoutModel)
+
 	if (span) span.end()
 }
 
@@ -102,7 +111,7 @@ async function setNextPartAndCheckForPendingMoveNextPart(
 	playoutModel: PlayoutModel,
 	rawNextPart: ReadonlyDeep<Omit<SelectNextPartResult, 'index'>> | PlayoutPartInstanceModel | null,
 	setManually: boolean,
-	nextTimeOffset?: number | undefined
+	nextTimeOffset?: number
 ): Promise<{ selectedPart: ReadonlyDeep<DBPart> | null } | undefined> {
 	if (rawNextPart) {
 		if (!playoutModel.playlist.activationId)
@@ -176,7 +185,7 @@ async function setNextPartAndCheckForPendingMoveNextPart(
 
 		playoutModel.setPartInstanceAsNext(newPartInstance, setManually, consumesQueuedSegmentId, nextTimeOffset)
 
-		return executeOnSetAsNextCallback(playoutModel, newPartInstance, context)
+		return executeOnSetAsNextCallback(playoutModel, newPartInstance, context, setManually)
 	} else {
 		// Set to null
 
@@ -188,7 +197,8 @@ async function setNextPartAndCheckForPendingMoveNextPart(
 async function executeOnSetAsNextCallback(
 	playoutModel: PlayoutModel,
 	newPartInstance: PlayoutPartInstanceModel,
-	context: JobContext
+	context: JobContext,
+	setManually: boolean
 ) {
 	const NOTIFICATION_CATEGORY = 'onSetAsNext'
 
@@ -218,15 +228,23 @@ async function executeOnSetAsNextCallback(
 		playoutModel,
 		showStyle,
 		watchedPackagesHelper,
-		new PartAndPieceInstanceActionService(context, playoutModel, showStyle, rundownOfNextPart)
+		new PartAndPieceInstanceActionService(context, playoutModel, showStyle, rundownOfNextPart),
+		setManually
 	)
 
 	// Clear any existing notifications for this partInstance. This will clear any from the previous setAsNext
 	playoutModel.clearAllNotifications(NOTIFICATION_CATEGORY)
 
 	try {
-		await blueprint.blueprint.onSetAsNext(onSetAsNextContext)
+		const blueprintPersistentState = new PersistentPlayoutStateStore(
+			playoutModel.playlist.privatePlayoutPersistentState,
+			playoutModel.playlist.publicPlayoutPersistentState
+		)
+
+		await blueprint.blueprint.onSetAsNext(onSetAsNextContext, blueprintPersistentState)
 		await applyOnSetAsNextSideEffects(context, playoutModel, onSetAsNextContext)
+
+		blueprintPersistentState.saveToModel(playoutModel)
 
 		for (const note of onSetAsNextContext.notes) {
 			// Update the notifications. Even though these are related to a partInstance, they will be cleared on the next take
@@ -237,7 +255,7 @@ async function executeOnSetAsNextCallback(
 							type: 'partInstance',
 							rundownId,
 							partInstanceId,
-					  }
+						}
 					: { type: 'playlist' },
 			})
 		}
@@ -253,7 +271,7 @@ async function executeOnSetAsNextCallback(
 						type: 'partInstance',
 						rundownId,
 						partInstanceId,
-				  }
+					}
 				: { type: 'playlist' },
 		})
 	}
@@ -274,7 +292,13 @@ async function prepareExistingPartInstanceForBeingNexted(
 	playoutModel: PlayoutModel,
 	instance: PlayoutPartInstanceModel
 ): Promise<PlayoutPartInstanceModel> {
-	await syncPlayheadInfinitesForNextPartInstance(context, playoutModel, playoutModel.currentPartInstance, instance)
+	await syncPlayheadInfinitesForNextPartInstance(
+		context,
+		playoutModel,
+		undefined, // Any ingest model must have been fully written before we get here
+		playoutModel.currentPartInstance,
+		instance
+	)
 
 	return instance
 }
@@ -288,6 +312,8 @@ async function preparePartInstanceForPartBeingNexted(
 	const rundown = playoutModel.getRundown(nextPart.rundownId)
 	if (!rundown) throw new Error(`Could not find rundown ${nextPart.rundownId}`)
 
+	const partInstanceId = protectString('') // Replaced inside playoutModel.createInstanceForPart
+
 	const possiblePieces = await fetchPiecesThatMayBeActiveForPart(context, playoutModel, undefined, nextPart)
 	const newPieceInstances = getPieceInstancesForPart(
 		context,
@@ -296,8 +322,20 @@ async function preparePartInstanceForPartBeingNexted(
 		rundown,
 		nextPart,
 		possiblePieces,
-		protectString('') // Replaced inside playoutModel.createInstanceForPart
+		partInstanceId
 	)
+
+	if (currentPartInstance === null) {
+		// This is the first take of the rundown, ensure the baseline infinites are loaded
+		const baselineInfinites = await getBaselineInfinitesForPart(
+			context,
+			playoutModel,
+			undefined, // Any ingest model must have been fully written before we get here
+			nextPart,
+			partInstanceId
+		)
+		newPieceInstances.push(...baselineInfinites)
+	}
 
 	return playoutModel.createInstanceForPart(nextPart, newPieceInstances)
 }
@@ -495,6 +533,10 @@ export async function queueNextSegment(
 	} else {
 		playoutModel.setQueuedSegment(null)
 	}
+
+	// Recalculate timer projections as the queued segment affects what comes after next
+	recalculateTTimerProjections(context, playoutModel)
+
 	span?.end()
 	return { queuedSegmentId: queuedSegment?.segment?._id ?? null }
 }
@@ -542,16 +584,16 @@ function findFirstPlayablePartOrThrow(segment: PlayoutSegmentModel): ReadonlyDee
  * Set the nexted part, from a given DBPart
  * @param context Context for the running job
  * @param playoutModel The playout model of the playlist
- * @param nextPart The Part to set as next
+ * @param nextPartOrInstance The Part to set as next
  * @param setManually Whether this was manually chosen by the user
  * @param nextTimeOffset The offset into the Part to start playback
  */
 export async function setNextPartFromPart(
 	context: JobContext,
 	playoutModel: PlayoutModel,
-	nextPart: ReadonlyDeep<DBPart>,
+	nextPartOrInstance: ReadonlyDeep<DBPart> | ReadonlyDeep<DBPartInstance>,
 	setManually: boolean,
-	nextTimeOffset?: number | undefined
+	nextTimeOffset?: number
 ): Promise<void> {
 	const playlist = playoutModel.playlist
 	if (!playlist.activationId) throw UserError.create(UserErrorMessage.InactiveRundown)
@@ -559,9 +601,37 @@ export async function setNextPartFromPart(
 		throw UserError.create(UserErrorMessage.DuringHold)
 	}
 
-	const consumesQueuedSegmentId = doesPartConsumeQueuedSegmentId(playoutModel, nextPart)
+	let consumesQueuedSegmentId: boolean | undefined
 
-	await setNextPart(context, playoutModel, { part: nextPart, consumesQueuedSegmentId }, setManually, nextTimeOffset)
+	if (!('part' in nextPartOrInstance)) {
+		consumesQueuedSegmentId = doesPartConsumeQueuedSegmentId(playoutModel, nextPartOrInstance)
+
+		await setNextPart(
+			context,
+			playoutModel,
+			{
+				part: nextPartOrInstance,
+				consumesQueuedSegmentId,
+			},
+			setManually,
+			nextTimeOffset
+		)
+	} else {
+		await setNextPart(
+			context,
+			playoutModel,
+			new PlayoutPartInstanceModelImpl(
+				nextPartOrInstance as DBPartInstance,
+				await context.directCollections.PieceInstances.findFetch({
+					partInstanceId: nextPartOrInstance._id,
+				}),
+				false,
+				new QuickLoopService(context, playoutModel)
+			),
+			setManually,
+			nextTimeOffset
+		)
+	}
 }
 
 function doesPartConsumeQueuedSegmentId(playoutModel: PlayoutModel, nextPart: ReadonlyDeep<DBPart>) {

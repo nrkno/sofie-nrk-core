@@ -1,20 +1,19 @@
-import {
+import type {
 	DashboardLayoutPartCountDown,
 	RundownLayoutBase,
 	RundownLayoutPartTiming,
 } from '@sofie-automation/meteor-lib/dist/collections/RundownLayouts'
-import { useTracker } from '../../lib/ReactMeteorData/ReactMeteorData'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
-import { dashboardElementStyle } from './DashboardPanel'
-import { RundownLayoutsAPI } from '../../lib/rundownLayouts'
-import { getAllowSpeaking, getAllowVibrating } from '../../lib/localStorage'
-import { CurrentPartOrSegmentRemaining } from '../RundownView/RundownTiming/CurrentPartOrSegmentRemaining'
-import { CurrentPartElapsed } from '../RundownView/RundownTiming/CurrentPartElapsed'
-import { getIsFilterActive } from '../../lib/rundownLayouts'
-import { UIShowStyleBase } from '@sofie-automation/meteor-lib/dist/api/showStyles'
-import { RundownPlaylistClientUtil } from '../../lib/rundownPlaylistUtil'
+import { useTracker } from '../../lib/ReactMeteorData/ReactMeteorData.js'
+import type { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
+import { dashboardElementStyle } from './DashboardPanel.js'
+import { RundownLayoutsAPI, getIsFilterActive } from '../../lib/rundownLayouts.js'
+import { getAllowSpeaking, getAllowVibrating } from '../../lib/localStorage.js'
+import { CurrentPartOrSegmentRemaining } from '../RundownView/RundownHeader/CurrentPartOrSegmentRemaining.js'
+import { CurrentPartElapsed } from '../RundownView/RundownTiming/CurrentPartElapsed.js'
+import { RundownPlaylistClientUtil } from '../../lib/rundownPlaylistUtil.js'
 import { useTranslation } from 'react-i18next'
-import { PartId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import type { PartId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import type { UIShowStyleBase } from '@sofie-automation/corelib/src/dataModel/ShowStyleBase.js'
 
 interface IPartTimingPanelProps {
 	layout: RundownLayoutBase

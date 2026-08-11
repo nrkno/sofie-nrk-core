@@ -1,51 +1,48 @@
 import moment from 'moment'
-import i18n, { TFunctionResult } from 'i18next'
-import { TFunction } from 'react-i18next'
+import i18n, { type TFunction, type InitOptions } from 'i18next'
 import Backend from 'i18next-http-backend'
 import LanguageDetector from 'i18next-browser-languagedetector'
 import { initReactI18next } from 'react-i18next'
-import { WithManagedTracker } from '../lib/reactiveData/reactiveDataHelper'
+import { WithManagedTracker } from '../lib/reactiveData/reactiveDataHelper.js'
 import { MeteorPubSub } from '@sofie-automation/meteor-lib/dist/api/pubsub'
-import { Translation, TranslationsBundle } from '@sofie-automation/meteor-lib/dist/collections/TranslationsBundles'
-import { I18NextData } from '@sofie-automation/blueprints-integration'
-import { MeteorCall } from '../lib/meteorApi'
+import type { Translation, TranslationsBundle } from '@sofie-automation/meteor-lib/dist/collections/TranslationsBundles'
+import type { I18NextData } from '@sofie-automation/blueprints-integration'
+import { MeteorCall } from '../lib/meteorApi.js'
 import { ClientAPI } from '@sofie-automation/meteor-lib/dist/api/client'
 import { interpollateTranslation } from '@sofie-automation/corelib/dist/TranslatableMessage'
-import { TranslationsBundleId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { TranslationsBundles } from '../collections'
-import { catchError } from '../lib/lib'
+import type { TranslationsBundleId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import { TranslationsBundles } from '../collections/index.js'
+import { catchError } from '../lib/lib.js'
+import { relativeToSiteRootUrl } from '../url.js'
+import { UserError } from '@sofie-automation/corelib/dist/error'
 
-const i18nOptions = {
+const DEFAULT_NAMESPACE = 'translations'
+const i18nOptions: InitOptions = {
 	fallbackLng: {
 		nn: ['nb', 'en'],
 		default: ['en'],
 	},
 
 	// have a common namespace used around the full app
-	ns: ['translations'],
-	defaultNS: 'translations',
+	ns: [DEFAULT_NAMESPACE],
+	defaultNS: DEFAULT_NAMESPACE,
 
 	debug: false,
 	joinArrays: '\n',
 
-	whitelist: ['en', 'nb', 'nn', 'sv'],
-
-	keySeparator: '→',
-	nsSeparator: '⇒',
-	pluralSeparator: '⥤',
-	contextSeparator: '⥤',
+	supportedLngs: ['en', 'nb', 'nn', 'sv'],
 
 	interpolation: {
 		escapeValue: false, // not needed for react!!
 	},
 
 	react: {
-		wait: true,
+		// wait: true,
 		useSuspense: false,
 	},
 
 	backend: {
-		loadPath: '/locales/{{lng}}/{{ns}}.json',
+		loadPath: relativeToSiteRootUrl('/locales/{{lng}}/{{ns}}.json'),
 	},
 
 	detection: {
@@ -66,15 +63,15 @@ async function getAndCacheTranslationBundle(bundleId: TranslationsBundleId) {
 	return new Promise<TranslationsBundle>((resolve, reject) => {
 		MeteorCall.system.getTranslationBundle(bundleId).then(
 			(response) => {
-				if (ClientAPI.isClientResponseSuccess(response) && response.result) {
+				if (ClientAPI.isClientResponseSuccess(response)) {
 					localStorage.setItem(`i18n.translationBundles.${bundleId}`, JSON.stringify(response.result))
 					resolve(response.result)
 				} else {
-					reject(response)
+					reject(UserError.fromUnknown(response.error))
 				}
 			},
 			(reason) => {
-				reject(reason)
+				reject(reason instanceof Error ? reason : new Error(reason))
 			}
 		)
 	})
@@ -132,7 +129,7 @@ class I18nContainer extends WithManagedTracker {
 
 							this.i18nInstance.addResourceBundle(
 								bundle.language,
-								bundle.namespace || i18nOptions.defaultNS,
+								bundle.namespace || DEFAULT_NAMESPACE,
 								i18NextData,
 								true,
 								true
@@ -152,7 +149,7 @@ class I18nContainer extends WithManagedTracker {
 }
 
 const container = new I18nContainer()
-const i18nTranslator: TFunction = (key: any, options?): TFunctionResult => container.i18nTranslator(key, options)
+const i18nTranslator: TFunction = ((key: unknown, ...args: any[]) => container.i18nTranslator(key, ...args)) as any
 
 export { i18nTranslator }
 
@@ -167,7 +164,7 @@ export { i18nTranslator }
 	})
 
  * How to use in script:
-	import { i18nTranslator } from '../i18n'
+	import { i18nTranslator } from '../i18n.js'
 	const t = i18nTranslator
 	return t('My name is {{name}}', {name: 'foobar'})
  */

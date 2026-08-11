@@ -1,4 +1,3 @@
-
 // color variables are defined in defaultColors.scss
 
 $color-status-good: var(--color-status-good);
@@ -20,9 +19,11 @@ $general-live-remote-color: var(--general-live-remote-color);
 $general-live-guest-color: var(--general-live-guest-color);
 
 $general-late-color: var(--general-late-color);
+$over-under-over-color: var(--over-under-over-color);
 $general-fast-color: var(--general-fast-color);
 $general-fast-color--shadow: var(--general-fast-color--shadow);
 $general-countdown-to-next-color: var(--general-countdown-to-next-color);
+$general-freeze-color: var(--general-freeze-color);
 
 $general-clock: var(--general-clock);
 
@@ -37,3 +38,9 @@ $ui-button-primary--translucent: var(--ui-button-primary--translucent);
 
 $ui-dark-color: var(--ui-dark-color);
 $ui-dark-color-brighter: var(--ui-dark-color-brighter);
+
+$color-interactive-highlight: var(--color-interactive-highlight);
+
+$color-header-inactive: var(--color-header-inactive);
+$color-header-rehearsal: var(--color-header-rehearsal);
+$color-header-on-air: var(--color-header-on-air);

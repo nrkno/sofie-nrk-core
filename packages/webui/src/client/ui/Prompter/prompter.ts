@@ -1,5 +1,5 @@
-import { ScriptContent, SourceLayerType } from '@sofie-automation/blueprints-integration'
-import {
+import { type ScriptContent, SourceLayerType } from '@sofie-automation/blueprints-integration'
+import type {
 	PartId,
 	PartInstanceId,
 	PieceId,
@@ -8,21 +8,25 @@ import {
 	SegmentId,
 	ShowStyleBaseId,
 } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { Piece } from '@sofie-automation/corelib/dist/dataModel/Piece'
-import { PieceInstance } from '@sofie-automation/corelib/dist/dataModel/PieceInstance'
-import { Rundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
-import { DBSegment } from '@sofie-automation/corelib/dist/dataModel/Segment'
-import { RundownUtils } from '../../lib/rundown'
-import { RundownPlaylistClientUtil } from '../../lib/rundownPlaylistUtil'
-import { SourceLayers } from '@sofie-automation/corelib/dist/dataModel/ShowStyleBase'
-import { processAndPrunePieceInstanceTimings } from '@sofie-automation/corelib/dist/playout/processAndPrune'
-import * as _ from 'underscore'
-import { FindOptions } from '../../collections/lib'
-import { RundownPlaylistCollectionUtil } from '../../collections/rundownPlaylistUtil'
-import { normalizeArrayToMap, protectString } from '../../lib/tempLib'
-import { PieceInstances, Pieces, RundownPlaylists, Segments } from '../../collections'
-import { getPieceInstancesForPartInstance } from '../../lib/RundownResolver'
-import { UIShowStyleBases } from '../Collections'
+import type { Piece } from '@sofie-automation/corelib/dist/dataModel/Piece'
+import type { PieceInstance } from '@sofie-automation/corelib/dist/dataModel/PieceInstance'
+import type { Rundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
+import type { DBSegment } from '@sofie-automation/corelib/dist/dataModel/Segment'
+import { RundownUtils } from '../../lib/rundown.js'
+import { RundownPlaylistClientUtil } from '../../lib/rundownPlaylistUtil.js'
+import type { SourceLayers } from '@sofie-automation/corelib/dist/dataModel/ShowStyleBase'
+import {
+	createPartCurrentTimes,
+	processAndPrunePieceInstanceTimings,
+} from '@sofie-automation/corelib/dist/playout/processAndPrune'
+import _ from 'underscore'
+import type { FindOptions } from '../../collections/lib.js'
+import { RundownPlaylistCollectionUtil } from '../../collections/rundownPlaylistUtil.js'
+import { normalizeArrayToMap } from '@sofie-automation/corelib/dist/lib'
+import { protectString } from '@sofie-automation/shared-lib/dist/lib/protectedString'
+import { PieceInstances, Pieces, RundownPlaylists, Segments } from '../../collections/index.js'
+import { UIShowStyleBases } from '../Collections.js'
+import { getCurrentTime } from '../../lib/systemTime.js'
 
 // export interface NewPrompterAPI {
 // 	getPrompterData (playlistId: RundownPlaylistId): Promise<PrompterData>
@@ -51,6 +55,9 @@ export interface PrompterDataPart {
 export interface PrompterDataPiece {
 	id: PieceId
 	text: string
+	formattedText: string | undefined
+	continuationOf?: PieceId
+	startPartId?: PartId | null
 }
 export interface PrompterData {
 	title: string
@@ -61,7 +68,10 @@ export interface PrompterData {
 
 export namespace PrompterAPI {
 	// TODO: discuss: move this implementation to server-side?
-	export function getPrompterData(playlistId: RundownPlaylistId): PrompterData | null {
+	export function getPrompterData(
+		playlistId: RundownPlaylistId,
+		allowTestingAdlibsToPersist: boolean
+	): PrompterData | null {
 		if (typeof playlistId !== 'string') throw new Error('Expected `playlistId` to be a string')
 
 		const playlist = RundownPlaylists.findOne(playlistId)
@@ -88,31 +98,30 @@ export namespace PrompterAPI {
 						_id: 1,
 						orphaned: 1,
 					},
-			  }) as Pick<DBSegment, '_id' | 'orphaned'>)
+				}) as Pick<DBSegment, '_id' | 'orphaned'>)
 			: undefined
 
-		const groupedParts = RundownUtils.getSegmentsWithPartInstances(
-			playlist,
-			undefined,
-			undefined,
-			// unless this is the current or next PartInstance, we actually don't want the PartInstances,
-			// we want it to behave as if all other PartInstances are reset.
-			{
-				_id: {
-					$in: [currentPartInstance?._id, nextPartInstance?._id].filter(Boolean) as PartInstanceId[],
+		const groupedParts = RundownUtils.getSegmentsWithPartInstances(playlist, {
+			queries: {
+				// unless this is the current or next PartInstance, we actually don't want the PartInstances,
+				// we want it to behave as if all other PartInstances are reset.
+				partInstances: {
+					_id: {
+						$in: [currentPartInstance?._id, nextPartInstance?._id].filter(Boolean) as PartInstanceId[],
+					},
 				},
 			},
-			undefined,
-			undefined,
-			{
-				fields: {
-					isTaken: 0,
-					previousPartEndState: 0,
-					takeCount: 0,
-					timings: 0,
+			options: {
+				partInstances: {
+					fields: {
+						isTaken: 0,
+						previousPartEndState: 0,
+						takeCount: 0,
+						timings: 0,
+					},
 				},
-			}
-		)
+			},
+		})
 
 		// const groupedParts = _.groupBy(parts, (p) => p.segmentId)
 
@@ -146,7 +155,7 @@ export namespace PrompterAPI {
 		let previousRundown: Rundown | null = null
 		const rundownIds = rundowns.map((rundown) => rundown._id)
 
-		const allPiecesCache = new Map<PartId, Piece[]>()
+		const allPiecesCache = new Map<PartId | null, Piece[]>()
 		Pieces.find({
 			startRundownId: { $in: rundownIds },
 		}).forEach((piece) => {
@@ -174,7 +183,7 @@ export namespace PrompterAPI {
 						partInstanceId: currentPartInstance._id,
 					},
 					pieceInstanceFieldOptions
-			  ).fetch()
+				).fetch()
 			: undefined
 
 		const orderedRundowns = new Map<RundownId, PrompterDataRundown>()
@@ -218,31 +227,37 @@ export namespace PrompterAPI {
 					pieces: [],
 				}
 
-				const rawPieceInstances = getPieceInstancesForPartInstance(
-					playlist.activationId,
-					rundown,
-					segment,
-					partInstance,
-					new Set(partIds.slice(0, partIndex)),
-					new Set(segmentIds.slice(0, segmentIndex)),
-					rundownIds.slice(0, currentRundownIndex),
-					rundownIdsToSourceLayers,
-					orderedAllPartIds,
-					nextPartIsAfterCurrentPart,
-					currentPartInstance,
-					currentSegment,
-					currentPartInstancePieceInstances,
-					allPiecesCache,
-					pieceInstanceFieldOptions,
-					true
+				const rawPieceInstances = RundownUtils.getPieceInstancesForPartInstance(
+					{
+						playlistActivationId: playlist.activationId,
+						rundown,
+						segment,
+						partInstance,
+						partsToReceiveOnSegmentEndFromSet: new Set(partIds.slice(0, partIndex)),
+						segmentsToReceiveOnRundownEndFromSet: new Set(segmentIds.slice(0, segmentIndex)),
+						rundownsToReceiveOnShowStyleEndFrom: rundownIds.slice(0, currentRundownIndex),
+						rundownsToShowStyles: rundownIdsToSourceLayers,
+						orderedAllParts: orderedAllPartIds,
+						nextPartIsAfterCurrentPart,
+						currentPartInstance,
+						currentSegment,
+						currentPartInstancePieceInstances,
+						allowTestingAdlibsToPersist,
+					},
+					{
+						allPiecesCache,
+						pieceInstanceOptions: pieceInstanceFieldOptions,
+						pieceInstanceSimulation: true,
+					}
 				)
 
 				const sourceLayers = rundownIdsToShowStyleBase.get(partInstance.rundownId)
 				if (sourceLayers) {
+					const partTimes = createPartCurrentTimes(getCurrentTime(), null)
 					const preprocessedPieces = processAndPrunePieceInstanceTimings(
 						sourceLayers,
 						rawPieceInstances,
-						0,
+						partTimes,
 						true
 					)
 
@@ -254,12 +269,23 @@ export namespace PrompterAPI {
 
 						const content = piece.content as ScriptContent
 						if (!content.fullScript) continue
-						if (piecesIncluded.indexOf(piece._id) >= 0) continue // piece already included in prompter script
+						if (piecesIncluded.indexOf(piece._id) >= 0) {
+							// piece already included in prompter script - mark it as a continuation
+							partData.pieces.push({
+								id: protectString(`${partData.id}_${piece._id}_continuation`),
+								text: content.fullScript,
+								formattedText: content.fullScriptFormatted,
+								continuationOf: piece._id,
+								startPartId: piece.startPartId,
+							})
+							continue
+						}
 
 						piecesIncluded.push(piece._id)
 						partData.pieces.push({
 							id: piece._id,
 							text: content.fullScript,
+							formattedText: content.fullScriptFormatted,
 						})
 					}
 				}
@@ -269,6 +295,7 @@ export namespace PrompterAPI {
 					partData.pieces.push({
 						id: protectString(`part_${partData.id}_empty`),
 						text: '',
+						formattedText: '',
 					})
 				}
 

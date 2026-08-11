@@ -1,84 +1,58 @@
-import { useSubscription, useTracker } from '../../lib/ReactMeteorData/react-meteor-data'
-import * as _ from 'underscore'
-import { omit, unprotectString } from '../../lib/tempLib'
+import { useSubscription, useTracker } from '../../lib/ReactMeteorData/react-meteor-data.js'
+import _ from 'underscore'
+import { omit } from '@sofie-automation/corelib/dist/lib'
+import { unprotectString } from '@sofie-automation/shared-lib/dist/lib/protectedString'
 import { MeteorPubSub } from '@sofie-automation/meteor-lib/dist/api/pubsub'
-import { makeTableOfObject } from '../../lib/utilComponents'
-import { StudioSelect } from './StudioSelect'
-import { MappingExt } from '@sofie-automation/corelib/dist/dataModel/Studio'
+import { makeTableOfObject } from '../../lib/utilComponents.js'
+import type { MappingExt } from '@sofie-automation/corelib/dist/dataModel/Studio'
 import { LookaheadMode, TSR } from '@sofie-automation/blueprints-integration'
-import { createSyncPeripheralDeviceCustomPublicationMongoCollection } from '../../collections/lib'
-import { StudioId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { PeripheralDevicePubSubCollectionsNames } from '@sofie-automation/shared-lib/dist/pubsub/peripheralDevice'
 import { useTranslation } from 'react-i18next'
+import Row from 'react-bootstrap/Row'
+import Col from 'react-bootstrap/Col'
+import { StudioMappings } from './collections'
 
-const StudioMappings = createSyncPeripheralDeviceCustomPublicationMongoCollection(
-	PeripheralDevicePubSubCollectionsNames.studioMappings
-)
-
-interface IMappingsViewProps {
-	match?: {
-		params?: {
-			studioId: StudioId
-		}
-	}
-}
-function MappingsView(props: Readonly<IMappingsViewProps>): JSX.Element {
+export function MappingsView(): JSX.Element {
 	const { t } = useTranslation()
 
 	return (
-		<div className="mtl gutter">
-			<header className="mvs">
+		<div className="mx-5">
+			<header className="my-2">
 				<h1>{t('Routed Mappings')}</h1>
 			</header>
-			<div className="mod mvl">
-				{props.match && props.match.params && (
-					<div>
-						<ComponentMappingsTable studioId={props.match.params.studioId} />
-					</div>
-				)}
+			<div className="my-5">
+				<ComponentMappingsTable />
 			</div>
 		</div>
 	)
 }
 
-interface ComponentMappingsTableProps {
-	studioId: StudioId
-}
-function ComponentMappingsTable({ studioId }: Readonly<ComponentMappingsTableProps>): JSX.Element {
-	useSubscription(MeteorPubSub.mappingsForStudio, studioId)
+function ComponentMappingsTable(): JSX.Element {
+	useSubscription(MeteorPubSub.mappingsForStudio)
 
-	const mappingsObj = useTracker(
-		() => {
-			return StudioMappings.findOne(studioId)
-		},
-		[studioId],
-		null
-	)
+	const mappingsObj = useTracker(() => StudioMappings.findOne(), [], null)
 
 	const mappingsItems = mappingsObj ? _.sortBy(Object.entries<MappingExt>(mappingsObj.mappings), (o) => o[0]) : []
 
 	return (
-		<div>
-			<div>
-				<div>
-					<table className="testtools-timelinetable">
-						<tbody>
-							<tr>
-								<th>Mapping</th>
-								<th>DeviceId</th>
-								<th>Type</th>
-								<th>Name</th>
-								<th>Lookahead</th>
-								<th>Data</th>
-							</tr>
-							{mappingsItems.map(([id, obj]) => (
-								<ComponentMappingsTableRow key={id} id={id} obj={obj} />
-							))}
-						</tbody>
-					</table>
-				</div>
-			</div>
-		</div>
+		<Row>
+			<Col xs={12}>
+				<table className="testtools-datatable">
+					<tbody>
+						<tr>
+							<th>Mapping</th>
+							<th>DeviceId</th>
+							<th>Type</th>
+							<th>Name</th>
+							<th>Lookahead</th>
+							<th>Data</th>
+						</tr>
+						{mappingsItems.map(([id, obj]) => (
+							<ComponentMappingsTableRow key={id} id={id} obj={obj} />
+						))}
+					</tbody>
+				</table>
+			</Col>
+		</Row>
 	)
 }
 
@@ -108,9 +82,3 @@ function ComponentMappingsTableRow({ id, obj }: Readonly<ComponentMappingsTableR
 		</tr>
 	)
 }
-
-function MappingsStudioSelect(): JSX.Element {
-	return <StudioSelect path="mappings" title="Mappings" />
-}
-
-export { MappingsView, MappingsStudioSelect }

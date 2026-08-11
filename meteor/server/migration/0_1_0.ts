@@ -1,10 +1,12 @@
 import { addMigrationSteps } from './databaseMigration'
 import { logger } from '../logging'
-import { getRandomId, protectString } from '../lib/tempLib'
+import { getRandomId } from '@sofie-automation/corelib/dist/lib'
+import { protectString } from '@sofie-automation/corelib/dist/protectedString'
 import { wrapDefaultObject } from '@sofie-automation/corelib/dist/settings/objectWithOverrides'
 import { ShowStyleVariantId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { ShowStyleBases, ShowStyleVariants, Studios } from '../collections'
 import { DEFAULT_MINIMUM_TAKE_SPAN } from '@sofie-automation/shared-lib/dist/core/constants'
+import { ShelfButtonSize } from '@sofie-automation/shared-lib/dist/core/model/StudioSettings'
 
 /**
  * This file contains system specific migration steps.
@@ -27,7 +29,6 @@ export const addSteps = addMigrationSteps('0.1.0', [
 			await Studios.insertAsync({
 				_id: protectString('studio0'),
 				name: 'Default studio',
-				organizationId: null,
 				supportedShowStyleBase: [],
 				settingsWithOverrides: wrapDefaultObject({
 					frameRate: 25,
@@ -37,6 +38,7 @@ export const addSteps = addMigrationSteps('0.1.0', [
 					allowPieceDirectPlay: false,
 					enableBuckets: true,
 					enableEvaluationForm: true,
+					shelfAdlibButtonSize: ShelfButtonSize.LARGE,
 				}),
 				mappingsWithOverrides: wrapDefaultObject({}),
 				blueprintConfigWithOverrides: wrapDefaultObject({}),
@@ -44,8 +46,10 @@ export const addSteps = addMigrationSteps('0.1.0', [
 				routeSetsWithOverrides: wrapDefaultObject({}),
 				routeSetExclusivityGroupsWithOverrides: wrapDefaultObject({}),
 				packageContainersWithOverrides: wrapDefaultObject({}),
-				thumbnailContainerIds: [],
-				previewContainerIds: [],
+				packageContainerSettingsWithOverrides: wrapDefaultObject({
+					thumbnailContainerIds: [],
+					previewContainerIds: [],
+				}),
 				peripheralDeviceSettings: {
 					deviceSettings: wrapDefaultObject({}),
 					playoutDevices: wrapDefaultObject({}),
@@ -78,7 +82,6 @@ export const addSteps = addMigrationSteps('0.1.0', [
 				await ShowStyleBases.insertAsync({
 					_id: id,
 					name: 'Default ShowStyle',
-					organizationId: null,
 					blueprintId: protectString(''),
 					outputLayersWithOverrides: wrapDefaultObject({}),
 					sourceLayersWithOverrides: wrapDefaultObject({}),
@@ -114,7 +117,6 @@ export const addSteps = addMigrationSteps('0.1.0', [
 				await ShowStyleBases.insertAsync({
 					_id: id,
 					name: 'Default ShowStyle',
-					organizationId: null,
 					blueprintId: protectString(''),
 					outputLayersWithOverrides: wrapDefaultObject({}),
 					sourceLayersWithOverrides: wrapDefaultObject({}),

@@ -1,28 +1,28 @@
 import { DBRundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
-import { DatabasePersistedModel } from '../../../modelBase'
-import { IngestModelReadonly } from '../../../ingest/model/IngestModel'
-import { PlaylistLock } from '../../../jobs/lock'
+import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
+import { DatabasePersistedModel } from '../../../modelBase.js'
+import { IngestModelReadonly } from '../../../ingest/model/IngestModel.js'
+import { PlaylistLock } from '../../../jobs/lock.js'
 import { ReadonlyDeep } from 'type-fest'
-import { JobContext } from '../../../jobs'
-import { PlayoutModelImpl } from './PlayoutModelImpl'
-import { PlayoutRundownModelImpl } from './PlayoutRundownModelImpl'
+import { JobContext } from '../../../jobs/index.js'
+import { PlayoutModelImpl } from './PlayoutModelImpl.js'
+import { PlayoutRundownModelImpl } from './PlayoutRundownModelImpl.js'
 import { PartInstanceId, RundownId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { DBPartInstance } from '@sofie-automation/corelib/dist/dataModel/PartInstance'
 import { PieceInstance } from '@sofie-automation/corelib/dist/dataModel/PieceInstance'
 import { DBSegment, SegmentOrphanedReason } from '@sofie-automation/corelib/dist/dataModel/Segment'
 import { TimelineComplete } from '@sofie-automation/corelib/dist/dataModel/Timeline'
 import { MongoQuery } from '@sofie-automation/corelib/dist/mongo'
-import _ = require('underscore')
+import _ from 'underscore'
 import { clone, Complete, groupByToMap, groupByToMapFunc, literal } from '@sofie-automation/corelib/dist/lib'
-import { PlayoutSegmentModelImpl } from './PlayoutSegmentModelImpl'
+import { PlayoutSegmentModelImpl } from './PlayoutSegmentModelImpl.js'
 import { protectString, unprotectString } from '@sofie-automation/corelib/dist/protectedString'
 import { PeripheralDevice } from '@sofie-automation/corelib/dist/dataModel/PeripheralDevice'
-import { PlayoutModel, PlayoutModelPreInit } from '../PlayoutModel'
+import { PlayoutModel, PlayoutModelPreInit } from '../PlayoutModel.js'
 import { DBPart } from '@sofie-automation/corelib/dist/dataModel/Part'
 import { RundownBaselineObj } from '@sofie-automation/corelib/dist/dataModel/RundownBaselineObj'
 import { sortRundownsWithinPlaylist } from '@sofie-automation/corelib/dist/playout/playlist'
-import { logger } from '../../../logging'
+import { logger } from '../../../logging.js'
 
 /**
  * Load a PlayoutModelPreInit for the given RundownPlaylist
@@ -123,7 +123,7 @@ async function loadInitData(
 	const [peripheralDevices, reloadedPlaylist, rundowns] = await Promise.all([
 		context.directCollections.PeripheralDevices.findFetch({ 'studioAndConfigId.studioId': tmpPlaylist.studioId }),
 		reloadPlaylist
-			? await context.directCollections.RundownPlaylists.findOne(tmpPlaylist._id)
+			? context.directCollections.RundownPlaylists.findOne(tmpPlaylist._id)
 			: clone<DBRundownPlaylist>(tmpPlaylist),
 		existingRundowns ?? context.directCollections.Rundowns.findFetch({ playlistId: tmpPlaylist._id }),
 	])
@@ -213,6 +213,12 @@ async function loadRundowns(
 	const groupedBaselineObjects = groupByToMap(baselineObjects, 'rundownId')
 
 	if (ingestModel) {
+		// collect playout-owned AdlibTesting segments
+		const existingSegments = groupedSegmentsWithParts.get(ingestModel.rundownId) ?? []
+		const adlibTestingSegments = existingSegments.filter(
+			(s) => s.segment.orphaned === SegmentOrphanedReason.ADLIB_TESTING
+		)
+
 		const playoutSegments: PlayoutSegmentModelImpl[] = []
 		groupedSegmentsWithParts.set(ingestModel.rundownId, playoutSegments)
 		// Populate the collections with the in-memory data instead
@@ -224,6 +230,11 @@ async function loadRundowns(
 				)
 			)
 		}
+
+		// Re-add playout-owned AdlibTesting segments
+		playoutSegments.push(...adlibTestingSegments)
+		playoutSegments.sort((a, b) => a.segment._rank - b.segment._rank)
+
 		if (baselineTimelineFromIngest) {
 			groupedBaselineObjects.set(ingestModel.rundownId, [
 				literal<Complete<RundownBaselineObj>>({

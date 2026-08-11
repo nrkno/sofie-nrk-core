@@ -1,10 +1,10 @@
-import * as _ from 'underscore'
-import { unprotectString } from '../../../lib/tempLib'
-import { ISourceLayerUi } from '../SegmentTimelineContainer'
+import _ from 'underscore'
+import { unprotectString } from '@sofie-automation/shared-lib/dist/lib/protectedString'
+import type { ISourceLayerUi } from '../SegmentTimelineContainer.js'
 import { ContextMenuTrigger } from '@jstarpl/react-contextmenu'
-import { SourceLayerItemContainer } from '../SourceLayerItemContainer'
-import { ISourceLayerPropsBase, useMouseContext } from './SourceLayer'
-import { ISourceLayerExtended } from '../../../lib/RundownResolver'
+import { SourceLayerItemContainer } from '../SourceLayerItemContainer.js'
+import { type ISourceLayerPropsBase, useMouseContext } from './SourceLayer.js'
+import type { ISourceLayerExtended } from '@sofie-automation/corelib/src/dataModel/ShowStyleBase.js'
 
 interface IFlattenedSourceLayerProps extends ISourceLayerPropsBase {
 	layers: ISourceLayerUi[]
@@ -19,7 +19,7 @@ export function FlattenedSourceLayers(props: Readonly<IFlattenedSourceLayerProps
 			id="segment-timeline-context-menu"
 			attributes={{
 				className: 'segment-timeline__layer segment-timeline__layer--flattened',
-				onMouseUpCapture: (e) => onMouseDown(e),
+				onMouseDownCapture: (e) => onMouseDown(e),
 				role: 'log',
 				'aria-live': 'assertive',
 				'aria-label': props.outputLayer.name,
@@ -33,7 +33,7 @@ export function FlattenedSourceLayers(props: Readonly<IFlattenedSourceLayerProps
 							// filter only pieces belonging to this part
 							return piece.instance.partInstanceId === props.part.instance._id
 								? // filter only pieces, that have not been hidden from the UI
-								  piece.instance.piece.virtual !== true
+									piece.instance.piece.virtual !== true
 								: false
 						})
 					)

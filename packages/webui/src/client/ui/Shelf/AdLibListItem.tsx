@@ -1,13 +1,13 @@
 import ClassNames from 'classnames'
-import { ISourceLayer, IBlueprintActionTriggerMode } from '@sofie-automation/blueprints-integration'
-import { unprotectString } from '../../lib/tempLib'
-import renderItem from './Renderers/ItemRendererFactory'
-import { useContentStatusForAdlibPiece } from '../SegmentTimeline/withMediaObjectStatus'
+import type { ISourceLayer, IBlueprintActionTriggerMode } from '@sofie-automation/blueprints-integration'
+import { unprotectString } from '@sofie-automation/shared-lib/dist/lib/protectedString'
+import renderItem from './Renderers/ItemRendererFactory.js'
+import { useContentStatusForAdlibPiece } from '../SegmentTimeline/withMediaObjectStatus.js'
 import { ContextMenuTrigger } from '@jstarpl/react-contextmenu'
-import { contextMenuHoldToDisplayTime } from '../../lib/lib'
-import { setShelfContextMenuContext, ContextType as MenuContextType } from './ShelfContextMenu'
-import { UIStudio } from '@sofie-automation/meteor-lib/dist/api/studios'
-import { IAdLibListItem } from '@sofie-automation/meteor-lib/dist/uiTypes/Adlib'
+import { contextMenuHoldToDisplayTime } from '../../lib/lib.js'
+import { setShelfContextMenuContext, ContextType as MenuContextType } from './ShelfContextMenu.js'
+import type { IAdLibListItem } from '@sofie-automation/meteor-lib/dist/uiTypes/Adlib'
+import type { UIStudio } from '@sofie-automation/corelib/src/dataModel/Studio.js'
 
 export type { IAdLibListItem } from '@sofie-automation/meteor-lib/dist/uiTypes/Adlib'
 
@@ -44,9 +44,9 @@ export function AdLibListItem({
 				}),
 				//@ts-expect-error React.HTMLAttributes does not list data attributes, but that's fine
 				'data-obj-id': piece._id,
-				onClick: () => onSelectAdLib && onSelectAdLib(piece),
-				onContextMenu: () => onSelectAdLib && onSelectAdLib(piece),
-				onDoubleClick: (e) => !disabled && onToggleAdLib && onToggleAdLib(piece, e.shiftKey, e),
+				onClick: () => onSelectAdLib?.(piece),
+				onContextMenu: () => onSelectAdLib?.(piece),
+				onDoubleClick: (e) => !disabled && onToggleAdLib?.(piece, e.shiftKey, e),
 			}}
 			collect={() =>
 				setShelfContextMenuContext({

@@ -2,31 +2,31 @@ import { useCallback, useContext, useEffect, useState } from 'react'
 import Tooltip from 'rc-tooltip'
 import ClassNames from 'classnames'
 import { useTranslation } from 'react-i18next'
-import { RundownLayoutBase } from '@sofie-automation/meteor-lib/dist/collections/RundownLayouts'
-import { unprotectString } from '../../lib/tempLib'
-import { ActiveProgressBar } from './ActiveProgressBar'
-import { RundownListItem } from './RundownListItem'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
-import { Rundown, getRundownNrcsName } from '@sofie-automation/corelib/dist/dataModel/Rundown'
+import type { RundownLayoutBase } from '@sofie-automation/meteor-lib/dist/collections/RundownLayouts'
+import { unprotectString } from '@sofie-automation/shared-lib/dist/lib/protectedString'
+import { ActiveProgressBar } from './ActiveProgressBar.js'
+import { RundownListItem } from './RundownListItem.js'
+import type { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
+import { type Rundown, getRundownNrcsName } from '@sofie-automation/corelib/dist/dataModel/Rundown'
 import { Link } from 'react-router-dom'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faFolderOpen } from '@fortawesome/free-solid-svg-icons'
-import { LoopingIcon } from '../../lib/ui/icons/looping'
-import { getRundownPlaylistLink } from './util'
+import { LoopingIcon } from '../../lib/ui/icons/looping.js'
+import { getRundownPlaylistLink } from './util.js'
 import { useDrop } from 'react-dnd'
-import { IRundownDragObject, RundownListDragDropTypes } from './DragAndDropTypes'
-import { MeteorCall } from '../../lib/meteorApi'
-import { RundownUtils } from '../../lib/rundown'
-import PlaylistRankResetButton from './PlaylistRankResetButton'
-import { DisplayFormattedTime } from './DisplayFormattedTime'
-import { doUserAction, UserAction } from '../../lib/clientUserAction'
-import { RundownViewLayoutSelection } from './RundownViewLayoutSelection'
-import { RundownLayoutsAPI } from '../../lib/rundownLayouts'
+import { type IRundownDragObject, RundownListDragDropTypes } from './DragAndDropTypes.js'
+import { MeteorCall } from '../../lib/meteorApi.js'
+import { RundownUtils } from '../../lib/rundown.js'
+import PlaylistRankResetButton from './PlaylistRankResetButton.js'
+import { DisplayFormattedTime } from './DisplayFormattedTime.js'
+import { doUserAction, UserAction } from '../../lib/clientUserAction.js'
+import { RundownViewLayoutSelection } from './RundownViewLayoutSelection.js'
+import { RundownLayoutsAPI } from '../../lib/rundownLayouts.js'
 import { PlaylistTiming } from '@sofie-automation/corelib/dist/playout/rundownTiming'
-import { TOOLTIP_DEFAULT_DELAY } from '../../lib/lib'
-import { RundownId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { isLoopDefined } from '../../lib/RundownResolver'
-import { UserPermissionsContext } from '../UserPermissions'
+import { TOOLTIP_DEFAULT_DELAY } from '../../lib/lib.js'
+import type { RundownId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import { UserPermissionsContext } from '../UserPermissions.js'
+import { isLoopDefined } from '@sofie-automation/corelib/src/playout/stateCacheResolver.js'
 
 export interface RundownPlaylistUi extends DBRundownPlaylist {
 	rundowns: Rundown[]
@@ -181,14 +181,14 @@ export function RundownPlaylistUi({
 			>
 				<span>
 					{t('({{timecode}})', {
-						timecode: RundownUtils.formatDiffToTimecode(playlistExpectedDuration, false, true, true, false, true),
+						timecode: RundownUtils.formatDiffToTimecodeHours(playlistExpectedDuration),
 					})}
 					&nbsp;
 					<LoopingIcon />
 				</span>
 			</Tooltip>
 		) : (
-			RundownUtils.formatDiffToTimecode(playlistExpectedDuration, false, true, true, false, true)
+			RundownUtils.formatDiffToTimecodeHours(playlistExpectedDuration)
 		))
 
 	return (
@@ -199,6 +199,7 @@ export function RundownPlaylistUi({
 		>
 			{/* Drop target { droptarget: isActiveDropZone } */}
 			<header className="rundown-playlist__header">
+				<span>{/* Spacer */}</span>
 				<span>
 					<h2 className="rundown-playlist__heading" role="rowheader">
 						<FontAwesomeIcon icon={faFolderOpen} />
@@ -253,19 +254,19 @@ export function RundownPlaylistUi({
 				<span className="rundown-list-item__text" role="gridcell">
 					<DisplayFormattedTime displayTimestamp={playlist.modified} t={t} />
 				</span>
-				{rundownLayouts.some(
-					(l) =>
-						(RundownLayoutsAPI.isLayoutForShelf(l) && l.exposeAsStandalone) ||
-						(RundownLayoutsAPI.isLayoutForRundownView(l) && l.exposeAsSelectableLayout)
-				) && (
-					<span className="rundown-list-item__text" role="gridcell">
+				<span className="rundown-list-item__text" role="gridcell">
+					{rundownLayouts.some(
+						(l) =>
+							(RundownLayoutsAPI.isLayoutForShelf(l) && l.exposeAsStandalone) ||
+							(RundownLayoutsAPI.isLayoutForRundownView(l) && l.exposeAsSelectableLayout)
+					) && (
 						<RundownViewLayoutSelection
 							rundowns={playlist.rundowns}
 							rundownLayouts={rundownLayouts}
 							playlistId={playlist._id}
 						/>
-					</span>
-				)}
+					)}
+				</span>
 				<span className="rundown-list-item__actions" role="gridcell"></span>
 			</header>
 			<ol className="rundown-playlist__rundowns">{rundownListComponents}</ol>

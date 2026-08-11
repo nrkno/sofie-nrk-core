@@ -13,19 +13,19 @@ import { AdLibPiece } from '@sofie-automation/corelib/dist/dataModel/AdLibPiece'
 import { DBPart } from '@sofie-automation/corelib/dist/dataModel/Part'
 import { RundownBaselineAdLibAction } from '@sofie-automation/corelib/dist/dataModel/RundownBaselineAdLibAction'
 import { RundownBaselineAdLibItem } from '@sofie-automation/corelib/dist/dataModel/RundownBaselineAdLibPiece'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import { SourceLayers } from '@sofie-automation/corelib/dist/dataModel/ShowStyleBase'
 import { MongoQuery } from '@sofie-automation/corelib/dist/mongo'
 import { DBRundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
 import { DBSegment } from '@sofie-automation/corelib/dist/dataModel/Segment'
-import { sortAdlibs } from '../adlibs'
-import { ReactivePlaylistActionContext } from './actionFactory'
+import { sortAdlibs } from '../adlibs.js'
+import { ReactivePlaylistActionContext } from './actionFactory.js'
 import { PartId, RundownId, SegmentId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { IWrappedAdLibBase } from '@sofie-automation/shared-lib/dist/input-gateway/deviceTriggerPreviews'
-import { MountedAdLibTriggerType } from '../api/MountedTriggers'
+import { MountedAdLibTriggerType } from '../api/MountedTriggers.js'
 import { assertNever, generateTranslation } from '@sofie-automation/corelib/dist/lib'
-import { FindOptions } from '../collections/lib'
-import { TriggersContext, TriggerTrackerComputation } from './triggersContext'
+import { FindOptions } from '../collections/lib.js'
+import { TriggersContext, TriggerTrackerComputation } from './triggersContext.js'
 import { unprotectString } from '@sofie-automation/corelib/dist/protectedString'
 
 export type AdLibFilterChainLink = IRundownPlaylistFilterLink | IGUIContextFilterLink | IAdLibFilterLink
@@ -49,7 +49,12 @@ type CompiledAdLibFilter<T> = {
 	skip?: true
 }
 
-type SomeAdLib = RundownBaselineAdLibItem | RundownBaselineAdLibAction | AdLibPiece | AdLibAction
+type SomeAdLib =
+	| RundownBaselineAdLibItem
+	| RundownBaselineAdLibAction
+	// eslint-disable-next-line @typescript-eslint/no-duplicate-type-constituents
+	| AdLibPiece
+	| AdLibAction
 
 interface IWrappedAdLibType<T extends SomeAdLib, typeName extends MountedAdLibTriggerType> extends IWrappedAdLibBase {
 	_id: T['_id']
@@ -60,6 +65,7 @@ interface IWrappedAdLibType<T extends SomeAdLib, typeName extends MountedAdLibTr
 	sourceLayerId?: ISourceLayer['_id']
 	outputLayerId?: IOutputLayer['_id']
 	expectedDuration?: number | PieceLifespan
+	currentPieceTags?: string[]
 	item: T
 }
 
@@ -75,6 +81,7 @@ function wrapAdLibAction(adLib: AdLibAction, type: MountedAdLibTriggerType.adLib
 		sourceLayerId: (adLib.display as IBlueprintActionManifestDisplayContent)?.sourceLayerId,
 		outputLayerId: (adLib.display as IBlueprintActionManifestDisplayContent)?.outputLayerId,
 		expectedDuration: undefined,
+		currentPieceTags: adLib.display.currentPieceTags,
 		item: adLib,
 	}
 }
@@ -92,11 +99,17 @@ function wrapRundownBaselineAdLibAction(
 		sourceLayerId: (adLib.display as IBlueprintActionManifestDisplayContent)?.sourceLayerId,
 		outputLayerId: (adLib.display as IBlueprintActionManifestDisplayContent)?.outputLayerId,
 		expectedDuration: undefined,
+		currentPieceTags: adLib.display.currentPieceTags,
 		item: adLib,
 	}
 }
 
-function wrapAdLibPiece<T extends RundownBaselineAdLibItem | AdLibPiece>(
+function wrapAdLibPiece<
+	T extends
+		| RundownBaselineAdLibItem
+		// eslint-disable-next-line @typescript-eslint/no-duplicate-type-constituents
+		| AdLibPiece,
+>(
 	adLib: T,
 	type: MountedAdLibTriggerType.adLibPiece | MountedAdLibTriggerType.rundownBaselineAdLibItem
 ): IWrappedAdLib {
@@ -385,7 +398,10 @@ function compileAdLibActionFilter(
 	}
 }
 
-type AdLibPieceType = RundownBaselineAdLibItem | AdLibPiece
+type AdLibPieceType =
+	| RundownBaselineAdLibItem
+	// eslint-disable-next-line @typescript-eslint/no-duplicate-type-constituents
+	| AdLibPiece
 
 function compileAdLibPieceFilter(
 	filterChain: IAdLibFilterLink[],
@@ -552,7 +568,7 @@ export function compileAdLibFilter(
 		(link) => link.object === 'rundownPlaylist'
 	) as IRundownPlaylistFilterLink[]
 
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/ban-ts-comment
+	// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 	// @ts-ignore ignore unused
 	const rundownPlaylistFilter = compileRundownPlaylistFilter(onlyRundownPlaylistLinks)
 	const adLibPieceTypeFilter = compileAdLibPieceFilter(onlyAdLibLinks, sourceLayers)
@@ -570,15 +586,15 @@ export function compileAdLibFilter(
 			adLibPieceTypeFilter.segment === 'current'
 				? context.currentSegmentPartIds.get(computation)
 				: adLibPieceTypeFilter.segment === 'next'
-				? context.nextSegmentPartIds.get(computation)
-				: undefined
+					? context.nextSegmentPartIds.get(computation)
+					: undefined
 
 		const singlePartId =
 			adLibPieceTypeFilter.part === 'current'
 				? context.currentPartId.get(computation)
 				: adLibPieceTypeFilter.part === 'next'
-				? context.nextPartId.get(computation)
-				: undefined
+					? context.nextPartId.get(computation)
+					: undefined
 
 		/** Note: undefined means that all parts are to be considered */
 		let partFilter: PartId[] | undefined = undefined
@@ -610,7 +626,7 @@ export function compileAdLibFilter(
 			const activationStateMatches =
 				rundownPlaylistFilter.selector.activationId !== undefined
 					? (currentRundownPlaylist?.activationId !== undefined) ===
-					  rundownPlaylistFilter.selector.activationId
+						rundownPlaylistFilter.selector.activationId
 					: true
 			const nameMatches =
 				rundownPlaylistFilter.selector.name !== undefined

@@ -1,16 +1,16 @@
 import React from 'react'
 import _ from 'underscore'
 
-import { RundownUtils } from '../../lib/rundown'
+import { RundownUtils } from '../../lib/rundown.js'
 
-import { getElementWidth, getElementHeight } from '../../utils/dimensions'
-import { onElementResize } from '../../lib/resizeObserver'
-import { PartUi } from './SegmentTimelineContainer'
-import { getCurrentTime } from '../../lib/systemTime'
-import { RundownTiming } from '../RundownView/RundownTiming/RundownTiming'
-import { SegmentTimelinePartClass } from './Parts/SegmentTimelinePart'
-import { PartInstanceId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { RundownTimingProviderContext } from '../RundownView/RundownTiming/withTiming'
+import { getElementWidth, getElementHeight } from '../../utils/dimensions.js'
+import { onElementResize } from '../../lib/resizeObserver.js'
+import type { PartUi } from './SegmentTimelineContainer.js'
+import { getCurrentTime } from '../../lib/systemTime.js'
+import { RundownTiming } from '../RundownView/RundownTiming/RundownTiming.js'
+import { SegmentTimelinePartClass } from './Parts/SegmentTimelinePart.js'
+import type { PartInstanceId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import { RundownTimingProviderContext } from '../RundownView/RundownTiming/withTiming.js'
 
 // We're cheating a little: Fontface
 declare class FontFace {
@@ -43,6 +43,7 @@ interface ITimelineGridProps {
 	isLiveSegment: boolean
 	partInstances: PartUi[]
 	currentPartInstanceId: PartInstanceId | null
+	defaultDisplayDuration: number
 	onResize: (size: number[]) => void
 }
 
@@ -78,31 +79,34 @@ export class TimelineGrid extends React.Component<ITimelineGridProps> {
 
 	private lastTotalSegmentDuration: number | null = null
 
-	private contextResize = _.throttle((parentElementWidth: number, parentElementHeight: number) => {
-		if (this.ctx && this.canvasElement) {
-			const devicePixelRatio = window.devicePixelRatio || 1
+	private contextResize = _.throttle(
+		(parentElementWidth: number, parentElementHeight: number) => {
+			if (this.ctx && this.canvasElement) {
+				const devicePixelRatio = window.devicePixelRatio || 1
 
-			const backingStoreRatio =
-				(this.ctx as any).webkitBackingStorePixelRatio ||
-				(this.ctx as any).mozBackingStorePixelRatio ||
-				(this.ctx as any).msBackingStorePixelRatio ||
-				(this.ctx as any).oBackingStorePixelRatio ||
-				(this.ctx as any).backingStorePixelRatio ||
-				1
+				const backingStoreRatio =
+					(this.ctx as any).webkitBackingStorePixelRatio ||
+					(this.ctx as any).mozBackingStorePixelRatio ||
+					(this.ctx as any).msBackingStorePixelRatio ||
+					(this.ctx as any).oBackingStorePixelRatio ||
+					(this.ctx as any).backingStorePixelRatio ||
+					1
 
-			this.pixelRatio = devicePixelRatio / backingStoreRatio
+				this.pixelRatio = devicePixelRatio / backingStoreRatio
 
-			this.width = (parentElementWidth || 0) * this.pixelRatio
-			this.height = (parentElementHeight || 0) * this.pixelRatio
-			this.canvasElement.width = this.width
-			this.canvasElement.height = this.height
+				this.width = (parentElementWidth || 0) * this.pixelRatio
+				this.height = (parentElementHeight || 0) * this.pixelRatio
+				this.canvasElement.width = this.width
+				this.canvasElement.height = this.height
 
-			this.repaint()
-		}
-		if (this.props.onResize) {
-			this.props.onResize([parentElementWidth || 1, parentElementHeight || 1])
-		}
-	}, Math.ceil(1000 / 15)) // don't repaint faster than 15 fps
+				this.repaint()
+			}
+			if (this.props.onResize) {
+				this.props.onResize([parentElementWidth || 1, parentElementHeight || 1])
+			}
+		},
+		Math.ceil(1000 / 15)
+	) // don't repaint faster than 15 fps
 
 	private setParentRef = (element: HTMLDivElement) => {
 		this.parentElement = element
@@ -227,14 +231,14 @@ export class TimelineGrid extends React.Component<ITimelineGridProps> {
 		// We want to ensure that we draw at least n+1 (where n is the amount of ticks fitting on the display)
 		// "large" ticks (one's with label), so we divide the display width by the amount of large steps (step / interStep)
 		// and then after getting the ceil of the value, multiply it back for all the inter-steps,
-		// beacuse we do the paint iteration for every line
+		// because we do the paint iteration for every line
 		const maxTicks = Math.ceil(this.width / (step * interStep)) * interStep + interStep
 
 		// We store the x-position of the 0-th line to know if a particular section is N or N+1
 		// and switch between base and baseN
 		// let breakX = 0
 
-		// Go up to (width / step) + 1, to allow for the grid line + text, dissapearing on the left
+		// Go up to (width / step) + 1, to allow for the grid line + text, disappearing on the left
 		// in effect, we are rendering +1 grid lines than there should fit inside the area
 		let i = 0
 		for (i = 0; i < maxTicks; i++) {
@@ -267,8 +271,8 @@ export class TimelineGrid extends React.Component<ITimelineGridProps> {
 						? (this.longLineTop + this.longLineHeight) * this.pixelRatio
 						: this.height
 					: this.shortLineHeight > 0
-					? (this.shortLineTop + this.shortLineHeight) * this.pixelRatio
-					: this.height
+						? (this.shortLineTop + this.shortLineHeight) * this.pixelRatio
+						: this.height
 			)
 			this.ctx.stroke()
 		}
@@ -321,13 +325,13 @@ export class TimelineGrid extends React.Component<ITimelineGridProps> {
 							? SegmentTimelinePartClass.getCurrentLiveLinePosition(partInstance, currentTime) +
 									SegmentTimelinePartClass.getLiveLineTimePadding(this.props.timeScale)
 							: partInstance.instance._id === this.props.currentPartInstanceId && partInstance.instance.part.autoNext
-							? SegmentTimelinePartClass.getCurrentLiveLinePosition(partInstance, currentTime)
-							: 0
+								? SegmentTimelinePartClass.getCurrentLiveLinePosition(partInstance, currentTime)
+								: 0
 					)
 				total += duration
 			})
 		} else {
-			total = RundownUtils.getSegmentDuration(this.props.partInstances, true)
+			total = RundownUtils.getSegmentDuration(this.props.partInstances, this.props.defaultDisplayDuration)
 		}
 		return total
 	}
@@ -411,7 +415,8 @@ export class TimelineGrid extends React.Component<ITimelineGridProps> {
 			nextProps.scrollLeft !== this.props.scrollLeft ||
 			nextProps.isLiveSegment !== this.props.isLiveSegment ||
 			nextProps.partInstances !== this.props.partInstances ||
-			nextProps.currentPartInstanceId !== this.props.currentPartInstanceId
+			nextProps.currentPartInstanceId !== this.props.currentPartInstanceId ||
+			nextProps.defaultDisplayDuration !== this.props.defaultDisplayDuration
 		) {
 			return true
 		}
@@ -426,7 +431,8 @@ export class TimelineGrid extends React.Component<ITimelineGridProps> {
 		if (
 			prevProps.isLiveSegment !== this.props.isLiveSegment ||
 			prevProps.partInstances !== this.props.partInstances ||
-			prevProps.currentPartInstanceId !== this.props.currentPartInstanceId
+			prevProps.currentPartInstanceId !== this.props.currentPartInstanceId ||
+			prevProps.defaultDisplayDuration !== this.props.defaultDisplayDuration
 		) {
 			this.lastTotalSegmentDuration = null
 		}
@@ -439,6 +445,11 @@ export class TimelineGrid extends React.Component<ITimelineGridProps> {
 	}
 
 	componentWillUnmount(): void {
+		if (typeof this.scheduledRepaint === 'number') {
+			window.cancelAnimationFrame(this.scheduledRepaint)
+			this.scheduledRepaint = null
+		}
+		this.contextResize.cancel()
 		if (this._resizeObserver) this._resizeObserver.disconnect()
 		window.removeEventListener(RundownTiming.Events.timeupdateLowResolution, this.onTimeupdate)
 		window.removeEventListener(RundownTiming.Events.timeupdateHighResolution, this.onTimeupdate)

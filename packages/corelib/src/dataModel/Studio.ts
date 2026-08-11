@@ -1,7 +1,7 @@
 import { IBlueprintConfig, TSR } from '@sofie-automation/blueprints-integration'
-import { ObjectWithOverrides } from '../settings/objectWithOverrides'
-import { StudioId, OrganizationId, BlueprintId, ShowStyleBaseId, MappingsHash, PeripheralDeviceId } from './Ids'
-import { BlueprintHash, LastBlueprintConfig } from './Blueprint'
+import { ObjectWithOverrides } from '../settings/objectWithOverrides.js'
+import { StudioId, BlueprintId, ShowStyleBaseId, MappingsHash, PeripheralDeviceId } from './Ids.js'
+import { BlueprintHash, LastBlueprintConfig } from './Blueprint.js'
 import { MappingsExt, MappingExt } from '@sofie-automation/shared-lib/dist/core/model/Timeline'
 import {
 	ResultingMappingRoute,
@@ -13,7 +13,10 @@ import {
 	StudioRouteType,
 	StudioAbPlayerDisabling,
 } from '@sofie-automation/shared-lib/dist/core/model/StudioRouteSet'
-import { StudioPackageContainer } from '@sofie-automation/shared-lib/dist/core/model/PackageContainer'
+import {
+	StudioPackageContainer,
+	StudioPackageContainerSettings,
+} from '@sofie-automation/shared-lib/dist/core/model/PackageContainer'
 import { IStudioSettings } from '@sofie-automation/shared-lib/dist/core/model/StudioSettings'
 
 export { MappingsExt, MappingExt, MappingsHash, IStudioSettings }
@@ -34,11 +37,15 @@ export {
 
 export type StudioLight = Omit<DBStudio, 'mappingsWithOverrides' | 'blueprintConfigWithOverrides'>
 
-/** A set of available layer groups in a given installation */
+/*
+ Note to developers (2026-03-16):
+ As decided in [RFC #1450](https://github.com/Sofie-Automation/sofie-core/issues/1450)
+ The Studio Data model is to be limited to only contain a single Studio object.
+ This is incrementally being implemented throughout the codebase.
+ In 26.03, Sofie has a migration which refuses to pass until there is only one studio, and will not allow creating more.
+*/
 export interface DBStudio {
 	_id: StudioId
-	/** If set, this studio is owned by that organization */
-	organizationId: OrganizationId | null
 
 	/** User-presentable name for the studio installation */
 	name: string
@@ -76,9 +83,8 @@ export interface DBStudio {
 	 */
 	packageContainersWithOverrides: ObjectWithOverrides<Record<string, StudioPackageContainer>>
 
-	/** Which package containers is used for media previews in GUI */
-	previewContainerIds: string[]
-	thumbnailContainerIds: string[]
+	/** Which package containers are used for media previews/thumbnails in GUI */
+	packageContainerSettingsWithOverrides: ObjectWithOverrides<StudioPackageContainerSettings>
 
 	peripheralDeviceSettings: StudioPeripheralDeviceSettings
 
@@ -86,6 +92,26 @@ export interface DBStudio {
 	lastBlueprintConfig: LastBlueprintConfig | undefined
 	/** Last BlueprintHash where the fixupConfig method was run */
 	lastBlueprintFixUpHash: BlueprintHash | undefined
+}
+
+/**
+ * A minimal version of DBStudio, intended for the playout portions of the UI.
+ * Note: The settings ui uses the raw types
+ * This intentionally does not extend Studio, so that we have fine-grained control over the properties exposed
+ */
+export interface UIStudio {
+	_id: StudioId
+
+	/** User-presentable name for the studio installation */
+	name: string
+
+	/** Mappings between the physical devices / outputs and logical ones */
+	mappings: MappingsExt
+
+	settings: IStudioSettings
+
+	routeSets: Record<string, StudioRouteSet>
+	routeSetExclusivityGroups: Record<string, StudioRouteSetExclusivityGroup>
 }
 
 export interface StudioPeripheralDeviceSettings {

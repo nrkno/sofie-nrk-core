@@ -1,22 +1,26 @@
 import { useCallback, useMemo } from 'react'
-import { Studios } from '../../../../collections'
-import { StudioId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { useTracker } from '../../../../lib/ReactMeteorData/ReactMeteorData'
-import { PeripheralDevice, PeripheralDeviceCategory } from '@sofie-automation/corelib/dist/dataModel/PeripheralDevice'
-import { getHelpMode } from '../../../../lib/localStorage'
+import { Studios } from '../../../../collections/index.js'
+import type { StudioId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import { useTracker } from '../../../../lib/ReactMeteorData/ReactMeteorData.js'
+import {
+	type PeripheralDevice,
+	PeripheralDeviceCategory,
+} from '@sofie-automation/corelib/dist/dataModel/PeripheralDevice'
+import { getHelpMode } from '../../../../lib/localStorage.js'
 import Tooltip from 'rc-tooltip'
 import { useTranslation } from 'react-i18next'
-import { getAllCurrentAndDeletedItemsFromOverrides, useOverrideOpHelper } from '../../util/OverrideOpHelper'
+import { getAllCurrentAndDeletedItemsFromOverrides, useOverrideOpHelper } from '../../util/OverrideOpHelper.js'
 import {
-	ObjectOverrideSetOp,
-	SomeObjectOverrideOp,
+	type ObjectOverrideSetOp,
+	type ObjectWithOverrides,
+	type SomeObjectOverrideOp,
 	wrapDefaultObject,
 } from '@sofie-automation/corelib/dist/settings/objectWithOverrides'
-import { StudioIngestDevice } from '@sofie-automation/corelib/dist/dataModel/Studio'
+import type { StudioIngestDevice } from '@sofie-automation/corelib/dist/dataModel/Studio'
 import { faPlus } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { literal } from '@sofie-automation/corelib/dist/lib'
-import { GenericSubDevicesTable } from './GenericSubDevices'
+import { GenericSubDevicesTable } from './GenericSubDevices.js'
 
 interface StudioIngestSubDevicesProps {
 	studioId: StudioId
@@ -43,7 +47,7 @@ export function StudioIngestSubDevices({
 		[studio?._id]
 	)
 
-	const baseSettings = useMemo(
+	const baseSettings = useMemo<ObjectWithOverrides<Record<string, StudioIngestDevice>>>(
 		() => studio?.peripheralDeviceSettings?.ingestDevices ?? wrapDefaultObject({}),
 		[studio?.peripheralDeviceSettings?.ingestDevices]
 	)
@@ -88,8 +92,8 @@ export function StudioIngestSubDevices({
 	}, [studioId, wrappedSubDevices])
 
 	return (
-		<div>
-			<h2 className="mhn">
+		<div className="mb-4">
+			<h2 className="mb-2">
 				<Tooltip
 					overlay={t('Ingest devices are needed to create rundowns')}
 					visible={getHelpMode() && !wrappedSubDevices.length}
@@ -105,7 +109,7 @@ export function StudioIngestSubDevices({
 				peripheralDevices={filteredPeripheralDevices}
 			/>
 
-			<div className="mod mhs">
+			<div className="my-1 mx-2">
 				<button className="btn btn-primary" onClick={addNewItem}>
 					<FontAwesomeIcon icon={faPlus} />
 				</button>

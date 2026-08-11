@@ -1,4 +1,4 @@
-import { ClientAPI } from '../client'
+import { ClientAPI } from '../client.js'
 import { UserError, UserErrorMessage } from '@sofie-automation/corelib/dist/error'
 
 describe('ClientAPI', () => {
@@ -22,7 +22,7 @@ describe('ClientAPI', () => {
 			expect(error).toMatchObject({
 				error: {
 					key: UserErrorMessage.InactiveRundown,
-					message: {
+					userMessage: {
 						args: mockArgs,
 						key: 'Rundown must be active!',
 					},
@@ -34,17 +34,39 @@ describe('ClientAPI', () => {
 		{
 			const rawErr = new Error(mockErrorMessage)
 			const error = ClientAPI.responseError(UserError.from(rawErr, UserErrorMessage.InternalError, mockArgs))
+
 			expect(error).toMatchObject({
 				error: {
 					key: UserErrorMessage.InternalError,
-					message: {
+					userMessage: {
 						args: mockArgs,
 						key: 'An internal error occured!',
 					},
-					rawError: rawErr,
+					rawError: expect.objectContaining({
+						message: mockErrorMessage,
+						name: 'UserError',
+					}),
 				},
 			})
 		}
+	})
+	it('Extracts additionalInfo from error args', () => {
+		const error = ClientAPI.responseError(
+			UserError.create(
+				UserErrorMessage.TakeRateLimit,
+				{
+					duration: 1000,
+					nextAllowedTakeTime: 1234567890,
+				},
+				429
+			)
+		)
+		expect(error.additionalInfo).toEqual({ duration: 1000, nextAllowedTakeTime: 1234567890 })
+		expect(error.errorCode).toBe(429)
+	})
+	it('Does not include additionalInfo when no args', () => {
+		const error = ClientAPI.responseError(UserError.create(UserErrorMessage.InactiveRundown))
+		expect(error.additionalInfo).toBeUndefined()
 	})
 	describe('isClientResponseSuccess', () => {
 		it('Correctly recognizes a responseSuccess object', () => {

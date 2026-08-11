@@ -1,12 +1,12 @@
 import { useState, useLayoutEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
-import { unprotectString } from '../../../lib/tempLib'
-import { RundownUtils } from '../../../lib/rundown'
-import { PartUi, SegmentUi } from '../SegmentTimelineContainer'
-import { SegmentTimelinePart } from '../Parts/SegmentTimelinePart'
-import { ISourceLayer } from '@sofie-automation/blueprints-integration'
-import { UIStudio } from '@sofie-automation/meteor-lib/dist/api/studios'
+import type { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
+import { unprotectString } from '@sofie-automation/shared-lib/dist/lib/protectedString'
+import { RundownUtils } from '../../../lib/rundown.js'
+import type { PartUi, SegmentUi } from '../SegmentTimelineContainer.js'
+import { SegmentTimelinePart } from '../Parts/SegmentTimelinePart.js'
+import type { ISourceLayer } from '@sofie-automation/blueprints-integration'
+import type { UIStudio } from '@sofie-automation/corelib/src/dataModel/Studio.js'
 
 export const SegmentTimelinePartHoverPreview = ({
 	showMiniInspector,

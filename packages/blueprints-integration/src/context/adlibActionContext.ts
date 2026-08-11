@@ -1,10 +1,11 @@
-import type { DatastorePersistenceMode, Time } from '../common'
-import type { IEventContext } from '.'
-import type { IShowStyleUserContext } from './showStyleContext'
-import { IPartAndPieceActionContext } from './partsAndPieceActionContext'
-import { IExecuteTSRActionsContext } from './executeTsrActionContext'
-import { IBlueprintPart, IBlueprintPartInstance, IBlueprintPiece } from '..'
-import { IRouteSetMethods } from './routeSetContext'
+import type { DatastorePersistenceMode } from '../common.js'
+import type { IEventContext } from './index.js'
+import type { IShowStyleUserContext } from './showStyleContext.js'
+import { IPartAndPieceActionContext } from './partsAndPieceActionContext.js'
+import { IExecuteTSRActionsContext, ITriggerIngestChangeContext } from './executeTsrActionContext.js'
+import { IRouteSetMethods } from './routeSetContext.js'
+import { ITTimersContext } from './tTimersContext.js'
+import type { IPlayoutActionContext } from './playoutActionContext.js'
 
 /** Actions */
 export interface IDataStoreMethods {
@@ -21,25 +22,18 @@ export interface IDataStoreMethods {
 export interface IDataStoreActionExecutionContext extends IDataStoreMethods, IShowStyleUserContext, IEventContext {}
 
 export interface IActionExecutionContext
-	extends IShowStyleUserContext,
+	extends
+		IShowStyleUserContext,
 		IEventContext,
 		IDataStoreMethods,
 		IPartAndPieceActionContext,
 		IExecuteTSRActionsContext,
-		IRouteSetMethods {
+		ITriggerIngestChangeContext,
+		IRouteSetMethods,
+		ITTimersContext,
+		IPlayoutActionContext {
 	/** Fetch the showstyle config for the specified part */
 	// getNextShowStyleConfig(): Readonly<{ [key: string]: ConfigItemValue }>
-
-	/** Move the next part through the rundown. Can move by either a number of parts, or segments in either direction. */
-	moveNextPart(partDelta: number, segmentDelta: number, ignoreQuickloop?: boolean): Promise<void>
-	/** Set flag to perform take after executing the current action. Returns state of the flag after each call. */
-	takeAfterExecuteAction(take: boolean): Promise<boolean>
-	/** Inform core that a take out of the current partinstance should be blocked until the specified time */
-	blockTakeUntil(time: Time | null): Promise<void>
-
-	/** Insert a queued part to follow the current part */
-	queuePart(part: IBlueprintPart, pieces: IBlueprintPiece[]): Promise<IBlueprintPartInstance>
-
 	/** Misc actions */
 	// updateAction(newManifest: Pick<IBlueprintAdLibActionManifest, 'description' | 'payload'>): void // only updates itself. to allow for the next one to do something different
 	// executePeripheralDeviceAction(deviceId: string, functionName: string, args: any[]): Promise<any>

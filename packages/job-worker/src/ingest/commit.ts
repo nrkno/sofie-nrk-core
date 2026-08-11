@@ -7,41 +7,41 @@ import {
 } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { DBRundown, RundownOrphanedReason } from '@sofie-automation/corelib/dist/dataModel/Rundown'
 import { unprotectString, protectString } from '@sofie-automation/corelib/dist/protectedString'
-import { logger } from '../logging'
-import { PlayoutModel } from '../playout/model/PlayoutModel'
-import { PlayoutRundownModel } from '../playout/model/PlayoutRundownModel'
-import { allowedToMoveRundownOutOfPlaylist } from '../rundown'
-import { updatePartInstanceRanksAndOrphanedState } from '../updatePartInstanceRanksAndOrphanedState'
+import { logger } from '../logging.js'
+import { PlayoutModel } from '../playout/model/PlayoutModel.js'
+import { PlayoutRundownModel } from '../playout/model/PlayoutRundownModel.js'
+import { allowedToMoveRundownOutOfPlaylist } from '../rundown.js'
+import { updatePartInstanceRanksAndOrphanedState } from '../updatePartInstanceRanksAndOrphanedState.js'
 import {
 	getPlaylistIdFromExternalId,
 	produceRundownPlaylistInfoFromRundown,
 	removePlaylistFromDb,
 	removeRundownFromDb,
-} from '../rundownPlaylists'
+} from '../rundownPlaylists.js'
 import { ReadonlyDeep } from 'type-fest'
-import { IngestModel, IngestModelReadonly } from './model/IngestModel'
-import { JobContext } from '../jobs'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import { IngestDatabasePersistedModel, IngestModel, IngestModelReadonly } from './model/IngestModel.js'
+import { JobContext } from '../jobs/index.js'
+import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import { DBPartInstance } from '@sofie-automation/corelib/dist/dataModel/PartInstance'
-import { runJobWithPlaylistLock, runWithPlayoutModel } from '../playout/lock'
-import { CommitIngestData } from './lock'
+import { runJobWithPlaylistLock, runWithPlayoutModel } from '../playout/lock.js'
+import { CommitIngestData } from './lock.js'
 import { clone, groupByToMapFunc } from '@sofie-automation/corelib/dist/lib'
-import { PlaylistLock } from '../jobs/lock'
-import { syncChangesToPartInstances } from './syncChangesToPartInstance'
-import { ensureNextPartIsValid } from './updateNext'
+import { PlaylistLock } from '../jobs/lock.js'
+import { syncChangesToPartInstances } from './syncChangesToPartInstance.js'
+import { ensureNextPartIsValid } from './updateNext.js'
+import { recalculateTTimerProjections } from '../playout/tTimers.js'
 import { StudioJobs } from '@sofie-automation/corelib/dist/worker/studio'
-import { getTranslatedMessage, ServerTranslatedMesssages } from '../notes'
-import _ = require('underscore')
+import { getTranslatedMessage, ServerTranslatedMesssages } from '../notes.js'
+import _ from 'underscore'
 import { EventsJobs } from '@sofie-automation/corelib/dist/worker/events'
 import { NoteSeverity } from '@sofie-automation/blueprints-integration'
 import { DBSegment, SegmentOrphanedReason } from '@sofie-automation/corelib/dist/dataModel/Segment'
 import { UserError, UserErrorMessage } from '@sofie-automation/corelib/dist/error'
-import { PlayoutRundownModelImpl } from '../playout/model/implementation/PlayoutRundownModelImpl'
-import { PlayoutSegmentModelImpl } from '../playout/model/implementation/PlayoutSegmentModelImpl'
-import { createPlayoutModelFromIngestModel } from '../playout/model/implementation/LoadPlayoutModel'
+import { PlayoutRundownModelImpl } from '../playout/model/implementation/PlayoutRundownModelImpl.js'
+import { PlayoutSegmentModelImpl } from '../playout/model/implementation/PlayoutSegmentModelImpl.js'
+import { createPlayoutModelFromIngestModel } from '../playout/model/implementation/LoadPlayoutModel.js'
 import { DBPart } from '@sofie-automation/corelib/dist/dataModel/Part'
-import { DatabasePersistedModel } from '../modelBase'
-import { updateSegmentIdsForAdlibbedPartInstances } from './commit/updateSegmentIdsForAdlibbedPartInstances'
+import { updateSegmentIdsForAdlibbedPartInstances } from './commit/updateSegmentIdsForAdlibbedPartInstances.js'
 import { stringifyError } from '@sofie-automation/shared-lib/dist/lib/stringifyError'
 import { AnyBulkWriteOperation } from 'mongodb'
 
@@ -64,7 +64,7 @@ interface PlaylistIdPair {
  */
 export async function CommitIngestOperation(
 	context: JobContext,
-	ingestModel: IngestModel & DatabasePersistedModel,
+	ingestModel: IngestModel & IngestDatabasePersistedModel,
 	beforeRundown: ReadonlyDeep<DBRundown> | undefined,
 	beforePartMap: BeforeIngestOperationPartMap,
 	data: ReadonlyDeep<CommitIngestData>
@@ -81,7 +81,7 @@ export async function CommitIngestOperation(
 		? {
 				id: beforeRundown.playlistId,
 				externalId: null, // The id on the Rundown is not correct
-		  }
+			}
 		: undefined) ?? {
 		id: getPlaylistIdFromExternalId(context.studioId, rundown.playlistExternalId ?? unprotectString(rundown._id)),
 		externalId: rundown.playlistExternalId ?? unprotectString(rundown._id),
@@ -223,7 +223,7 @@ export async function CommitIngestOperation(
 			)
 
 			// Start the save
-			const pSaveIngest = ingestModel.saveAllToDatabase()
+			const pSaveIngest = ingestModel.saveAllToDatabase(playlistLock)
 			pSaveIngest.catch(() => null) // Ensure promise isn't reported as unhandled
 
 			await validateAdlibTestingSegment(context, playoutModel)
@@ -234,6 +234,16 @@ export async function CommitIngestOperation(
 
 				// update the quickloop in case we did any changes to things involving marker
 				playoutModel.updateQuickLoopState()
+
+				// wait for the ingest changes to save
+				await pSaveIngest
+
+				// do some final playout checks, which may load back some Parts data
+				// Note: This should trigger a timeline update, one is already queued in the `deferAfterSave` above
+				await ensureNextPartIsValid(context, playoutModel)
+
+				// Recalculate T-Timer projections after ingest changes
+				recalculateTTimerProjections(context, playoutModel)
 
 				playoutModel.deferAfterSave(() => {
 					// Run in the background, we don't want to hold onto the lock to do this
@@ -248,13 +258,6 @@ export async function CommitIngestOperation(
 
 					triggerUpdateTimelineAfterIngestData(context, playoutModel.playlistId)
 				})
-
-				// wait for the ingest changes to save
-				await pSaveIngest
-
-				// do some final playout checks, which may load back some Parts data
-				// Note: This should trigger a timeline update, one is already queued in the `deferAfterSave` above
-				await ensureNextPartIsValid(context, playoutModel)
 
 				// save the final playout changes
 				await playoutModel.saveAllToDatabase()
@@ -525,7 +528,7 @@ async function updatePartInstancesBasicProperties(
 		)
 	}
 
-	await Promise.all([ps])
+	await Promise.all(ps)
 }
 
 /**
@@ -614,6 +617,9 @@ export async function updatePlayoutAfterChangingRundownInPlaylist(
 
 		const shouldUpdateTimeline = await ensureNextPartIsValid(context, playoutModel)
 
+		// Recalculate T-Timer projections after playlist changes
+		recalculateTTimerProjections(context, playoutModel)
+
 		if (playoutModel.playlist.activationId || shouldUpdateTimeline) {
 			triggerUpdateTimelineAfterIngestData(context, playoutModel.playlistId)
 		}
@@ -667,7 +673,7 @@ async function getSelectedPartInstances(
 					rundownId: { $in: rundownIds },
 					_id: { $in: ids },
 					reset: { $ne: true },
-			  })
+				})
 			: []
 
 	const currentPartInstance = instances.find((inst) => inst._id === playlist.currentPartInfo?.partInstanceId)
@@ -709,7 +715,7 @@ export async function removeRundownFromPlaylistAndUpdatePlaylist(
 			...(updatePlaylistIdIsSetInSofieTo !== undefined
 				? {
 						playlistIdIsSetInSofie: updatePlaylistIdIsSetInSofieTo,
-				  }
+					}
 				: {}),
 		},
 	})

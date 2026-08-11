@@ -43,6 +43,7 @@
 			padding: 5px;
 			border: 1px solid #000;
 			background: #fff;
+			color: #000;
 		}
 
 		&:not(:focus-within) {
@@ -67,7 +68,7 @@
 			margin-top: 2rem;
 
 			.afterbroadcastform-bubble {
-				background-color: #D0CDCD;
+				background-color: #fff;
 				width: 70%;
 				margin-left: auto;
 				padding: 1.2rem 1.5rem;
@@ -95,10 +96,6 @@
 				float: right;
 				margin-top: -1px;
 				right: 50%;
-
-				> path {
-					fill: #D0CDCD;
-				}
 			}
 		}
 	}

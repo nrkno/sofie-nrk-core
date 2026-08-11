@@ -3,37 +3,40 @@ import {
 	BlueprintSyncIngestPartInstance,
 	IBlueprintAdLibPieceDB,
 } from '@sofie-automation/blueprints-integration'
-import { JobContext, ProcessedShowStyleCompound } from '../jobs'
-import { PlayoutModel } from '../playout/model/PlayoutModel'
-import { PlayoutPartInstanceModel } from '../playout/model/PlayoutPartInstanceModel'
-import { IngestModelReadonly } from './model/IngestModel'
+import { JobContext, ProcessedShowStyleCompound } from '../jobs/index.js'
+import { PlayoutModel } from '../playout/model/PlayoutModel.js'
+import { PlayoutPartInstanceModel } from '../playout/model/PlayoutPartInstanceModel.js'
+import { IngestModelReadonly } from './model/IngestModel.js'
 import { DBPart } from '@sofie-automation/corelib/dist/dataModel/Part'
 import { DBPartInstance } from '@sofie-automation/corelib/dist/dataModel/PartInstance'
 import { stringifyError } from '@sofie-automation/shared-lib/dist/lib/stringifyError'
-import { logger } from '../logging'
+import { logger } from '../logging.js'
 import {
 	fetchPiecesThatMayBeActiveForPart,
 	getPieceInstancesForPart,
 	syncPlayheadInfinitesForNextPartInstance,
-} from '../playout/infinites'
-import _ = require('underscore')
-import { SyncIngestUpdateToPartInstanceContext } from '../blueprints/context'
+} from '../playout/infinites.js'
+import _ from 'underscore'
+import { SyncIngestUpdateToPartInstanceContext } from '../blueprints/context/index.js'
 import {
 	convertAdLibActionToBlueprints,
 	convertAdLibPieceToBlueprints,
 	convertPartInstanceToBlueprints,
 	convertPartToBlueprints,
 	convertPieceInstanceToBlueprints,
-} from '../blueprints/context/lib'
-import { validateAdlibTestingPartInstanceProperties } from '../playout/adlibTesting'
+	convertRundownPieceToBlueprints,
+} from '../blueprints/context/lib.js'
+import { validateAdlibTestingPartInstanceProperties } from '../playout/adlibTesting.js'
 import { ReadonlyDeep } from 'type-fest'
-import { convertIngestModelToPlayoutRundownWithSegments } from './commit'
-import { convertNoteToNotification } from '../notifications/util'
-import { PlayoutRundownModel } from '../playout/model/PlayoutRundownModel'
+import { convertIngestModelToPlayoutRundownWithSegments } from './commit.js'
+import { convertNoteToNotification } from '../notifications/util.js'
+import { PlayoutRundownModel } from '../playout/model/PlayoutRundownModel.js'
 import { PieceInstance } from '@sofie-automation/corelib/dist/dataModel/PieceInstance'
-import { setNextPart } from '../playout/setNext'
-import { PartId, RundownId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import type { WrappedShowStyleBlueprint } from '../blueprints/cache'
+import { setNextPart } from '../playout/setNext.js'
+import { PartId, RundownId, SegmentId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import type { WrappedShowStyleBlueprint } from '../blueprints/cache.js'
+import { DBSegment } from '@sofie-automation/corelib/dist/dataModel/Segment'
+import { PersistentPlayoutStateStore } from '../blueprints/context/services/PersistantStateStore.js'
 
 type PlayStatus = 'previous' | 'current' | 'next'
 export interface PartInstanceToSync {
@@ -50,7 +53,7 @@ export interface PartInstanceToSync {
  * This defers out to the Blueprints to do the syncing
  * @param context Context of the job being run
  * @param playoutModel Playout model containing containing the Rundown being ingested
- * @param ingestModel Ingest model for the Rundown
+ * @param ingestModel Ingest model for the Rundown. This is being written to mongodb while this method runs
  */
 export async function syncChangesToPartInstances(
 	context: JobContext,
@@ -128,34 +131,58 @@ export class SyncChangesToPartInstancesWorker {
 
 		const syncContext = new SyncIngestUpdateToPartInstanceContext(
 			this.#context,
+			this.#playoutModel,
 			{
 				name: `Update to ${existingPartInstance.partInstance.part.externalId}`,
 				identifier: `rundownId=${existingPartInstance.partInstance.part.rundownId},segmentId=${existingPartInstance.partInstance.part.segmentId}`,
 			},
 			this.#context.studio,
 			this.#showStyle,
+			this.#playoutModel.playlist,
 			instanceToSync.playoutRundownModel.rundown,
 			existingPartInstance,
 			proposedPieceInstances,
 			instanceToSync.playStatus
 		)
 		// TODO - how can we limit the frequency we run this? (ie, how do we know nothing affecting this has changed)
+
+		// Snapshot t-timers before update in case we need to rollback
+		const tTimersSnapshot = [...this.#playoutModel.playlist.tTimers]
+
 		try {
 			if (!this.#blueprint.blueprint.syncIngestUpdateToPartInstance)
 				throw new Error('Blueprint does not have syncIngestUpdateToPartInstance')
+
+			const blueprintPersistentState = new PersistentPlayoutStateStore(
+				this.#playoutModel.playlist.privatePlayoutPersistentState,
+				this.#playoutModel.playlist.publicPlayoutPersistentState
+			)
 
 			// The blueprint handles what in the updated part is going to be synced into the partInstance:
 			this.#blueprint.blueprint.syncIngestUpdateToPartInstance(
 				syncContext,
 				existingResultPartInstance,
 				newResultData,
-				instanceToSync.playStatus
+				instanceToSync.playStatus,
+				blueprintPersistentState
 			)
+
+			// Persist t-timer changes
+			for (const timer of syncContext.changedTTimers) {
+				this.#playoutModel.updateTTimer(timer)
+			}
+
+			blueprintPersistentState.saveToModel(this.#playoutModel)
 		} catch (err) {
 			logger.error(`Error in showStyleBlueprint.syncIngestUpdateToPartInstance: ${stringifyError(err)}`)
 
 			// Operation failed, rollback the changes
 			existingPartInstance.snapshotRestore(partInstanceSnapshot)
+
+			// Also restore t-timers to prevent partial updates
+			for (let i = 0; i < tTimersSnapshot.length; i++) {
+				this.#playoutModel.updateTTimer(tTimersSnapshot[i])
+			}
 		}
 
 		if (instanceToSync.playStatus === 'next' && syncContext.hasRemovedPartInstance) {
@@ -181,13 +208,14 @@ export class SyncChangesToPartInstancesWorker {
 			await syncPlayheadInfinitesForNextPartInstance(
 				this.#context,
 				this.#playoutModel,
+				this.#ingestModel,
 				this.#playoutModel.currentPartInstance,
 				this.#playoutModel.nextPartInstance
 			)
 		}
 	}
 
-	collectNewIngestDataToSync(
+	private collectNewIngestDataToSync(
 		partId: PartId,
 		instanceToSync: PartInstanceToSync,
 		proposedPieceInstances: PieceInstance[]
@@ -202,7 +230,18 @@ export class SyncChangesToPartInstancesWorker {
 			if (adLibPiece) referencedAdlibs.push(convertAdLibPieceToBlueprints(adLibPiece))
 		}
 
+		const allModelParts = this.#ingestModel.getAllOrderedParts()
+
 		return {
+			allParts: allModelParts.map((part) => convertPartToBlueprints(part.part)),
+			currentPartIndex: computeCurrentPartIndex(
+				this.#ingestModel.getOrderedSegments().map((s) => s.segment),
+				allModelParts.map((p) => p.part),
+				partId,
+				instanceToSync.existingPartInstance.partInstance.segmentId,
+				instanceToSync.existingPartInstance.partInstance.part._rank
+			),
+
 			part: instanceToSync.newPart ? convertPartToBlueprints(instanceToSync.newPart) : undefined,
 			pieceInstances: proposedPieceInstances.map(convertPieceInstanceToBlueprints),
 			adLibPieces:
@@ -210,6 +249,7 @@ export class SyncChangesToPartInstancesWorker {
 			actions:
 				instanceToSync.newPart && ingestPart ? ingestPart.adLibActions.map(convertAdLibActionToBlueprints) : [],
 			referencedAdlibs: referencedAdlibs,
+			rundownPieces: this.#ingestModel.getGlobalPieces().map(convertRundownPieceToBlueprints),
 		}
 	}
 
@@ -476,4 +516,72 @@ function findLastUnorphanedPartInstanceInSegment(
 		partInstance: previousPartInstance,
 		part: previousPart,
 	}
+}
+
+/**
+ * Compute an approximate (possibly non-integer) index of the part within all parts
+ * This is used to give the blueprints an idea of where the part is within the rundown
+ * Note: this assumes each part has a unique integer rank, which is what ingest will produce
+ * @returns The approximate index, or `null` if the part could not be placed
+ */
+export function computeCurrentPartIndex(
+	allOrderedSegments: ReadonlyDeep<DBSegment>[],
+	allOrderedParts: ReadonlyDeep<DBPart>[],
+	partId: PartId,
+	segmentId: SegmentId,
+	targetRank: number
+): number | null {
+	// Exact match by part id
+	const exactIdx = allOrderedParts.findIndex((p) => p._id === partId)
+	if (exactIdx !== -1) return exactIdx
+
+	// Find the segment object
+	const segment = allOrderedSegments.find((s) => s._id === segmentId)
+	if (!segment) return null
+
+	// Prepare parts with their global indices
+	const partsWithGlobal = allOrderedParts.map((p, globalIndex) => ({ part: p, globalIndex }))
+
+	// Parts in the same segment
+	const partsInSegment = partsWithGlobal.filter((pg) => pg.part.segmentId === segmentId)
+
+	if (partsInSegment.length === 0) {
+		// Segment has no parts: place between the previous/next parts by segment order
+		const segmentRank = segment._rank
+
+		const prev = partsWithGlobal.findLast((pg) => {
+			const seg = allOrderedSegments.find((s) => s._id === pg.part.segmentId)
+			return !!seg && seg._rank < segmentRank
+		})
+
+		const next = partsWithGlobal.find((pg) => {
+			const seg = allOrderedSegments.find((s) => s._id === pg.part.segmentId)
+			return !!seg && seg._rank > segmentRank
+		})
+
+		if (prev && next) return (prev.globalIndex + next.globalIndex) / 2
+		if (prev) return prev.globalIndex + 0.5
+		if (next) return next.globalIndex - 0.5
+
+		// No parts at all
+		return null
+	}
+
+	// There are parts in the segment: decide placement by rank within the segment.
+
+	const nextIdx = partsInSegment.findIndex((pg) => pg.part._rank > targetRank)
+	if (nextIdx === -1) {
+		// After last
+		return partsInSegment[partsInSegment.length - 1].globalIndex + 0.5
+	}
+
+	if (nextIdx === 0) {
+		// Before first
+		return partsInSegment[0].globalIndex - 0.5
+	}
+
+	// Between two adjacent parts: interpolate by their ranks (proportionally)
+	const prev = partsInSegment[nextIdx - 1]
+	const next = partsInSegment[nextIdx]
+	return prev.globalIndex + (next.globalIndex - prev.globalIndex) / 2
 }

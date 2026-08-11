@@ -3,6 +3,8 @@ import './lib/lib'
 
 import './buckets'
 import './blueprintUpgradeStatus/publication'
+import './ingestStatus/publication'
+import './externalEventSubscriptions'
 import './packageManager/expectedPackages/publication'
 import './packageManager/packageContainers'
 import './packageManager/playoutContext'

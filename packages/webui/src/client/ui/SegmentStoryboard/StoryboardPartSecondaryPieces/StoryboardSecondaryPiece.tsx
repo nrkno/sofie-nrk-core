@@ -1,17 +1,23 @@
-import React, { RefObject, useImperativeHandle, useRef, useState } from 'react'
-import { RundownUtils } from '../../../lib/rundown'
-import { ISourceLayer, SourceLayerType } from '@sofie-automation/blueprints-integration'
-import { PieceUi } from '../../SegmentContainer/withResolvedSegment'
-import { DefaultRenderer } from './Renderers/DefaultRenderer'
-import { assertNever } from '../../../lib/tempLib'
-import { ScriptRenderer } from './Renderers/ScriptRenderer'
-import { getElementDocumentOffset } from '../../../utils/positions'
-import { getElementWidth } from '../../../utils/dimensions'
-import { GraphicsRenderer } from './Renderers/GraphicsRenderer'
-import { SplitsRenderer } from './Renderers/SplitsRenderer'
-import { PieceElement } from '../../SegmentContainer/PieceElement'
-import { UIStudio } from '@sofie-automation/meteor-lib/dist/api/studios'
-import { PartId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import { useImperativeHandle, useContext, useEffect, useRef, useState, type RefObject } from 'react'
+import { type ISourceLayer, SourceLayerType } from '@sofie-automation/blueprints-integration'
+import { DefaultRenderer } from './Renderers/DefaultRenderer.js'
+import { assertNever } from '@sofie-automation/corelib/dist/lib'
+import { ScriptRenderer } from './Renderers/ScriptRenderer.js'
+import { getElementDocumentOffset } from '../../../utils/positions.js'
+import { getElementWidth } from '../../../utils/dimensions.js'
+import { GraphicsRenderer } from './Renderers/GraphicsRenderer.js'
+import { SplitsRenderer } from './Renderers/SplitsRenderer.js'
+import { PieceElement } from '../../SegmentContainer/PieceElement.js'
+import type { PartId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import { useContentStatusForPieceInstance } from '../../SegmentTimeline/withMediaObjectStatus.js'
+import {
+	convertSourceLayerItemToPreview,
+	type IPreviewPopUpSession,
+	PreviewPopUpContext,
+} from '../../PreviewPopUp/PreviewPopUpContext.js'
+import type { UIStudio } from '@sofie-automation/corelib/src/dataModel/Studio.js'
+import type { PieceUi } from '@sofie-automation/corelib/src/dataModel/Piece.js'
+import { RundownUtils } from '../../../lib/rundown.js'
 
 interface IProps {
 	layer: ISourceLayer
@@ -89,10 +95,19 @@ export function StoryboardSecondaryPiece(props: IProps): JSX.Element {
 
 	const typeClass = piece?.sourceLayer?.type ? RundownUtils.getSourceLayerClassName(piece?.sourceLayer?.type) : ''
 
+	const previewContext = useContext(PreviewPopUpContext)
+	const previewSession = useRef<IPreviewPopUpSession | null>(null)
+	const contentStatus = useContentStatusForPieceInstance(piece.instance)
+	const { contents: previewContents, options: previewOptions } = convertSourceLayerItemToPreview(
+		props.layer.type,
+		piece.instance.piece,
+		contentStatus
+	)
+
 	const onPointerEnter = (e: React.PointerEvent<HTMLDivElement>) => {
 		if (e.pointerType !== 'mouse') return
 
-		setHovering({ pageX: e.pageX, pageY: e.pageY })
+		// setHovering({ pageX: e.pageX, pageY: e.pageY })
 		if (!element.current) return
 
 		const offset = getElementDocumentOffset(element.current)
@@ -105,11 +120,37 @@ export function StoryboardSecondaryPiece(props: IProps): JSX.Element {
 			width,
 		})
 
+		if (previewSession.current) {
+			previewSession.current.close()
+			previewSession.current = null
+		}
+
+		if (previewContents.length > 0 && element.current)
+			previewSession.current = previewContext.requestPreview(element.current, previewContents, {
+				...previewOptions,
+				initialOffsetX: e.clientX,
+				trackMouse: true,
+			})
+
 		if (onPointerEnterCallback) onPointerEnterCallback(e)
 	}
 
+	useEffect(() => {
+		return () => {
+			if (previewSession.current) {
+				previewSession.current.close()
+				previewSession.current = null
+			}
+		}
+	}, [])
+
 	const onPointerLeave = (e: React.PointerEvent<HTMLDivElement>) => {
 		setHovering(null)
+
+		if (previewSession.current) {
+			previewSession.current.close()
+			previewSession.current = null
+		}
 
 		if (onPointerLeaveCallback) onPointerLeaveCallback(e)
 	}

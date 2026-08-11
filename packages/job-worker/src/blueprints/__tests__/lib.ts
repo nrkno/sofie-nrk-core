@@ -29,7 +29,6 @@ export function generateFakeBlueprint(
 	return literal<Blueprint>({
 		_id: protectString(id),
 		name: 'Fake blueprint',
-		organizationId: null,
 		code: `({default: (${codeFcnString})()})`,
 		hasCode: true,
 		created: 0,
@@ -45,6 +44,8 @@ export function generateFakeBlueprint(
 		databaseVersion: {
 			system: undefined,
 		},
+
+		hasFixUpFunction: false,
 
 		blueprintVersion: '',
 		integrationVersion: '',

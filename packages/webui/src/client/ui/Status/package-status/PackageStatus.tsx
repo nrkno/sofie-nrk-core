@@ -1,17 +1,18 @@
 import * as React from 'react'
-import { ExpectedPackageWorkStatus } from '@sofie-automation/corelib/dist/dataModel/ExpectedPackageWorkStatuses'
-import { assertNever, unprotectString } from '../../../lib/tempLib'
-import { ExpectedPackageDB } from '@sofie-automation/corelib/dist/dataModel/ExpectedPackages'
+import type { ExpectedPackageWorkStatus } from '@sofie-automation/corelib/dist/dataModel/ExpectedPackageWorkStatuses'
+import { assertNever } from '@sofie-automation/corelib/dist/lib'
+import { unprotectString } from '@sofie-automation/shared-lib/dist/lib/protectedString'
+import type { ExpectedPackageDB } from '@sofie-automation/corelib/dist/dataModel/ExpectedPackages'
 import Tooltip from 'rc-tooltip'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faChevronDown, faChevronRight } from '@fortawesome/free-solid-svg-icons'
 import ClassNames from 'classnames'
-import { ExpectedPackage } from '@sofie-automation/blueprints-integration'
+import { ExpectedPackage, ExpectedPackageStatusAPI } from '@sofie-automation/blueprints-integration'
 import { useTranslation } from 'react-i18next'
-import { DisplayFormattedTime } from '../../RundownList/DisplayFormattedTime'
-import { PackageWorkStatus } from './PackageWorkStatus'
+import { DisplayFormattedTime } from '../../RundownList/DisplayFormattedTime.js'
+import { PackageWorkStatus } from './PackageWorkStatus.js'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { PeripheralDevice } from '@sofie-automation/corelib/dist/dataModel/PeripheralDevice'
+import type { PeripheralDevice } from '@sofie-automation/corelib/dist/dataModel/PeripheralDevice'
 
 /** How long to wait before considering an unchanged package to not be "working" annymore */
 const WORKING_TIMEOUT = 2000
@@ -24,7 +25,7 @@ export const PackageStatus: React.FC<{
 	const { t } = useTranslation()
 
 	const getPackageName = useCallback((): string => {
-		const p2: ExpectedPackage.Any = props.package as any
+		const p2 = props.package.package as ExpectedPackage.Any
 		if (p2.type === ExpectedPackage.PackageType.MEDIA_FILE) {
 			return p2.content.filePath || unprotectString(props.package._id)
 		} else if (p2.type === ExpectedPackage.PackageType.QUANTEL_CLIP) {
@@ -86,7 +87,7 @@ export const PackageStatus: React.FC<{
 
 			return 0
 		})
-	}, props.statuses)
+	}, [props.statuses])
 
 	let offlineReasonMessage: string | undefined = undefined
 	let connected = true
@@ -153,7 +154,7 @@ export const PackageStatus: React.FC<{
 			{isOpen
 				? statuses.map((status) => {
 						return <PackageWorkStatus key={unprotectString(status._id)} status={status} connected={connected} />
-				  })
+					})
 				: null}
 		</React.Fragment>
 	)
@@ -262,9 +263,9 @@ function getProgress(statuses: ExpectedPackageWorkStatus[], onlyRequired: boolea
 			continue
 		}
 		count++
-		if (status.status === 'fulfilled') {
+		if (status.status === ExpectedPackageStatusAPI.WorkStatusState.FULFILLED) {
 			progress += 1
-		} else if (status.status === 'working') {
+		} else if (status.status === ExpectedPackageStatusAPI.WorkStatusState.WORKING) {
 			progress += status.progress || 0.1
 		} else {
 			progress += 0

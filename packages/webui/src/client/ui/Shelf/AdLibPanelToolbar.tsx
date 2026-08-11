@@ -1,4 +1,3 @@
-import React from 'react'
 import { useTranslation } from 'react-i18next'
 import classNames from 'classnames'
 import { faList, faTh, faTimes } from '@fortawesome/free-solid-svg-icons'
@@ -15,7 +14,7 @@ export function AdLibPanelToolbar(props: Readonly<IToolbarPropsHeader>): JSX.Ele
 
 	function searchInputChanged(e?: React.ChangeEvent<HTMLInputElement>) {
 		const newValue = e?.target.value
-		props.onFilterChange && typeof props.onFilterChange === 'function' && props.onFilterChange(newValue)
+		if (props.onFilterChange && typeof props.onFilterChange === 'function') props.onFilterChange(newValue)
 	}
 
 	function searchInputKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {

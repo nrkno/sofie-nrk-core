@@ -1,10 +1,12 @@
-import React, { useCallback, useState } from 'react'
+import { useCallback, useState } from 'react'
 import ClassNames from 'classnames'
+import Form from 'react-bootstrap/Form'
 
 interface IFloatInputControlProps {
 	classNames?: string
 	modifiedClassName?: string
 	disabled?: boolean
+	readOnly?: boolean
 	placeholder?: string
 
 	/** Call handleUpdate on every change, before focus is lost */
@@ -23,6 +25,7 @@ export function FloatInputControl({
 	modifiedClassName,
 	value,
 	disabled,
+	readOnly,
 	placeholder,
 	handleUpdate,
 	updateOnKey,
@@ -35,6 +38,8 @@ export function FloatInputControl({
 
 	const handleChange = useCallback(
 		(event: React.ChangeEvent<HTMLInputElement>) => {
+			if (readOnly) return
+
 			const number = parseFloat(event.target.value.replace(',', '.'))
 			setEditingValue(number)
 
@@ -42,10 +47,15 @@ export function FloatInputControl({
 				handleUpdate(zeroBased ? number - 1 : number)
 			}
 		},
-		[handleUpdate, updateOnKey, zeroBased]
+		[handleUpdate, updateOnKey, zeroBased, readOnly]
 	)
 	const handleBlur = useCallback(
 		(event: React.FocusEvent<HTMLInputElement>) => {
+			if (readOnly) {
+				setEditingValue(null)
+				return
+			}
+
 			const number = parseFloat(event.currentTarget.value.replace(',', '.'))
 			if (!isNaN(number)) {
 				handleUpdate(zeroBased ? number - 1 : number)
@@ -53,13 +63,19 @@ export function FloatInputControl({
 
 			setEditingValue(null)
 		},
-		[handleUpdate, zeroBased]
+		[handleUpdate, zeroBased, readOnly]
 	)
-	const handleFocus = useCallback((event: React.FocusEvent<HTMLInputElement>) => {
-		setEditingValue(parseFloat(event.currentTarget.value.replace(',', '.')))
-	}, [])
+	const handleFocus = useCallback(
+		(event: React.FocusEvent<HTMLInputElement>) => {
+			if (readOnly) return
+			setEditingValue(parseFloat(event.currentTarget.value.replace(',', '.')))
+		},
+		[readOnly]
+	)
 	const handleKeyUp = useCallback(
 		(event: React.KeyboardEvent<HTMLInputElement>) => {
+			if (readOnly) return
+
 			if (event.key === 'Escape') {
 				setEditingValue(null)
 			} else if (event.key === 'Enter') {
@@ -69,7 +85,7 @@ export function FloatInputControl({
 				}
 			}
 		},
-		[handleUpdate, zeroBased]
+		[handleUpdate, zeroBased, readOnly]
 	)
 
 	let showValue: string | number | undefined = editingValue ?? undefined
@@ -79,7 +95,7 @@ export function FloatInputControl({
 	if (showValue === undefined || isNaN(Number(showValue))) showValue = ''
 
 	return (
-		<input
+		<Form.Control
 			type="number"
 			step={step ?? 0.1}
 			min={min}
@@ -92,6 +108,7 @@ export function FloatInputControl({
 			onFocus={handleFocus}
 			onKeyUp={handleKeyUp}
 			disabled={disabled}
+			readOnly={readOnly}
 		/>
 	)
 }

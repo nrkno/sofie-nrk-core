@@ -2,76 +2,41 @@ import React, { useCallback, useMemo } from 'react'
 import ClassNames from 'classnames'
 import { faPencilAlt, faTrash, faCheck, faExclamationTriangle, faPlus, faSync } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { ISourceLayer, SourceLayerType } from '@sofie-automation/blueprints-integration'
-import { assertNever, literal, getRandomString } from '@sofie-automation/corelib/dist/lib'
+import { type ISourceLayer, SourceLayerType } from '@sofie-automation/blueprints-integration'
+import { literal, getRandomString } from '@sofie-automation/corelib/dist/lib'
 import Tooltip from 'rc-tooltip'
-import { TFunction, useTranslation } from 'react-i18next'
-import { DBShowStyleBase } from '@sofie-automation/corelib/dist/dataModel/ShowStyleBase'
-import { getHelpMode } from '../../../lib/localStorage'
-import { doModalDialog } from '../../../lib/ModalDialog'
-import { findHighestRank } from '../StudioSettings'
-import { useToggleExpandHelper } from '../../util/useToggleExpandHelper'
-import { ObjectOverrideSetOp, SomeObjectOverrideOp } from '@sofie-automation/corelib/dist/settings/objectWithOverrides'
+import { useTranslation } from 'react-i18next'
+import { sourceLayerTypeString } from '../../../lib/rundown.js'
+import type { DBShowStyleBase } from '@sofie-automation/corelib/dist/dataModel/ShowStyleBase'
+import { getHelpMode } from '../../../lib/localStorage.js'
+import { doModalDialog } from '../../../lib/ModalDialog.js'
+import { findHighestRank } from '../StudioSettings.js'
+import { useToggleExpandHelper } from '../../util/useToggleExpandHelper.js'
+import type {
+	ObjectOverrideSetOp,
+	SomeObjectOverrideOp,
+} from '@sofie-automation/corelib/dist/settings/objectWithOverrides'
 import {
 	getAllCurrentAndDeletedItemsFromOverrides,
-	OverrideOpHelper,
+	type OverrideOpHelper,
 	useOverrideOpHelper,
-	WrappedOverridableItemNormal,
-} from '../util/OverrideOpHelper'
-import { TextInputControl } from '../../../lib/Components/TextInput'
-import { CheckboxControl } from '../../../lib/Components/Checkbox'
-import { IntInputControl } from '../../../lib/Components/IntInput'
-import { DropdownInputControl, getDropdownInputOptions } from '../../../lib/Components/DropdownInput'
+	type WrappedOverridableItemNormal,
+} from '../util/OverrideOpHelper.js'
+import { TextInputControl } from '../../../lib/Components/TextInput.js'
+import { CheckboxControl } from '../../../lib/Components/Checkbox.js'
+import { IntInputControl } from '../../../lib/Components/IntInput.js'
+import { DropdownInputControl, getDropdownInputOptions } from '../../../lib/Components/DropdownInput.js'
 import {
 	LabelActual,
 	LabelAndOverrides,
 	LabelAndOverridesForCheckbox,
 	LabelAndOverridesForDropdown,
 	LabelAndOverridesForInt,
-} from '../../../lib/Components/LabelAndOverrides'
-import { ShowStyleBases } from '../../../collections'
+} from '../../../lib/Components/LabelAndOverrides.js'
+import { ShowStyleBases } from '../../../collections/index.js'
 
-function sourceLayerString(t: TFunction<'translation', undefined>, type: SourceLayerType) {
-	switch (type) {
-		case SourceLayerType.CAMERA:
-			return t('Camera')
-		case SourceLayerType.GRAPHICS:
-			return t('Graphics')
-		case SourceLayerType.LIVE_SPEAK:
-			return t('Live Speak')
-		case SourceLayerType.LOWER_THIRD:
-			return t('Lower Third')
-		// case SourceLayerType.MIC:
-		// 	return t('Studio Microphone')
-		case SourceLayerType.REMOTE_SPEAK:
-			return t('Remote Speak')
-		case SourceLayerType.REMOTE:
-			return t('Remote Source')
-		case SourceLayerType.SCRIPT:
-			return t('Generic Script')
-		case SourceLayerType.SPLITS:
-			return t('Split Screen')
-		case SourceLayerType.VT:
-			return t('Clips')
-		case SourceLayerType.UNKNOWN:
-			return t('Unknown Layer')
-		case SourceLayerType.AUDIO:
-			return t('Audio Mixing')
-		case SourceLayerType.LIGHTS:
-			return t('Lighting')
-		case SourceLayerType.TRANSITION:
-			return t('Transition')
-		// case SourceLayerType.LIGHTS:
-		// 	return t('Lights')
-		case SourceLayerType.LOCAL:
-			return t('Local')
-		case SourceLayerType.STUDIO_SCREEN:
-			return t('Studio Screen Graphics')
-		default:
-			assertNever(type)
-			return SourceLayerType[type]
-	}
-}
+// Re-export for local use, keeping the same name for minimal code changes
+const sourceLayerString = sourceLayerTypeString
 
 interface IStudioSourcesSettingsProps {
 	showStyleBase: DBShowStyleBase
@@ -139,7 +104,7 @@ export function SourceLayerSettings({ showStyleBase }: Readonly<IStudioSourcesSe
 
 	return (
 		<div>
-			<h2 className="mhn">
+			<h2 className="mb-4">
 				<Tooltip
 					overlay={t('Add some source layers (e.g. Graphics) for your data to appear in rundowns')}
 					visible={getHelpMode() && !sortedSourceLayers.length}
@@ -170,7 +135,7 @@ export function SourceLayerSettings({ showStyleBase }: Readonly<IStudioSourcesSe
 					)}
 				</tbody>
 			</table>
-			<div className="mod mhs">
+			<div className="my-1 mx-2">
 				<button className="btn btn-primary" onClick={onAddSource}>
 					<FontAwesomeIcon icon={faPlus} />
 				</button>
@@ -300,14 +265,7 @@ function SourceLayerEntry({ item, isExpanded, toggleExpanded, overrideHelper }: 
 					<td colSpan={4}>
 						<div className="properties-grid">
 							<LabelAndOverrides label={t('Source Name')} item={item} itemKey={'name'} overrideHelper={overrideHelper}>
-								{(value, handleUpdate) => (
-									<TextInputControl
-										modifiedClassName="bghl"
-										classNames="input text-input input-l"
-										value={value}
-										handleUpdate={handleUpdate}
-									/>
-								)}
+								{(value, handleUpdate) => <TextInputControl value={value} handleUpdate={handleUpdate} />}
 							</LabelAndOverrides>
 							<LabelAndOverrides
 								label={t('Source Abbreviation')}
@@ -315,24 +273,11 @@ function SourceLayerEntry({ item, isExpanded, toggleExpanded, overrideHelper }: 
 								itemKey={'abbreviation'}
 								overrideHelper={overrideHelper}
 							>
-								{(value, handleUpdate) => (
-									<TextInputControl
-										modifiedClassName="bghl"
-										classNames="input text-input input-l"
-										value={value}
-										handleUpdate={handleUpdate}
-									/>
-								)}
+								{(value, handleUpdate) => <TextInputControl value={value} handleUpdate={handleUpdate} />}
 							</LabelAndOverrides>
 							<label className="field">
 								<LabelActual label={t('Internal ID')} />
-								<TextInputControl
-									modifiedClassName="bghl"
-									classNames="input text-input input-l"
-									value={item.id}
-									handleUpdate={doChangeItemId}
-									disabled={!!item.defaults}
-								/>
+								<TextInputControl value={item.id} handleUpdate={doChangeItemId} disabled={!!item.defaults} />
 							</label>
 							<LabelAndOverridesForDropdown
 								label={t('Source Type')}
@@ -342,12 +287,7 @@ function SourceLayerEntry({ item, isExpanded, toggleExpanded, overrideHelper }: 
 								options={getDropdownInputOptions(SourceLayerType)}
 							>
 								{(value, handleUpdate, options) => (
-									<DropdownInputControl
-										classNames="focusable-main input-l"
-										options={options}
-										value={value}
-										handleUpdate={handleUpdate}
-									/>
+									<DropdownInputControl options={options} value={value} handleUpdate={handleUpdate} />
 								)}
 							</LabelAndOverridesForDropdown>
 							<LabelAndOverridesForCheckbox
@@ -380,14 +320,7 @@ function SourceLayerEntry({ item, isExpanded, toggleExpanded, overrideHelper }: 
 								itemKey={'_rank'}
 								overrideHelper={overrideHelper}
 							>
-								{(value, handleUpdate) => (
-									<IntInputControl
-										modifiedClassName="bghl"
-										classNames="input text-input input-l"
-										value={value}
-										handleUpdate={handleUpdate}
-									/>
-								)}
+								{(value, handleUpdate) => <IntInputControl value={value} handleUpdate={handleUpdate} />}
 							</LabelAndOverridesForInt>
 							<LabelAndOverridesForCheckbox
 								label={t('Treat as Main content')}
@@ -460,17 +393,10 @@ function SourceLayerEntry({ item, isExpanded, toggleExpanded, overrideHelper }: 
 								itemKey={'exclusiveGroup'}
 								overrideHelper={overrideHelper}
 							>
-								{(value, handleUpdate) => (
-									<TextInputControl
-										modifiedClassName="bghl"
-										classNames="input text-input input-l"
-										value={value}
-										handleUpdate={handleUpdate}
-									/>
-								)}
+								{(value, handleUpdate) => <TextInputControl value={value} handleUpdate={handleUpdate} />}
 							</LabelAndOverrides>
 						</div>
-						<div className="mod alright">
+						<div className="m-1 me-2 text-end">
 							{item.defaults && (
 								<button className="btn btn-primary" onClick={doResetItem} title="Reset to defaults">
 									<FontAwesomeIcon icon={faSync} />

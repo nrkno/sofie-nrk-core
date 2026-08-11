@@ -1,39 +1,36 @@
 import React, { useContext } from 'react'
-import * as _ from 'underscore'
+import _ from 'underscore'
 import { Meteor } from 'meteor/meteor'
 import { Tracker } from 'meteor/tracker'
 import {
 	NotificationCenter,
 	NotificationList,
-	NotifierHandle,
+	type NotifierHandle,
 	Notification,
 	NoticeLevel,
 	getNoticeLevelForPieceStatus,
-	NotificationsSource,
-} from '../../lib/notifications/notifications'
-import { WithManagedTracker } from '../../lib/reactiveData/reactiveDataHelper'
-import { reactiveData } from '../../lib/reactiveData/reactiveData'
-import { PeripheralDevice } from '@sofie-automation/corelib/dist/dataModel/PeripheralDevice'
+	type NotificationsSource,
+} from '../../lib/notifications/notifications.js'
+import { WithManagedTracker } from '../../lib/reactiveData/reactiveDataHelper.js'
+import { reactiveData } from '../../lib/reactiveData/reactiveData.js'
+import type { PeripheralDevice } from '@sofie-automation/corelib/dist/dataModel/PeripheralDevice'
 import { unprotectString } from '@sofie-automation/shared-lib/dist/lib/protectedString'
-import { getCurrentTime } from '../../lib/systemTime'
-import { meteorSubscribe } from '../../lib/meteorApi'
+import { getCurrentTime } from '../../lib/systemTime.js'
+import { meteorSubscribe, MeteorCall } from '../../lib/meteorApi.js'
 import { ReactiveVar } from 'meteor/reactive-var'
-import { Rundown, getRundownNrcsName } from '@sofie-automation/corelib/dist/dataModel/Rundown'
-import { doModalDialog } from '../../lib/ModalDialog'
-import { doUserAction, UserAction } from '../../lib/clientUserAction'
-// import { withTranslation, getI18n, getDefaults } from 'react-i18next'
-import { i18nTranslator as t } from '../i18n'
+import { type Rundown, getRundownNrcsName } from '@sofie-automation/corelib/dist/dataModel/Rundown'
+import { doModalDialog } from '../../lib/ModalDialog.js'
+import { doUserAction, UserAction } from '../../lib/clientUserAction.js'
+import { i18nTranslator as t } from '../i18n.js'
 import { PieceStatusCode } from '@sofie-automation/corelib/dist/dataModel/Piece'
-import { PeripheralDevicesAPI } from '../../lib/clientAPI'
-import { handleRundownReloadResponse } from '../RundownView'
-import { MeteorCall } from '../../lib/meteorApi'
-import { UIPieceContentStatus, UISegmentPartNote } from '@sofie-automation/meteor-lib/dist/api/rundownNotifications'
+import { PeripheralDevicesAPI } from '../../lib/clientAPI.js'
+import { handleRundownReloadResponse } from './RundownHeader/RundownReloadResponse.js'
+import type { UISegmentPartNote } from '@sofie-automation/meteor-lib/dist/api/rundownNotifications'
 import { isTranslatableMessage, translateMessage } from '@sofie-automation/corelib/dist/TranslatableMessage'
 import { NoteSeverity, StatusCode } from '@sofie-automation/blueprints-integration'
-import { getIgnorePieceContentStatus } from '../../lib/localStorage'
-import { Notifications, RundownPlaylists } from '../../collections'
-import { UIStudio } from '@sofie-automation/meteor-lib/dist/api/studios'
-import {
+import { getIgnorePieceContentStatus } from '../../lib/localStorage.js'
+import { Notifications, RundownPlaylists } from '../../collections/index.js'
+import type {
 	PartId,
 	PeripheralDeviceId,
 	PieceId,
@@ -43,14 +40,16 @@ import {
 	SegmentId,
 	StudioId,
 } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { UIPartInstances, UIPieceContentStatuses, UISegmentPartNotes } from '../Collections'
-import { RundownPlaylistCollectionUtil } from '../../collections/rundownPlaylistUtil'
-import { logger } from '../../lib/logging'
+import { UIPartInstances, UIPieceContentStatuses, UISegmentPartNotes } from '../Collections.js'
+import { RundownPlaylistCollectionUtil } from '../../collections/rundownPlaylistUtil.js'
+import { logger } from '../../lib/logging.js'
 import { CorelibPubSub } from '@sofie-automation/corelib/dist/pubsub'
-import { UserPermissionsContext, UserPermissions } from '../UserPermissions'
-import { PartInstance } from '@sofie-automation/meteor-lib/dist/collections/PartInstances'
+import { UserPermissionsContext, type UserPermissions } from '../UserPermissions.js'
 import { assertNever } from '@sofie-automation/corelib/dist/lib'
 import { DBNotificationTargetType } from '@sofie-automation/corelib/dist/dataModel/Notifications'
+import type { UIPieceContentStatus } from '@sofie-automation/corelib/dist/dataModel/PieceContentStatus'
+import type { UIStudio } from '@sofie-automation/corelib/src/dataModel/Studio.js'
+import type { PartInstance } from '@sofie-automation/corelib/src/dataModel/PartInstance.js'
 
 export const onRONotificationClick = new ReactiveVar<((e: RONotificationEvent) => void) | undefined>(undefined)
 export const reloadRundownPlaylistClick = new ReactiveVar<((e: any) => void) | undefined>(undefined)
@@ -209,7 +208,7 @@ class RundownViewNotifier extends WithManagedTracker {
 			if (playlist?.notes) {
 				const playlistNotesId = playlist._id + '_playlistnotes_'
 				playlist.notes.forEach((note) => {
-					const noteId = playlistNotesId + note.origin.name + '_' + note.message + '_' + note.type
+					const noteId = playlistNotesId + note.origin.name + '_' + note.message.key + '_' + note.type
 					const notificationFromNote = new Notification(
 						noteId,
 						getNoticeLevelForNoteSeverity(note.type),
@@ -296,7 +295,7 @@ class RundownViewNotifier extends WithManagedTracker {
 					const rundownNotesId = rundown._id + '_ronotes_'
 					if (rundown.notes) {
 						rundown.notes.forEach((note) => {
-							const rundownNoteId = rundownNotesId + note.origin.name + '_' + note.message + '_' + note.type
+							const rundownNoteId = rundownNotesId + note.origin.name + '_' + note.message.key + '_' + note.type
 							const notificationFromNote = new Notification(
 								rundownNoteId,
 								getNoticeLevelForNoteSeverity(note.type),
@@ -480,7 +479,7 @@ class RundownViewNotifier extends WithManagedTracker {
 												})
 											},
 										},
-								  ]
+									]
 								: undefined,
 							-1
 						)
@@ -534,17 +533,15 @@ class RundownViewNotifier extends WithManagedTracker {
 				const newNotification = new Notification(
 					notificationId,
 					getNoticeLevelForNoteSeverity(itemType),
-					(
-						<>
-							{name || segmentName ? (
-								<h5>
-									{segmentName || name}
-									{segmentName && name ? `${SEGMENT_DELIMITER}${name}` : null}
-								</h5>
-							) : null}
-							<div>{translatedMessage || t('There is an unknown problem with the part.')}</div>
-						</>
-					),
+					<>
+						{name || segmentName ? (
+							<h5>
+								{segmentName || name}
+								{segmentName && name ? `${SEGMENT_DELIMITER}${name}` : null}
+							</h5>
+						) : null}
+						<div>{translatedMessage || t('There is an unknown problem with the part.')}</div>
+					</>,
 					origin.segmentId || origin.rundownId || 'unknown',
 					getCurrentTime(),
 					true,
@@ -612,20 +609,18 @@ class RundownViewNotifier extends WithManagedTracker {
 					newNotification = new Notification(
 						issue.pieceId,
 						getNoticeLevelForPieceStatus(status) || NoticeLevel.WARNING,
-						(
-							<>
-								<h5>{messageName}</h5>
-								<div>
-									{messages.map((msg, index) => (
-										<React.Fragment key={`${index}_${msg.key}`}>
-											{translateMessage(msg, t)}
-											<br />
-										</React.Fragment>
-									))}
-									{messages.length === 0 && t('There is an unspecified problem with the source.')}
-								</div>
-							</>
-						),
+						<>
+							<h5>{messageName}</h5>
+							<div>
+								{messages.map((msg, index) => (
+									<React.Fragment key={`${index}_${msg.key}`}>
+										{translateMessage(msg, t)}
+										<br />
+									</React.Fragment>
+								))}
+								{messages.length === 0 && t('There is an unspecified problem with the source.')}
+							</div>
+						</>,
 						issue.segmentId ? issue.segmentId : 'line_' + issue.partId,
 						getCurrentTime(),
 						true,
@@ -812,7 +807,7 @@ class RundownViewNotifier extends WithManagedTracker {
 		if (!device.connected) {
 			return t('Device {{deviceName}} is disconnected', { deviceName: device.name })
 		}
-		return `${device.name}: ` + (device.status.messages || ['']).join(', ')
+		return `${device.name}: ` + (device.status.statusDetails?.map((d) => d.message) || ['']).join(', ')
 	}
 }
 

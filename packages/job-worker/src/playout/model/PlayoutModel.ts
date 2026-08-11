@@ -1,4 +1,5 @@
 import {
+	BucketAdLibId,
 	PartId,
 	PartInstanceId,
 	PieceId,
@@ -9,28 +10,30 @@ import {
 	SegmentId,
 	SegmentPlayoutId,
 } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { BaseModel } from '../../modelBase'
+import { BaseModel } from '../../modelBase.js'
 import {
 	ABSessionAssignments,
 	ABSessionInfo,
 	DBRundownPlaylist,
 	QuickLoopMarker,
 	RundownHoldState,
-} from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+} from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
+import { RundownTTimer } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/TTimers'
 import { ReadonlyDeep } from 'type-fest'
-import { StudioPlayoutModelBase, StudioPlayoutModelBaseReadonly } from '../../studio/model/StudioPlayoutModel'
+import { StudioPlayoutModelBase, StudioPlayoutModelBaseReadonly } from '../../studio/model/StudioPlayoutModel.js'
 import { DBPart } from '@sofie-automation/corelib/dist/dataModel/Part'
 import { PieceInstance, PieceInstancePiece } from '@sofie-automation/corelib/dist/dataModel/PieceInstance'
-import { PlaylistLock } from '../../jobs/lock'
-import { PlayoutRundownModel } from './PlayoutRundownModel'
-import { PlayoutSegmentModel } from './PlayoutSegmentModel'
-import { PlayoutPartInstanceModel } from './PlayoutPartInstanceModel'
+import { PlaylistLock } from '../../jobs/lock.js'
+import { PlayoutRundownModel } from './PlayoutRundownModel.js'
+import { PlayoutSegmentModel } from './PlayoutSegmentModel.js'
+import { PlayoutPartInstanceModel } from './PlayoutPartInstanceModel.js'
 import { PeripheralDevice } from '@sofie-automation/corelib/dist/dataModel/PeripheralDevice'
 import { DBRundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
-import { PlayoutPieceInstanceModel } from './PlayoutPieceInstanceModel'
+import { PlayoutPieceInstanceModel } from './PlayoutPieceInstanceModel.js'
 import { PieceInstanceWithTimings } from '@sofie-automation/corelib/dist/playout/processAndPrune'
 import { PartCalculatedTimings } from '@sofie-automation/corelib/dist/playout/timings'
-import type { INotificationsModel } from '../../notifications/NotificationsModel'
+import type { INotificationsModel } from '../../notifications/NotificationsModel.js'
+import { Time } from '@sofie-automation/blueprints-integration'
 
 export type DeferredFunction = (playoutModel: PlayoutModel) => void | Promise<void>
 export type DeferredAfterSaveFunction = (playoutModel: PlayoutModelReadonly) => void | Promise<void>
@@ -242,7 +245,7 @@ export interface PlayoutModel extends PlayoutModelReadonly, StudioPlayoutModelBa
 	createAdlibbedPartInstance(
 		part: Omit<DBPart, 'segmentId' | 'rundownId'>,
 		pieces: Omit<PieceInstancePiece, 'startPartId'>[],
-		fromAdlibId: PieceId | undefined,
+		fromAdlibId: PieceId | BucketAdLibId | undefined,
 		infinitePieceInstances: PieceInstance[]
 	): PlayoutPartInstanceModel
 
@@ -294,13 +297,6 @@ export interface PlayoutModel extends PlayoutModelReadonly, StudioPlayoutModelBa
 	queuePartInstanceTimingEvent(partInstanceId: PartInstanceId): void
 
 	/**
-	 * Queue a `NotifyCurrentlyPlayingPart` operation to be performed upon completion of this Playout operation
-	 * @param rundownId The Rundown to report the notification to
-	 * @param partInstance The PartInstance the event is in relation to
-	 */
-	queueNotifyCurrentlyPlayingPartEvent(rundownId: RundownId, partInstance: PlayoutPartInstanceModel | null): void
-
-	/**
 	 * Remove all loaded PartInstances marked as `rehearsal` from this RundownPlaylist
 	 */
 	removeAllRehearsalPartInstances(): void
@@ -323,16 +319,26 @@ export interface PlayoutModel extends PlayoutModelReadonly, StudioPlayoutModelBa
 	setHoldState(newState: RundownHoldState): void
 
 	/**
-	 * Store the persistent results of the AB playback resolving and onTimelineGenerate
-	 * @param persistentState Blueprint owned state from onTimelineGenerate
+	 * Store the persistent results of the AB playback resolving
 	 * @param assignedAbSessions The applied AB sessions
 	 * @param trackedAbSessions The known AB sessions
 	 */
-	setOnTimelineGenerateResult(
-		persistentState: unknown | undefined,
+	setAbResolvingState(
 		assignedAbSessions: Record<string, ABSessionAssignments>,
 		trackedAbSessions: ABSessionInfo[]
 	): void
+
+	/**
+	 * Store the blueprint private persistent state
+	 * @param persistentState Blueprint owned state
+	 */
+	setBlueprintPrivatePersistentState(persistentState: unknown | undefined): void
+
+	/**
+	 * Store the blueprint public persistent state
+	 * @param persistentState Blueprint owned state
+	 */
+	setBlueprintPublicPersistentState(persistentState: unknown | undefined): void
 
 	/**
 	 * Set a PartInstance as the nexted PartInstance
@@ -375,11 +381,30 @@ export interface PlayoutModel extends PlayoutModelReadonly, StudioPlayoutModelBa
 	 */
 	setQuickLoopMarker(type: 'start' | 'end', marker: QuickLoopMarker | null): void
 
+	/**
+	 * Update a T-timer
+	 * @param timer Timer properties
+	 */
+	updateTTimer(timer: RundownTTimer): void
+
 	calculatePartTimings(
 		fromPartInstance: PlayoutPartInstanceModel | null,
 		toPartInstance: PlayoutPartInstanceModel,
 		toPieceInstances: PieceInstanceWithTimings[]
 	): PartCalculatedTimings
+
+	/**
+	 * Return an expected "now" value (i.e. the closest moment in time that can be safely addressed),
+	 * considering any playout latency. Every call will return a value greater or equal than previous,
+	 * meaning that this function is monotonic.
+	 */
+	getNowInPlayout(): Time
+
+	/**
+	 * Mark the playlist as needing a timeline update.
+	 * The timeline will be generated and published when model is ready to be saved.
+	 */
+	markTimelineNeedsUpdate(): void
 
 	/** Lifecycle */
 

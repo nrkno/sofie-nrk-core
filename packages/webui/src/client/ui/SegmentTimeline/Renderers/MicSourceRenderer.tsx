@@ -1,20 +1,19 @@
 import ClassNames from 'classnames'
-import { ScriptContent } from '@sofie-automation/blueprints-integration'
-import { CustomLayerItemRenderer, ICustomLayerItemProps } from './CustomLayerItemRenderer'
-import { withTranslation, WithTranslation } from 'react-i18next'
-import * as _ from 'underscore'
+import type { ScriptContent } from '@sofie-automation/blueprints-integration'
+import { CustomLayerItemRenderer, type ICustomLayerItemProps } from './CustomLayerItemRenderer.js'
+import { withTranslation, type WithTranslation } from 'react-i18next'
+import _ from 'underscore'
 
-import { getElementWidth } from '../../../utils/dimensions'
-import { MicFloatingInspector } from '../../FloatingInspectors/MicFloatingInspector'
+import { getElementWidth } from '../../../utils/dimensions.js'
 import { calculatePartInstanceExpectedDurationWithTransition } from '@sofie-automation/corelib/dist/playout/timings'
-import { unprotectString } from '../../../lib/tempLib'
-import { IFloatingInspectorPosition } from '../../FloatingInspectors/IFloatingInspectorPosition'
-import { logger } from '../../../lib/logging'
+import { unprotectString } from '@sofie-automation/shared-lib/dist/lib/protectedString'
+import { logger } from '../../../lib/logging.js'
+import { getPieceInOutWords } from '../../../lib/pieceInOutWords.js'
 
 type IProps = ICustomLayerItemProps
 interface IState {}
 
-export const MicSourceRenderer = withTranslation()(
+export const MicSourceRenderer: React.ComponentType<IProps> = withTranslation()(
 	class MicSourceRenderer extends CustomLayerItemRenderer<IProps & WithTranslation, IState> {
 		itemPosition = 0
 		itemElement: HTMLElement | null = null
@@ -30,6 +29,37 @@ export const MicSourceRenderer = withTranslation()(
 
 		constructor(props: IProps & WithTranslation) {
 			super(props)
+		}
+
+		private mountLineItem(target: HTMLElement | null): void {
+			if (!this.lineItem || !target) return
+			if (!document.contains(target)) {
+				this.removeLineItem()
+				return
+			}
+
+			if (this.lineItem.parentElement !== target) {
+				try {
+					this.lineItem.remove()
+				} catch (err) {
+					logger.error(err)
+				}
+				try {
+					target.appendChild(this.lineItem)
+				} catch (err) {
+					logger.error(err)
+				}
+			}
+		}
+
+		private removeLineItem(): void {
+			if (!this.lineItem) return
+
+			try {
+				this.lineItem.remove()
+			} catch (err) {
+				logger.error(err)
+			}
 		}
 
 		repositionLine = () => {
@@ -105,7 +135,7 @@ export const MicSourceRenderer = withTranslation()(
 			this.updateAnchoredElsWidths()
 			if (this.props.itemElement) {
 				this.itemElement = this.props.itemElement
-				this.itemElement.parentElement?.parentElement?.parentElement?.appendChild(this.lineItem)
+				this.mountLineItem(this.itemElement.parentElement?.parentElement?.parentElement ?? null)
 				this.refreshLine()
 			}
 		}
@@ -150,15 +180,11 @@ export const MicSourceRenderer = withTranslation()(
 			// Move the line element
 			if (this.itemElement !== this.props.itemElement) {
 				if (this.itemElement && this.lineItem) {
-					try {
-						this.lineItem.remove()
-					} catch (err) {
-						logger.error(err)
-					}
+					this.removeLineItem()
 				}
 				this.itemElement = this.props.itemElement
 				if (this.itemElement && this.lineItem) {
-					this.itemElement.parentElement?.parentElement?.parentElement?.appendChild(this.lineItem)
+					this.mountLineItem(this.itemElement.parentElement?.parentElement?.parentElement ?? null)
 					_forceSizingRecheck = true
 				}
 			}
@@ -172,40 +198,28 @@ export const MicSourceRenderer = withTranslation()(
 				this.refreshLine()
 			}
 
-			if (this.props.piece.instance.piece.name !== prevProps.piece.instance.piece.name) {
+			const prevInOutWords = getPieceInOutWords(prevProps.piece.instance.piece)
+			const inOutWords = getPieceInOutWords(this.props.piece.instance.piece)
+			const inOutWordsChanged = inOutWords.begin !== prevInOutWords.begin || inOutWords.end !== prevInOutWords.end
+
+			if (this.props.piece.instance.piece.name !== prevProps.piece.instance.piece.name || inOutWordsChanged) {
 				this.updateAnchoredElsWidths()
 			}
 		}
 
 		componentWillUnmount(): void {
-			try {
-				// Remove the line element
-				this.lineItem?.remove()
-			} catch (err) {
-				logger.error(err)
-			}
-		}
-
-		protected getFloatingInspectorStyle(): IFloatingInspectorPosition {
-			return {
-				left: this.props.elementPosition.left + this.props.cursorPosition.left,
-				top: this.props.elementPosition.top,
-				anchor: 'start',
-				position: 'bottom',
-			}
+			this.removeLineItem()
+			this.lineItem = null
+			this.itemElement = null
 		}
 
 		render(): JSX.Element {
-			const labelItems = (this.props.piece.instance.piece.name || '').split('||')
-			const begin = labelItems[0] || ''
-			const end = labelItems[1] || ''
+			const { begin, end } = getPieceInOutWords(this.props.piece.instance.piece)
 
 			// function shorten (str: string, maxLen: number, separator: string = ' ') {
 			// 	if (str.length <= maxLen) return str
 			// 	return str.substr(0, str.substr(0, maxLen).lastIndexOf(separator))
 			// }
-
-			const content = this.props.piece.instance.piece.content as ScriptContent | undefined
 
 			return (
 				<>
@@ -228,19 +242,11 @@ export const MicSourceRenderer = withTranslation()(
 								style={this.getItemLabelOffsetRight()}
 							>
 								<span className="segment-timeline__piece__label last-words">{end}</span>
+								{this.renderCustomPieceIcons()}
 								{this.renderInfiniteIcon()}
 								{/* this.renderOverflowTimeLabel() */}
 							</span>
 						</>
-					)}
-					{content && (
-						<MicFloatingInspector
-							content={content}
-							position={this.getFloatingInspectorStyle()}
-							itemElement={this.props.itemElement}
-							showMiniInspector={this.props.showMiniInspector}
-							typeClass={this.props.typeClass}
-						/>
 					)}
 				</>
 			)

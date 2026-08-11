@@ -1,10 +1,15 @@
-import { withTiming, WithTiming } from './withTiming'
+import { useTiming } from './withTiming.js'
 import Moment from 'react-moment'
+import classNames from 'classnames'
 
-export const TimeOfDay = withTiming<{}, {}>()(function TimeOfDay({ timingDurations }: WithTiming<{}>) {
+export function TimeOfDay({ className }: Readonly<{ className?: string }>): JSX.Element {
+	const timingDurations = useTiming()
+
 	return (
-		<span className="timing-clock time-now">
-			<Moment interval={0} format="HH:mm:ss" date={timingDurations.currentTime || 0} />
+		<span className={classNames('timing-clock time-now', className)}>
+			<span className="countdown__value">
+				<Moment interval={0} format="HH:mm:ss" date={timingDurations.currentTime || 0} />
+			</span>
 		</span>
 	)
-})
+}

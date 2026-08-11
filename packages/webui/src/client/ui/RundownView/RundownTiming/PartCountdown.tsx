@@ -1,11 +1,11 @@
-import { ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import Moment from 'react-moment'
-import { withTiming, WithTiming } from './withTiming'
-import { unprotectString } from '../../../lib/tempLib'
-import { RundownUtils } from '../../../lib/rundown'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import { useTiming } from './withTiming.js'
+import { unprotectString } from '@sofie-automation/shared-lib/dist/lib/protectedString'
+import { RundownUtils } from '../../../lib/rundown.js'
+import type { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import { PlaylistTiming } from '@sofie-automation/corelib/dist/playout/rundownTiming'
-import { PartId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import type { PartId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 
 interface IPartCountdownProps {
 	partId?: PartId
@@ -17,15 +17,13 @@ interface IPartCountdownProps {
 
 /**
  * A presentational component that will render a countdown to a given Part
- * @function PartCountdown
- * @extends React.Component<WithTiming<IPartCountdownProps>>
  */
-export const PartCountdown = withTiming<IPartCountdownProps, {}>()(function PartCountdown(
-	props: WithTiming<IPartCountdownProps>
-) {
-	if (!props.partId || !props.timingDurations?.partCountdown) return null
+export function PartCountdown(props: IPartCountdownProps): JSX.Element | null {
+	const timingDurations = useTiming()
+
+	if (!props.partId || !timingDurations?.partCountdown) return null
 	const thisPartCountdown: number | undefined =
-		props.timingDurations.partCountdown[unprotectString(props.partId)] ?? undefined
+		timingDurations.partCountdown[unprotectString(props.partId)] ?? undefined
 
 	if (thisPartCountdown !== undefined && (props.hideOnZero !== true || thisPartCountdown > 0)) {
 		return (
@@ -39,12 +37,12 @@ export const PartCountdown = withTiming<IPartCountdownProps, {}>()(function Part
 							date={
 								(props.playlist.activationId
 									? // if show is activated, use currentTime as base
-									  props.timingDurations.currentTime ?? 0
+										(timingDurations.currentTime ?? 0)
 									: // if show is not activated, use expectedStart or currentTime, whichever is later
-									  Math.max(
+										Math.max(
 											PlaylistTiming.getExpectedStart(props.playlist.timing) ?? 0,
-											props.timingDurations.currentTime ?? 0
-									  )) + (thisPartCountdown || 0)
+											timingDurations.currentTime ?? 0
+										)) + (thisPartCountdown || 0)
 							}
 						/>
 					) : (
@@ -58,4 +56,4 @@ export const PartCountdown = withTiming<IPartCountdownProps, {}>()(function Part
 	} else {
 		return null
 	}
-})
+}

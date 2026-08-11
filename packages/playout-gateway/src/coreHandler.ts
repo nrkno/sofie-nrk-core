@@ -2,6 +2,7 @@ import {
 	CoreConnection,
 	CoreOptions,
 	DDPConnectorOptions,
+	DDPTLSOptions,
 	PeripheralDeviceAPI,
 	PeripheralDeviceCommand,
 	PeripheralDeviceId,
@@ -12,20 +13,20 @@ import {
 	PeripheralDevicePubSub,
 	PeripheralDevicePubSubCollectionsNames,
 	ICoreHandler,
+	CoreConnectionChild,
 	KubernetesRestarter,
 } from '@sofie-automation/server-core-integration'
-import { MediaObject, DeviceOptionsAny, ActionExecutionResult } from 'timeline-state-resolver'
-import * as _ from 'underscore'
-import { DeviceConfig } from './connector'
-import { TSRHandler } from './tsrHandler'
+import { MediaObject, DeviceOptionsAny, ActionExecutionResult, DeviceStatus } from 'timeline-state-resolver'
+import _ from 'underscore'
+import { DeviceConfig } from './connector.js'
+import { TSRHandler } from './tsrHandler.js'
 import { Logger } from 'winston'
-// eslint-disable-next-line node/no-extraneous-import
+
 import { MemUsageReport as ThreadMemUsageReport } from 'threadedclass'
-import { compilePlayoutGatewayConfigManifest } from './configManifest'
+import { compilePlayoutGatewayConfigManifest } from './configManifest.js'
 import { BaseRemoteDeviceIntegration } from 'timeline-state-resolver/dist/service/remoteDeviceInstance'
-import { getVersions } from './versions'
-import { CoreConnectionChild } from '@sofie-automation/server-core-integration/dist/lib/CoreConnectionChild'
-import { PlayoutGatewayConfig } from './generated/options'
+import { getVersions } from './versions.js'
+import { PlayoutGatewayConfig } from '@sofie-automation/shared-lib/dist/generated/PlayoutGatewayConfigTypes'
 import { PeripheralDeviceCommandId } from '@sofie-automation/shared-lib/dist/core/model/Ids'
 
 export interface CoreConfig {
@@ -56,14 +57,14 @@ export class CoreHandler implements ICoreHandler {
 	private _executedFunctions = new Set<PeripheralDeviceCommandId>()
 	private _tsrHandler?: TSRHandler
 	private _coreConfig?: CoreConfig
-	private _certificates?: Buffer[]
 
 	private _statusInitialized = false
 	private _statusDestroyed = false
 
+	public get connectedToCore(): boolean {
+		return this.core && this.core.connected
+	}
 	private _k8sRestarter?: KubernetesRestarter
-
-	public connectedToCore = false
 
 	constructor(logger: Logger, deviceOptions: DeviceConfig) {
 		this.logger = logger
@@ -73,22 +74,19 @@ export class CoreHandler implements ICoreHandler {
 		}
 	}
 
-	async init(config: CoreConfig, certificates: Buffer[]): Promise<void> {
+	async init(config: CoreConfig, tlsOptions: DDPTLSOptions): Promise<void> {
 		this._statusInitialized = false
 		this._coreConfig = config
-		this._certificates = certificates
 
 		this.core = new CoreConnection(this.getCoreConnectionOptions())
 
 		this.core.onConnected(() => {
 			this.logger.info('Core Connected!')
-			this.connectedToCore = true
 
 			if (this._onConnected) this._onConnected()
 		})
 		this.core.onDisconnected(() => {
 			this.logger.warn('Core Disconnected!')
-			this.connectedToCore = false
 		})
 		this.core.onError((err: any) => {
 			this.logger.error('Core Error: ' + (typeof err === 'string' ? err : err.message || err.toString() || err))
@@ -97,11 +95,7 @@ export class CoreHandler implements ICoreHandler {
 		const ddpConfig: DDPConnectorOptions = {
 			host: config.host,
 			port: config.port,
-		}
-		if (this._certificates.length) {
-			ddpConfig.tlsOpts = {
-				ca: this._certificates,
-			}
+			tlsOpts: tlsOptions,
 		}
 
 		await this.core.init(ddpConfig)
@@ -127,6 +121,11 @@ export class CoreHandler implements ICoreHandler {
 			this.core.autoSubscribe(PeripheralDevicePubSub.peripheralDeviceCommands, this.core.deviceId),
 			this.core.autoSubscribe(PeripheralDevicePubSub.rundownsForDevice, this.core.deviceId),
 			this.core.autoSubscribe(PeripheralDevicePubSub.expectedPlayoutItemsForDevice, this.core.deviceId),
+			this.core.autoSubscribe(
+				PeripheralDevicePubSub.externalEventSubscriptionsForDevice,
+				'tsr',
+				this.core.deviceId
+			),
 		])
 
 		this.logger.info('Core: Subscriptions are set up!')
@@ -250,7 +249,7 @@ export class CoreHandler implements ICoreHandler {
 				}
 				this._executedFunctions.add(cmd._id)
 				// @ts-expect-error Untyped bunch of functions
-				// eslint-disable-next-line @typescript-eslint/ban-types
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
 				const fcn: Function = fcnObject[cmd.functionName]
 				try {
 					if (!fcn) throw Error(`Function "${cmd.functionName}" not found on device "${cmd.deviceId}"!`)
@@ -326,7 +325,7 @@ export class CoreHandler implements ICoreHandler {
 		} else {
 			this.logger.info('killing process in 1000ms!')
 			setTimeout(() => {
-				// eslint-disable-next-line no-process-exit
+				// eslint-disable-next-line n/no-process-exit
 				process.exit(0)
 			}, 1000)
 			return true
@@ -392,24 +391,21 @@ export class CoreHandler implements ICoreHandler {
 
 		return Object.fromEntries(this._tsrHandler.getDebugStates().entries())
 	}
-	getCoreStatus(): {
-		statusCode: StatusCode
-		messages: string[]
-	} {
+	getCoreStatus(): PeripheralDeviceAPI.PeripheralDeviceStatusObject {
 		let statusCode = StatusCode.GOOD
-		const messages: string[] = []
+		const statusDetails: Array<{ message: string }> = []
 
 		if (!this._statusInitialized) {
 			statusCode = StatusCode.BAD
-			messages.push('Starting up...')
+			statusDetails.push({ message: 'Starting up...' })
 		}
 		if (this._statusDestroyed) {
 			statusCode = StatusCode.BAD
-			messages.push('Shut down')
+			statusDetails.push({ message: 'Shut down' })
 		}
 		return {
 			statusCode,
-			messages,
+			statusDetails,
 		}
 	}
 	async updateCoreStatus(): Promise<any> {
@@ -427,7 +423,7 @@ export class CoreTSRDeviceHandler {
 	private _hasGottenStatusChange = false
 	private _deviceStatus: PeripheralDeviceAPI.PeripheralDeviceStatusObject = {
 		statusCode: StatusCode.BAD,
-		messages: ['Starting up...'],
+		statusDetails: [{ message: 'Starting up...' }],
 	}
 	private disposed = false
 
@@ -458,7 +454,15 @@ export class CoreTSRDeviceHandler {
 
 		console.log('has got status? ' + this._hasGottenStatusChange)
 		if (!this._hasGottenStatusChange) {
-			this._deviceStatus = await this._device.device.getStatus()
+			const rawStatus = await this._device.device.getStatus()
+			if ('statusDetails' in rawStatus) {
+				this._deviceStatus = rawStatus
+			} else {
+				this._deviceStatus = {
+					statusCode: rawStatus.statusCode,
+					statusDetails: (rawStatus.messages ?? []).map((m) => ({ message: m })),
+				}
+			}
 		}
 		this.sendStatus()
 		if (this.disposed) throw new Error('CoreTSRDeviceHandler cant init, is disposed')
@@ -492,13 +496,14 @@ export class CoreTSRDeviceHandler {
 		// setup observers
 		this._coreParentHandler.setupObserverForPeripheralDeviceCommands(this)
 	}
-	statusChanged(deviceStatus: Partial<PeripheralDeviceAPI.PeripheralDeviceStatusObject>, fromDevice = true): void {
+	statusChanged(deviceStatus: DeviceStatus, fromDevice = true): void {
 		console.log('device ' + this._deviceId + ' status set to ' + deviceStatus.statusCode)
 		if (fromDevice) this._hasGottenStatusChange = true
 
 		this._deviceStatus = {
 			...this._deviceStatus,
-			...deviceStatus,
+			statusCode: deviceStatus.statusCode,
+			statusDetails: deviceStatus.statusDetails ?? (deviceStatus.messages ?? []).map((m) => ({ message: m })),
 		}
 		this.sendStatus()
 	}
@@ -552,7 +557,7 @@ export class CoreTSRDeviceHandler {
 
 		await this.core.setStatus({
 			statusCode: StatusCode.BAD,
-			messages: ['Uninitialized'],
+			statusDetails: [{ message: 'Uninitialized' }],
 		})
 
 		if (subdevice === 'removeSubDevice') await this.core.unInitialize()

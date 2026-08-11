@@ -1,16 +1,41 @@
 import type { JSONBlob } from '@sofie-automation/shared-lib/dist/lib/JSONBlob'
-import type { ITranslatableMessage } from './translations'
+import type { ITranslatableMessage } from './translations.js'
 import { JSONSchema } from '@sofie-automation/shared-lib/dist/lib/JSONSchemaTypes'
-import { SourceLayerType } from './content'
-import { DefaultUserOperationsTypes } from './ingest'
+import { SourceLayerType } from './content.js'
+import { DefaultUserOperationsTypes } from './ingest.js'
 
 /**
  * Description of a user performed editing operation allowed on an document
  */
 export type UserEditingDefinition =
+	| UserEditingDefinitionState
 	| UserEditingDefinitionAction
 	| UserEditingDefinitionForm
 	| UserEditingDefinitionSofieDefault
+
+/**
+ * A simple 'state' that can be signlaled to the user, but has no associated action. This is useful for indicating
+ * things like "This piece is being held" or "This piece is being affected by a global action"
+ */
+export interface UserEditingDefinitionState {
+	type: UserEditingType.STATE
+	/** Id of this operation */
+	id: string
+	/** Label to show to the user for this operation */
+	label: ITranslatableMessage
+	/** Icon to show when this action is 'active'
+	 *
+	 * This can either be a relative URL to an image in the Blueprints assets or a `data:` URL
+	 */
+	icon?: string
+	/** Icon to show when this action is 'disabled'
+	 *
+	 * This can either be a relative URL to an image in the Blueprints assets or a `data:` URL
+	 */
+	iconInactive?: string
+	/** Whether this action should be indicated as being active */
+	isActive?: boolean
+}
 
 /**
  * A simple 'action' that can be performed
@@ -57,9 +82,16 @@ export interface UserEditingDefinitionSofieDefault {
 	type: UserEditingType.SOFIE
 	/** Id of this operation */
 	id: DefaultUserOperationsTypes
+	/**
+	 * If true, the operation is limited to the current part.
+	 * Only applicable for RETIME_PIECE
+	 */
+	limitToCurrentPart?: boolean
 }
 
 export enum UserEditingType {
+	/** State */
+	STATE = 'state',
 	/** Action */
 	ACTION = 'action',
 	/** Form */

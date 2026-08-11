@@ -1,6 +1,7 @@
 import { ClientAPI } from '@sofie-automation/meteor-lib/dist/api/client'
 import { PeripheralDeviceId, StudioId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { Meteor } from 'meteor/meteor'
+import { ShelfButtonSize } from '@sofie-automation/shared-lib/dist/core/model/StudioSettings'
 
 /* *************************************************************************
 This file contains types and interfaces that are used by the REST API.
@@ -55,7 +56,7 @@ export interface StudiosRestAPI {
 		event: string,
 		studioId: StudioId,
 		studio: APIStudio
-	): Promise<ClientAPI.ClientResponse<void>>
+	): Promise<ClientAPI.ClientResponse<string | false>>
 	/**
 	 * Gets a Studio config, if it exists.
 	 *
@@ -83,7 +84,7 @@ export interface StudiosRestAPI {
 		event: string,
 		studioId: StudioId,
 		config: object
-	): Promise<ClientAPI.ClientResponse<void>>
+	): Promise<ClientAPI.ClientResponse<string | false>>
 	/**
 	 * Deletes a Studio.
 	 *
@@ -218,8 +219,20 @@ export interface APIStudioSettings {
 	fallbackPartDuration?: number
 	enableUserEdits?: boolean
 	allowAdlibTestingSegment?: boolean
+	allowTestingAdlibsToPersist?: boolean
 	allowHold?: boolean
 	allowPieceDirectPlay?: boolean
 	enableBuckets?: boolean
 	enableEvaluationForm?: boolean
+	/** Default size of AdLib buttons in the mini shelf */
+	shelfAdlibButtonSize?: Exclude<ShelfButtonSize, ShelfButtonSize.INHERIT>
+	mockPieceContentStatus?: boolean
+	rundownGlobalPiecesPrepareTime?: number
+	autoRewindLeavingSegment?: boolean
+	disableBlurBorder?: boolean
+	allowGrabbingTimeline?: boolean
+	useCountdownToFreezeFrame?: boolean
+	defaultDisplayDuration?: number
+	defaultTimeScale?: number
+	followOnAirSegmentsHistory?: number
 }

@@ -1,7 +1,7 @@
 import { Meteor } from 'meteor/meteor'
-import { logger } from './logging'
-import { MeteorCall } from './meteorApi'
-import { Time } from '@sofie-automation/shared-lib/dist/lib/lib'
+import { logger } from './logging.js'
+import { MeteorCall } from './meteorApi.js'
+import type { Time } from '@sofie-automation/shared-lib/dist/lib/lib'
 
 export const systemTime = {
 	hasBeenSet: false,
@@ -36,7 +36,10 @@ export class TimeJumpDetector {
 	private wallTime: number = TimeJumpDetector.getWallTime()
 	private monotonicTime: number = TimeJumpDetector.getMonotonicTime()
 
-	constructor(private jumpCheckInterval: number, private onJumpDetected: (syncDiff: number) => void) {}
+	constructor(
+		private jumpCheckInterval: number,
+		private onJumpDetected: (syncDiff: number) => void
+	) {}
 
 	public start(): void {
 		setInterval(() => {

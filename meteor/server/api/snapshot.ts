@@ -1,6 +1,6 @@
 import * as Path from 'path'
 import { Meteor } from 'meteor/meteor'
-import * as _ from 'underscore'
+import _ from 'underscore'
 import Koa from 'koa'
 import KoaRouter from '@koa/router'
 import bodyParser from 'koa-bodyparser'
@@ -16,7 +16,9 @@ import {
 import { UserActionsLogItem } from '@sofie-automation/meteor-lib/dist/collections/UserActionsLog'
 import { PieceGeneric } from '@sofie-automation/corelib/dist/dataModel/Piece'
 import { MediaObject } from '@sofie-automation/shared-lib/dist/core/model/MediaObjects'
-import { Time, protectString, getRandomId, omit, unprotectStringArray, unprotectString } from '../lib/tempLib'
+import { getRandomId, omit } from '@sofie-automation/corelib/dist/lib'
+import type { Time } from '@sofie-automation/shared-lib/dist/lib/lib'
+import { protectString, unprotectString, unprotectStringArray } from '@sofie-automation/corelib/dist/protectedString'
 import { formatDateTime } from '@sofie-automation/meteor-lib/dist/time'
 import { getCurrentTime, fixValidPath } from '../lib/lib'
 import { stringifyError } from '@sofie-automation/shared-lib/dist/lib/stringifyError'
@@ -38,10 +40,10 @@ import { CURRENT_SYSTEM_VERSION } from '../migration/currentSystemVersion'
 import { isVersionSupported } from '../migration/databaseMigration'
 import { DBShowStyleVariant } from '@sofie-automation/corelib/dist/dataModel/ShowStyleVariant'
 import { Blueprint } from '@sofie-automation/corelib/dist/dataModel/Blueprint'
-import { IngestRundown, VTContent } from '@sofie-automation/blueprints-integration'
+import { BlueprintSnapshotType, IngestRundown, VTContent } from '@sofie-automation/blueprints-integration'
 import { MongoQuery } from '@sofie-automation/corelib/dist/mongo'
 import { importIngestRundown } from './ingest/http'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import { RundownLayoutBase } from '@sofie-automation/meteor-lib/dist/collections/RundownLayouts'
 import { DBTriggeredActions } from '@sofie-automation/meteor-lib/dist/collections/TriggeredActions'
 import { MethodContext, MethodContextAPI } from './methodContext'
@@ -62,7 +64,6 @@ import { JSONBlobParse, JSONBlobStringify } from '@sofie-automation/shared-lib/d
 import {
 	BlueprintId,
 	ExpectedPackageId,
-	OrganizationId,
 	PeripheralDeviceId,
 	RundownPlaylistId,
 	ShowStyleBaseId,
@@ -95,6 +96,7 @@ import {
 	NrcsIngestDataCacheObjRundown,
 	NrcsIngestDataCacheObjSegment,
 	NrcsIngestDataCacheObjPart,
+	NrcsIngestCacheType,
 } from '@sofie-automation/corelib/dist/dataModel/NrcsIngestDataCache'
 import { UserPermissions } from '@sofie-automation/meteor-lib/dist/userPermissions'
 import { assertConnectionHasOneOfPermissions, RequestCredentials } from '../security/auth'
@@ -155,10 +157,7 @@ type AnySnapshot = RundownPlaylistSnapshot | SystemSnapshot | DebugSnapshot
  * If studioId is provided, only return items related to that studio
  * @param studioId (Optional) Only generate for a certain studio
  */
-async function createSystemSnapshot(
-	options: SystemSnapshotOptions,
-	organizationId: OrganizationId | null
-): Promise<SystemSnapshot> {
+async function createSystemSnapshot(options: SystemSnapshotOptions): Promise<SystemSnapshot> {
 	const snapshotId: SnapshotId = getRandomId()
 	const studioId = options.studioId ?? null
 	logger.info(`Generating System snapshot "${snapshotId}"` + (studioId ? `for studio "${studioId}"` : ''))
@@ -175,7 +174,6 @@ async function createSystemSnapshot(
 	let queryBlueprints: MongoQuery<Blueprint> = {}
 
 	if (studioId) queryStudio = { _id: studioId }
-	else if (organizationId) queryStudio = { organizationId: organizationId }
 	const studios = await Studios.findFetchAsync(queryStudio)
 
 	if (studioId) {
@@ -186,8 +184,6 @@ async function createSystemSnapshot(
 		queryShowStyleBases = {
 			_id: { $in: ids },
 		}
-	} else if (organizationId) {
-		queryShowStyleBases = { organizationId: organizationId }
 	}
 	const showStyleBases = await ShowStyleBases.findFetchAsync(queryShowStyleBases)
 
@@ -198,7 +194,6 @@ async function createSystemSnapshot(
 	queryTriggeredActions = { showStyleBaseIds: { $in: [null, ...showStyleBaseIds] } }
 
 	if (studioId) queryDevices = { 'studioAndConfigId.studioId': studioId }
-	else if (organizationId) queryDevices = { organizationId: organizationId }
 
 	const [showStyleVariants, rundownLayouts, devices, triggeredActions] = await Promise.all([
 		ShowStyleVariants.findFetchAsync(queryShowStyleVariants),
@@ -214,10 +209,6 @@ async function createSystemSnapshot(
 		}
 		queryBlueprints = {
 			_id: { $in: blueprintIds },
-		}
-	} else if (organizationId) {
-		queryBlueprints = {
-			organizationId: organizationId,
 		}
 	}
 	const blueprints = await Blueprints.findFetchAsync(queryBlueprints)
@@ -236,10 +227,10 @@ async function createSystemSnapshot(
 		studioId: studioId,
 		snapshot: {
 			_id: snapshotId,
-			organizationId: organizationId,
 			type: SnapshotType.SYSTEM,
 			created: getCurrentTime(),
-			name: `System` + (studioId ? `_${studioId}` : '') + `_${formatDateTime(getCurrentTime())}`,
+			name: `System` + (studioId ? `_${studioId}` : ''),
+			longname: `System` + (studioId ? `_${studioId}` : '') + `_${formatDateTime(getCurrentTime())}`,
 			version: CURRENT_SYSTEM_VERSION,
 		},
 		studios,
@@ -259,14 +250,14 @@ async function createSystemSnapshot(
  * Create a snapshot of active rundowns related to a studio and all related data, for debug purposes
  * @param studioId
  */
-async function createDebugSnapshot(studioId: StudioId, organizationId: OrganizationId | null): Promise<DebugSnapshot> {
+async function createDebugSnapshot(studioId: StudioId): Promise<DebugSnapshot> {
 	const snapshotId: SnapshotId = getRandomId()
 	logger.info(`Generating Debug snapshot "${snapshotId}" for studio "${studioId}"`)
 
 	const studio = await Studios.findOneAsync(studioId)
 	if (!studio) throw new Meteor.Error(404, `Studio ${studioId} not found`)
 
-	const systemSnapshot = await createSystemSnapshot({ studioId, withDeviceSnapshots: true }, organizationId)
+	const systemSnapshot = await createSystemSnapshot({ studioId, withDeviceSnapshots: true })
 
 	const activePlaylists = await RundownPlaylists.findFetchAsync({
 		studioId: studio._id,
@@ -293,10 +284,10 @@ async function createDebugSnapshot(studioId: StudioId, organizationId: Organizat
 		studioId: studioId,
 		snapshot: {
 			_id: snapshotId,
-			organizationId: organizationId,
 			type: SnapshotType.DEBUG,
 			created: getCurrentTime(),
-			name: `Debug_${studioId}_${formatDateTime(getCurrentTime())}`,
+			name: `Debug: ${studioId}`,
+			longname: `Debug_${studioId}_${formatDateTime(getCurrentTime())}`,
 			version: CURRENT_SYSTEM_VERSION,
 		},
 		system: systemSnapshot,
@@ -336,7 +327,8 @@ function getPiecesMediaObjects(pieces: PieceGeneric[]): string[] {
 
 async function createRundownPlaylistSnapshot(
 	playlist: VerifiedRundownPlaylistForUserAction,
-	options: PlaylistSnapshotOptions
+	options: PlaylistSnapshotOptions,
+	reason?: string
 ): Promise<RundownPlaylistSnapshot> {
 	/** Max count of one type of items to include in the snapshot */
 	const LIMIT_COUNT = 500
@@ -352,6 +344,8 @@ async function createRundownPlaylistSnapshot(
 		playlistId: playlist._id,
 		full: !!options.withArchivedDocuments,
 		withTimeline: !!options.withTimeline,
+		snapshotId,
+		reason,
 	})
 	const coreResult = await queuedJob.complete
 	const coreSnapshot: CoreRundownPlaylistSnapshot = JSONBlobParse(coreResult.snapshotJson)
@@ -418,12 +412,12 @@ async function createRundownPlaylistSnapshot(
 		versionExtended: PackageInfo.versionExtended || PackageInfo.version || 'UNKNOWN',
 		snapshot: {
 			_id: snapshotId,
-			organizationId: playlist.organizationId ?? null,
 			created: getCurrentTime(),
 			type: SnapshotType.RUNDOWNPLAYLIST,
 			playlistId: playlist._id,
 			studioId: playlist.studioId,
-			name: `Rundown_${playlist.name}_${playlist._id}_${formatDateTime(getCurrentTime())}`,
+			name: playlist.name,
+			longname: `Rundown_${playlist.name}_${playlist._id}_${formatDateTime(getCurrentTime())}`,
 			version: CURRENT_SYSTEM_VERSION,
 		},
 
@@ -436,13 +430,9 @@ async function createRundownPlaylistSnapshot(
 	}
 }
 
-async function storeSnaphot(
-	snapshot: { snapshot: SnapshotBase },
-	organizationId: OrganizationId | null,
-	comment: string
-): Promise<SnapshotId> {
+async function storeSnaphot(snapshot: { snapshot: SnapshotBase }, comment: string): Promise<SnapshotId> {
 	const storePath = getSystemStorePath()
-	const fileName = fixValidPath(snapshot.snapshot.name) + '.json'
+	const fileName = fixValidPath(snapshot.snapshot.longname) + '.json'
 	const filePath = Path.join(storePath, fileName)
 
 	const str = JSON.stringify(snapshot)
@@ -456,11 +446,11 @@ async function storeSnaphot(
 
 	const id = await Snapshots.insertAsync({
 		_id: protectString(fileName),
-		organizationId: organizationId,
 		fileName: fileName,
 		type: snapshot.snapshot.type,
 		created: snapshot.snapshot.created,
 		name: snapshot.snapshot.name,
+		longname: snapshot.snapshot.longname,
 		description: snapshot.snapshot.description,
 		version: CURRENT_SYSTEM_VERSION,
 		comment: comment,
@@ -542,9 +532,13 @@ async function ingestFromSnapshot(
 		// Read the ingestData from the snapshot
 		const ingestData = playlistSnapshot.ingestData
 
-		const rundownData = ingestData.filter((e) => e.type === 'rundown') as NrcsIngestDataCacheObjRundown[]
-		const segmentData = ingestData.filter((e) => e.type === 'segment') as NrcsIngestDataCacheObjSegment[]
-		const partData = ingestData.filter((e) => e.type === 'part') as NrcsIngestDataCacheObjPart[]
+		const rundownData = ingestData.filter(
+			(e) => e.type === NrcsIngestCacheType.RUNDOWN
+		) as NrcsIngestDataCacheObjRundown[]
+		const segmentData = ingestData.filter(
+			(e) => e.type === NrcsIngestCacheType.SEGMENT
+		) as NrcsIngestDataCacheObjSegment[]
+		const partData = ingestData.filter((e) => e.type === NrcsIngestCacheType.PART) as NrcsIngestDataCacheObjPart[]
 
 		if (rundownData.length === 0) throw new Meteor.Error(402, `No rundowns found in ingestData`)
 
@@ -700,34 +694,74 @@ export async function storeSystemSnapshot(
 
 	assertConnectionHasOneOfPermissions(context.connection, ...PERMISSIONS_FOR_SNAPSHOT_MANAGEMENT)
 
-	return internalStoreSystemSnapshot(null, options, reason)
+	return internalStoreSystemSnapshot(options, reason)
 }
-/** Take and store a system snapshot. For internal use only, performs no access control. */
-export async function internalStoreSystemSnapshot(
-	organizationId: OrganizationId | null,
+/**
+ * Runs {@link StudioJobs.OnSystemSnapshotCreated} for each studio after a snapshot is stored.
+ *
+ * Studio-scoped system snapshots run one job; full-system snapshots run one job per studio in the snapshot.
+ * Waits for each blueprint hook to finish; hook failures are logged and do not fail snapshot storage.
+ */
+async function queueOnSystemSnapshotCreatedJobs(
+	storedId: SnapshotId,
+	reason: string,
+	type: BlueprintSnapshotType,
 	options: SystemSnapshotOptions,
-	reason: string
-): Promise<SnapshotId> {
+	studioIds: StudioId[]
+): Promise<void> {
+	const fullSystem = !options.studioId
+
+	for (const studioId of studioIds) {
+		try {
+			const job = await QueueStudioJob(StudioJobs.OnSystemSnapshotCreated, studioId, {
+				snapshotId: storedId,
+				reason,
+				type,
+				options: {
+					studioId,
+					withDeviceSnapshots: options.withDeviceSnapshots,
+					fullSystem,
+				},
+			})
+			await job.complete
+		} catch (err) {
+			logger.error(
+				`OnSystemSnapshotCreated failed for snapshot ${storedId} (studio ${studioId}, withDeviceSnapshots=${options.withDeviceSnapshots}): ${stringifyError(err)}`
+			)
+		}
+	}
+}
+
+/** Take and store a system snapshot. For internal use only, performs no access control. */
+export async function internalStoreSystemSnapshot(options: SystemSnapshotOptions, reason: string): Promise<SnapshotId> {
 	check(options.studioId, Match.Optional(String))
 
-	const s = await createSystemSnapshot(options, organizationId)
-	return storeSnaphot(s, organizationId, reason)
+	const s = await createSystemSnapshot(options)
+	const storedId = await storeSnaphot(s, reason)
+
+	// Full-system snapshots: one blueprint hook job per studio in the snapshot
+	const studioIds = options.studioId ? [options.studioId] : s.studios.map((studio) => studio._id)
+	if (studioIds.length > 0) {
+		await queueOnSystemSnapshotCreatedJobs(storedId, reason, 'system', options, studioIds)
+	}
+
+	return storedId
 }
 export async function storeRundownPlaylistSnapshot(
 	playlist: VerifiedRundownPlaylistForUserAction,
 	options: PlaylistSnapshotOptions,
 	reason: string
 ): Promise<SnapshotId> {
-	const s = await createRundownPlaylistSnapshot(playlist, options)
-	return storeSnaphot(s, playlist.organizationId ?? null, reason)
+	const s = await createRundownPlaylistSnapshot(playlist, options, reason)
+	return storeSnaphot(s, reason)
 }
 export async function internalStoreRundownPlaylistSnapshot(
 	playlist: DBRundownPlaylist,
 	options: PlaylistSnapshotOptions,
 	reason: string
 ): Promise<SnapshotId> {
-	const s = await createRundownPlaylistSnapshot(playlist, options)
-	return storeSnaphot(s, playlist.organizationId ?? null, reason)
+	const s = await createRundownPlaylistSnapshot(playlist, options, reason)
+	return storeSnaphot(s, reason)
 }
 export async function storeDebugSnapshot(
 	context: MethodContext,
@@ -743,8 +777,14 @@ export async function storeDebugSnapshot(
 
 	assertConnectionHasOneOfPermissions(context.connection, ...PERMISSIONS_FOR_SNAPSHOT_MANAGEMENT)
 
-	const s = await createDebugSnapshot(studioId, null)
-	return storeSnaphot(s, null, reason)
+	const s = await createDebugSnapshot(studioId)
+	const storedId = await storeSnaphot(s, reason)
+
+	await queueOnSystemSnapshotCreatedJobs(storedId, reason, 'debug', { studioId, withDeviceSnapshots: true }, [
+		studioId,
+	])
+
+	return storedId
 }
 export async function restoreSnapshot(
 	context: MethodContext,
@@ -797,7 +837,7 @@ async function handleKoaResponse(
 		const snapshot = await snapshotFcn()
 
 		ctx.response.type = 'application/json'
-		ctx.response.attachment(`${snapshot.snapshot.name}.json`)
+		ctx.response.attachment(`${snapshot.snapshot.longname || snapshot.snapshot.name}.json`)
 		ctx.response.status = 200
 		ctx.response.body = JSON.stringify(snapshot, null, 4)
 	} catch (e) {

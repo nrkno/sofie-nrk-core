@@ -1,10 +1,11 @@
 import { AdLibAction } from '@sofie-automation/corelib/dist/dataModel/AdlibAction'
 import { AdLibPiece } from '@sofie-automation/corelib/dist/dataModel/AdLibPiece'
-import { ExpectedMediaItemRundown } from '@sofie-automation/corelib/dist/dataModel/ExpectedMediaItem'
 import {
 	ExpectedPackageDB,
 	ExpectedPackageDBType,
-	ExpectedPackageFromRundown,
+	ExpectedPackageIngestSource,
+	ExpectedPackageIngestSourcePart,
+	ExpectedPackageIngestSourceRundownBaseline,
 } from '@sofie-automation/corelib/dist/dataModel/ExpectedPackages'
 import { ExpectedPlayoutItemRundown } from '@sofie-automation/corelib/dist/dataModel/ExpectedPlayoutItem'
 import {
@@ -25,14 +26,15 @@ import { RundownBaselineAdLibAction } from '@sofie-automation/corelib/dist/dataM
 import { RundownBaselineAdLibItem } from '@sofie-automation/corelib/dist/dataModel/RundownBaselineAdLibPiece'
 import { RundownBaselineObj } from '@sofie-automation/corelib/dist/dataModel/RundownBaselineObj'
 import { DBSegment } from '@sofie-automation/corelib/dist/dataModel/Segment'
-import { JobContext, ProcessedShowStyleBase, ProcessedShowStyleVariant } from '../../../jobs'
-import { LazyInitialise, LazyInitialiseReadonly } from '../../../lib/lazy'
-import { getRundownId, getSegmentId } from '../../lib'
-import { RundownLock } from '../../../jobs/lock'
-import { IngestSegmentModel } from '../IngestSegmentModel'
-import { IngestSegmentModelImpl } from './IngestSegmentModelImpl'
-import { IngestPartModel } from '../IngestPartModel'
+import { JobContext, ProcessedShowStyleBase, ProcessedShowStyleVariant } from '../../../jobs/index.js'
+import { LazyInitialise, LazyInitialiseReadonly } from '../../../lib/lazy.js'
+import { getRundownId, getSegmentId } from '../../lib.js'
+import { PlaylistLock, RundownLock } from '../../../jobs/lock.js'
+import { IngestSegmentModel } from '../IngestSegmentModel.js'
+import { IngestSegmentModelImpl } from './IngestSegmentModelImpl.js'
+import { IngestPartModel } from '../IngestPartModel.js'
 import {
+	assertNever,
 	clone,
 	Complete,
 	deleteAllUndefinedProperties,
@@ -40,28 +42,23 @@ import {
 	groupByToMap,
 	literal,
 } from '@sofie-automation/corelib/dist/lib'
-import { IngestPartModelImpl } from './IngestPartModelImpl'
-import { DatabasePersistedModel } from '../../../modelBase'
-import { ExpectedPackagesStore } from './ExpectedPackagesStore'
+import { IngestPartModelImpl } from './IngestPartModelImpl.js'
+import { ExpectedPackagesStore } from './ExpectedPackagesStore.js'
 import { ReadonlyDeep } from 'type-fest'
-import {
-	ExpectedPackageForIngestModel,
-	ExpectedPackageForIngestModelBaseline,
-	IngestModel,
-	IngestReplaceSegmentType,
-} from '../IngestModel'
+import { IngestDatabasePersistedModel, IngestModel, IngestReplaceSegmentType } from '../IngestModel.js'
 import { RundownNote } from '@sofie-automation/corelib/dist/dataModel/Notes'
-import { diffAndReturnLatestObjects } from './utils'
-import _ = require('underscore')
+import { diffAndReturnLatestObjects } from './utils.js'
+import _ from 'underscore'
 import { protectString } from '@sofie-automation/corelib/dist/protectedString'
-import { IBlueprintRundown } from '@sofie-automation/blueprints-integration'
-import { getCurrentTime, getSystemVersion } from '../../../lib'
-import { WrappedShowStyleBlueprint } from '../../../blueprints/cache'
-import { SaveIngestModelHelper } from './SaveIngestModel'
-import { generateWriteOpsForLazyDocuments } from './DocumentChangeTracker'
-import { IS_PRODUCTION } from '../../../environment'
-import { logger } from '../../../logging'
-import { NotificationsModelHelper } from '../../../notifications/NotificationsModelHelper'
+import type { BlueprintExternalEventSubscription, IBlueprintRundown } from '@sofie-automation/blueprints-integration'
+import { getCurrentTime, getSystemVersion } from '../../../lib/index.js'
+import { WrappedShowStyleBlueprint } from '../../../blueprints/cache.js'
+import { SaveIngestModelHelper } from './SaveIngestModel.js'
+import { generateWriteOpsForLazyDocuments } from './DocumentChangeTracker.js'
+import { IS_PRODUCTION } from '../../../environment.js'
+import { logger } from '../../../logging.js'
+import { NotificationsModelHelper } from '../../../notifications/NotificationsModelHelper.js'
+import { IngestExpectedPackage } from '../IngestExpectedPackage.js'
 
 export interface IngestModelImplExistingData {
 	rundown: DBRundown
@@ -70,7 +67,6 @@ export interface IngestModelImplExistingData {
 	pieces: Piece[]
 	adLibPieces: AdLibPiece[]
 	adLibActions: AdLibAction[]
-	expectedMediaItems: ExpectedMediaItemRundown[]
 	expectedPlayoutItems: ExpectedPlayoutItemRundown[]
 	expectedPackages: ExpectedPackageDB[]
 }
@@ -86,7 +82,7 @@ interface SegmentWrapper {
 /**
  * Cache of relevant documents for an Ingest Operation
  */
-export class IngestModelImpl implements IngestModel, DatabasePersistedModel {
+export class IngestModelImpl implements IngestModel, IngestDatabasePersistedModel {
 	public readonly isIngest = true
 
 	public readonly rundownLock: RundownLock
@@ -116,8 +112,10 @@ export class IngestModelImpl implements IngestModel, DatabasePersistedModel {
 	}
 
 	protected readonly segmentsImpl: Map<SegmentId, SegmentWrapper>
+	readonly #piecesWithChanges = new Set<PieceId>()
+	#piecesImpl: ReadonlyArray<Piece>
 
-	readonly #rundownBaselineExpectedPackagesStore: ExpectedPackagesStore<ExpectedPackageForIngestModelBaseline>
+	readonly #rundownBaselineExpectedPackagesStore: ExpectedPackagesStore<ExpectedPackageIngestSourceRundownBaseline>
 
 	get rundownBaselineTimelineObjects(): LazyInitialiseReadonly<PieceTimelineObjectsBlob> {
 		// Return a simplified view of what we store, of just `timelineObjectsString`
@@ -143,13 +141,10 @@ export class IngestModelImpl implements IngestModel, DatabasePersistedModel {
 		return this.#rundownBaselineAdLibActions
 	}
 
-	get expectedMediaItemsForRundownBaseline(): ReadonlyDeep<ExpectedMediaItemRundown>[] {
-		return [...this.#rundownBaselineExpectedPackagesStore.expectedMediaItems]
-	}
 	get expectedPlayoutItemsForRundownBaseline(): ReadonlyDeep<ExpectedPlayoutItemRundown>[] {
 		return [...this.#rundownBaselineExpectedPackagesStore.expectedPlayoutItems]
 	}
-	get expectedPackagesForRundownBaseline(): ReadonlyDeep<ExpectedPackageForIngestModelBaseline>[] {
+	get expectedPackagesForRundownBaseline(): ReadonlyDeep<IngestExpectedPackage>[] {
 		return [...this.#rundownBaselineExpectedPackagesStore.expectedPackages]
 	}
 
@@ -173,29 +168,16 @@ export class IngestModelImpl implements IngestModel, DatabasePersistedModel {
 			const groupedAdLibPieces = groupByToMap(existingData.adLibPieces, 'partId')
 			const groupedAdLibActions = groupByToMap(existingData.adLibActions, 'partId')
 
-			const groupedExpectedMediaItems = groupByToMap(existingData.expectedMediaItems, 'partId')
 			const groupedExpectedPlayoutItems = groupByToMap(existingData.expectedPlayoutItems, 'partId')
 
-			const rundownExpectedPackages = existingData.expectedPackages.filter(
-				(pkg): pkg is ExpectedPackageFromRundown =>
-					pkg.fromPieceType === ExpectedPackageDBType.PIECE ||
-					pkg.fromPieceType === ExpectedPackageDBType.ADLIB_PIECE ||
-					pkg.fromPieceType === ExpectedPackageDBType.ADLIB_ACTION
-			)
-			const groupedExpectedPackages = groupByToMap(rundownExpectedPackages, 'partId')
-			const baselineExpectedPackages = existingData.expectedPackages.filter(
-				(pkg): pkg is ExpectedPackageForIngestModelBaseline =>
-					pkg.fromPieceType === ExpectedPackageDBType.BASELINE_ADLIB_ACTION ||
-					pkg.fromPieceType === ExpectedPackageDBType.BASELINE_ADLIB_PIECE ||
-					pkg.fromPieceType === ExpectedPackageDBType.RUNDOWN_BASELINE_OBJECTS
+			const { baselineExpectedPackages, groupedExpectedPackagesByPart } = groupExpectedPackages(
+				existingData.expectedPackages
 			)
 
 			this.#rundownBaselineExpectedPackagesStore = new ExpectedPackagesStore(
 				false,
 				this.rundownId,
 				undefined,
-				undefined,
-				groupedExpectedMediaItems.get(undefined) ?? [],
 				groupedExpectedPlayoutItems.get(undefined) ?? [],
 				baselineExpectedPackages
 			)
@@ -213,9 +195,8 @@ export class IngestModelImpl implements IngestModel, DatabasePersistedModel {
 							groupedPieces.get(part._id) ?? [],
 							groupedAdLibPieces.get(part._id) ?? [],
 							groupedAdLibActions.get(part._id) ?? [],
-							groupedExpectedMediaItems.get(part._id) ?? [],
 							groupedExpectedPlayoutItems.get(part._id) ?? [],
-							groupedExpectedPackages.get(part._id) ?? []
+							groupedExpectedPackagesByPart.get(part._id) ?? []
 						)
 				)
 				this.segmentsImpl.set(segment._id, {
@@ -223,6 +204,8 @@ export class IngestModelImpl implements IngestModel, DatabasePersistedModel {
 					deleted: false,
 				})
 			}
+
+			this.#piecesImpl = groupedPieces.get(null) ?? []
 
 			this.#rundownBaselineObjs = new LazyInitialise(async () =>
 				context.directCollections.RundownBaselineObjects.findFetch({
@@ -246,13 +229,12 @@ export class IngestModelImpl implements IngestModel, DatabasePersistedModel {
 				true,
 				this.rundownId,
 				undefined,
-				undefined,
-				[],
 				[],
 				[]
 			)
 
 			this.segmentsImpl = new Map()
+			this.#piecesImpl = []
 
 			this.#rundownBaselineObjs = new LazyInitialise(async () => [])
 			this.#rundownBaselineAdLibPieces = new LazyInitialise(async () => [])
@@ -334,6 +316,10 @@ export class IngestModelImpl implements IngestModel, DatabasePersistedModel {
 		return this.getAllOrderedParts().flatMap((part) => part.pieces)
 	}
 
+	getGlobalPieces(): ReadonlyDeep<Piece>[] {
+		return [...this.#piecesImpl]
+	}
+
 	findPart(partId: PartId): IngestPartModel | undefined {
 		for (const segment of this.segmentsImpl.values()) {
 			if (!segment || segment.deleted) continue
@@ -352,18 +338,20 @@ export class IngestModelImpl implements IngestModel, DatabasePersistedModel {
 		return undefined
 	}
 
-	findExpectedPackage(packageId: ExpectedPackageId): ReadonlyDeep<ExpectedPackageForIngestModel> | undefined {
-		const baselinePackage = this.#rundownBaselineExpectedPackagesStore.expectedPackages.find(
-			(pkg) => pkg._id === packageId
-		)
-		if (baselinePackage) return baselinePackage
+	findExpectedPackageIngestSources(packageId: ExpectedPackageId): ReadonlyDeep<ExpectedPackageIngestSource>[] {
+		const sources: ReadonlyDeep<ExpectedPackageIngestSource>[] = []
 
-		for (const part of this.getAllOrderedParts()) {
-			const partPackage = part.expectedPackages.find((pkg) => pkg._id === packageId)
-			if (partPackage) return partPackage
+		for (const baselinePackage of this.#rundownBaselineExpectedPackagesStore.expectedPackages) {
+			if (baselinePackage.packageId === packageId) sources.push(baselinePackage.source)
 		}
 
-		return undefined
+		for (const part of this.getAllOrderedParts()) {
+			for (const partPackage of part.expectedPackages) {
+				if (partPackage.packageId === packageId) sources.push(partPackage.source)
+			}
+		}
+
+		return sources
 	}
 
 	removeSegment(id: SegmentId): void {
@@ -413,13 +401,6 @@ export class IngestModelImpl implements IngestModel, DatabasePersistedModel {
 	setExpectedPlayoutItemsForRundownBaseline(expectedPlayoutItems: ExpectedPlayoutItemRundown[]): void {
 		this.#rundownBaselineExpectedPackagesStore.setExpectedPlayoutItems(expectedPlayoutItems)
 	}
-	setExpectedMediaItemsForRundownBaseline(expectedMediaItems: ExpectedMediaItemRundown[]): void {
-		this.#rundownBaselineExpectedPackagesStore.setExpectedMediaItems(expectedMediaItems)
-	}
-	setExpectedPackagesForRundownBaseline(expectedPackages: ExpectedPackageForIngestModelBaseline[]): void {
-		// Future: should these be here, or held as part of each adlib?
-		this.#rundownBaselineExpectedPackagesStore.setExpectedPackages(expectedPackages)
-	}
 
 	setRundownData(
 		rundownData: IBlueprintRundown,
@@ -428,18 +409,19 @@ export class IngestModelImpl implements IngestModel, DatabasePersistedModel {
 		showStyleBlueprint: ReadonlyDeep<WrappedShowStyleBlueprint>,
 		source: RundownSource,
 		rundownNotes: RundownNote[],
-		userEditOperations: CoreUserEditingDefinition[] | undefined
+		userEditOperations: CoreUserEditingDefinition[] | undefined,
+		externalEventSubscriptions: BlueprintExternalEventSubscription[] | undefined
 	): ReadonlyDeep<DBRundown> {
 		const newRundown = literal<Complete<DBRundown>>({
 			...clone(rundownData as Complete<IBlueprintRundown>),
 			notes: clone(rundownNotes),
 			_id: this.rundownId,
 			externalId: this.rundownExternalId,
-			organizationId: this.context.studio.organizationId,
 			studioId: this.context.studio._id,
 			showStyleVariantId: showStyleVariant._id,
 			showStyleBaseId: showStyleBase._id,
 			userEditOperations: clone(userEditOperations),
+			externalEventSubscriptions: clone(externalEventSubscriptions),
 			orphaned: undefined,
 
 			importVersions: {
@@ -462,7 +444,6 @@ export class IngestModelImpl implements IngestModel, DatabasePersistedModel {
 			// owned by elsewhere
 			airStatus: this.#rundownImpl?.airStatus,
 			status: this.#rundownImpl?.status,
-			notifiedCurrentPlayingPartExternalId: this.#rundownImpl?.notifiedCurrentPlayingPartExternalId,
 		})
 		deleteAllUndefinedProperties(newRundown)
 
@@ -477,7 +458,9 @@ export class IngestModelImpl implements IngestModel, DatabasePersistedModel {
 	async setRundownBaseline(
 		timelineObjectsBlob: PieceTimelineObjectsBlob,
 		adlibPieces: RundownBaselineAdLibItem[],
-		adlibActions: RundownBaselineAdLibAction[]
+		adlibActions: RundownBaselineAdLibAction[],
+		pieces: Piece[],
+		expectedPackages: IngestExpectedPackage<ExpectedPackageIngestSourceRundownBaseline>[]
 	): Promise<void> {
 		const [loadedRundownBaselineObjs, loadedRundownBaselineAdLibPieces, loadedRundownBaselineAdLibActions] =
 			await Promise.all([
@@ -499,11 +482,13 @@ export class IngestModelImpl implements IngestModel, DatabasePersistedModel {
 		)
 
 		// Compare and update the adlibPieces
-		const newAdlibPieces = adlibPieces.map((piece) => ({
-			...clone(piece),
-			partId: undefined,
-			rundownId: this.rundownId,
-		}))
+		const newAdlibPieces = adlibPieces.map(
+			(piece): AdLibPiece => ({
+				...clone(piece),
+				partId: undefined,
+				rundownId: this.rundownId,
+			})
+		)
 		this.#rundownBaselineAdLibPieces.setValue(
 			diffAndReturnLatestObjects(
 				this.#rundownBaselineAdLibPiecesWithChanges,
@@ -513,11 +498,13 @@ export class IngestModelImpl implements IngestModel, DatabasePersistedModel {
 		)
 
 		// Compare and update the adlibActions
-		const newAdlibActions = adlibActions.map((action) => ({
-			...clone(action),
-			partId: undefined,
-			rundownId: this.rundownId,
-		}))
+		const newAdlibActions = adlibActions.map(
+			(action): RundownBaselineAdLibAction => ({
+				...clone(action),
+				partId: undefined,
+				rundownId: this.rundownId,
+			})
+		)
 		this.#rundownBaselineAdLibActions.setValue(
 			diffAndReturnLatestObjects(
 				this.#rundownBaselineAdLibActionsWithChanges,
@@ -525,6 +512,20 @@ export class IngestModelImpl implements IngestModel, DatabasePersistedModel {
 				newAdlibActions
 			)
 		)
+
+		// Compare and update the rundown pieces
+		const newPieces = pieces.map(
+			(piece): Piece => ({
+				...clone(piece),
+				startRundownId: this.rundownId,
+				startPartId: null,
+				startSegmentId: null,
+			})
+		)
+		this.#piecesImpl = diffAndReturnLatestObjects(this.#piecesWithChanges, this.#piecesImpl, newPieces)
+
+		// Future: should these be here, or held as part of each adlib?
+		this.#rundownBaselineExpectedPackagesStore.setExpectedPackages(expectedPackages)
 	}
 
 	setRundownOrphaned(orphaned: RundownOrphanedReason | undefined): void {
@@ -628,9 +629,26 @@ export class IngestModelImpl implements IngestModel, DatabasePersistedModel {
 			for (const segment of this.segmentsImpl.values()) {
 				if (segment.deleted) {
 					logOrThrowError(new Error(`Failed no changes in model assertion, Segment has been changed`))
+					break
 				} else {
 					const err = segment.segmentModel.checkNoChanges()
-					if (err) logOrThrowError(err)
+					if (err) {
+						logOrThrowError(err)
+						break
+					}
+				}
+			}
+
+			if (this.#piecesWithChanges.size) {
+				logOrThrowError(new Error(`Failed no changes in model assertion, Rundown Pieces have been changed`))
+			} else {
+				for (const piece of this.#piecesImpl.values()) {
+					if (!piece) {
+						logOrThrowError(
+							new Error(`Failed no changes in model assertion, Rundown Pieces have been changed`)
+						)
+						break
+					}
 				}
 			}
 		} finally {
@@ -645,13 +663,17 @@ export class IngestModelImpl implements IngestModel, DatabasePersistedModel {
 		this.#disposed = true
 	}
 
-	async saveAllToDatabase(): Promise<void> {
+	async saveAllToDatabase(playlistLock: PlaylistLock): Promise<void> {
 		if (this.#disposed) {
 			throw new Error('Cannot save disposed IngestModel')
 		}
 
 		if (!this.rundownLock.isLocked) {
 			throw new Error('Cannot save changes with released RundownLock')
+		}
+
+		if (this.#rundownImpl && playlistLock.playlistId !== this.#rundownImpl.playlistId) {
+			throw new Error('Cannot save changes with incorrect PlaylistLock')
 		}
 
 		const span = this.context.startSpan('IngestModelImpl.saveAllToDatabase')
@@ -663,7 +685,7 @@ export class IngestModelImpl implements IngestModel, DatabasePersistedModel {
 			partIds.add(part.part._id)
 		}
 
-		const saveHelper = new SaveIngestModelHelper()
+		const saveHelper = new SaveIngestModelHelper(this.rundownId)
 		for (const [segmentId, segment] of this.segmentsImpl.entries()) {
 			saveHelper.addSegment(segment.segmentModel, segment.deleted)
 			if (segment.deleted) {
@@ -688,6 +710,8 @@ export class IngestModelImpl implements IngestModel, DatabasePersistedModel {
 		saveHelper.addExpectedPackagesStore(this.#rundownBaselineExpectedPackagesStore)
 		this.#rundownBaselineExpectedPackagesStore.clearChangedFlags()
 
+		saveHelper.addChangedPieces(this.#piecesImpl, this.#piecesWithChanges)
+
 		await Promise.all([
 			this.#rundownHasChanged && this.#rundownImpl
 				? this.context.directCollections.Rundowns.replace(this.#rundownImpl)
@@ -702,5 +726,52 @@ export class IngestModelImpl implements IngestModel, DatabasePersistedModel {
 		this.#rundownHasChanged = false
 
 		span?.end()
+	}
+}
+
+function groupExpectedPackages(expectedPackages: ExpectedPackageDB[]) {
+	const baselineExpectedPackages: IngestExpectedPackage<ExpectedPackageIngestSourceRundownBaseline>[] = []
+	const groupedExpectedPackagesByPart = new Map<PartId, IngestExpectedPackage<ExpectedPackageIngestSourcePart>[]>()
+
+	for (const expectedPackage of expectedPackages) {
+		for (const source of expectedPackage.ingestSources) {
+			switch (source.fromPieceType) {
+				case ExpectedPackageDBType.BASELINE_PIECE:
+				case ExpectedPackageDBType.BASELINE_ADLIB_ACTION:
+				case ExpectedPackageDBType.BASELINE_ADLIB_PIECE:
+				case ExpectedPackageDBType.RUNDOWN_BASELINE_OBJECTS:
+					baselineExpectedPackages.push({
+						packageId: expectedPackage._id,
+						package: expectedPackage.package,
+						source: source,
+					})
+					break
+				case ExpectedPackageDBType.PIECE:
+				case ExpectedPackageDBType.ADLIB_PIECE:
+				case ExpectedPackageDBType.ADLIB_ACTION: {
+					const partPackages = groupedExpectedPackagesByPart.get(source.partId) ?? []
+					partPackages.push({
+						packageId: expectedPackage._id,
+						package: expectedPackage.package,
+						source: source,
+					})
+					groupedExpectedPackagesByPart.set(source.partId, partPackages)
+					break
+				}
+				case ExpectedPackageDBType.STUDIO_BASELINE_OBJECTS:
+				case ExpectedPackageDBType.BUCKET_ADLIB:
+				case ExpectedPackageDBType.BUCKET_ADLIB_ACTION:
+					// Ignore
+					break
+				default:
+					assertNever(source)
+					break
+			}
+		}
+	}
+
+	return {
+		baselineExpectedPackages,
+		groupedExpectedPackagesByPart,
 	}
 }

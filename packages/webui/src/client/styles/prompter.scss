@@ -2,12 +2,14 @@
 
 @font-face {
 	font-family: 'Source Serif Pro';
-	src: url('../../fonts/Source_Serif_Pro/SourceSerifPro-Regular.woff') format('woff'),
+	src:
+		url('../../fonts/Source_Serif_Pro/SourceSerifPro-Regular.woff') format('woff'),
 		/* Pretty Modern Browsers */ url('../../fonts/Source_Serif_Pro/SourceSerifPro-Regular.ttf') format('truetype'); /* Safari, Android, iOS */
 }
 @font-face {
 	font-family: 'Overpass';
-	src: url('../../fonts/Overpass/Overpass-Regular.woff') format('woff'),
+	src:
+		url('../../fonts/Overpass/Overpass-Regular.woff') format('woff'),
 		/* Pretty Modern Browsers */ url('../../fonts/Overpass/Overpass-Regular.ttf') format('truetype'); /* Safari, Android, iOS */
 }
 
@@ -88,7 +90,8 @@ body.prompter-scrollbar {
 	.prompter-part {
 		text-align: center;
 		letter-spacing: 0.1em;
-		font-size: 50%;
+		font-size: 63%;
+		height: 12.2vh;
 	}
 	.overlay-fix {
 		pointer-events: none;
@@ -127,6 +130,7 @@ body.prompter-scrollbar {
 
 		&.live {
 			//border-bottom: 0.2em solid #f55;
+			// Layer the director-style gradient over the live color
 			background: $general-live-color;
 			color: #fff;
 			-webkit-text-stroke: black;
@@ -275,30 +279,69 @@ body.prompter-scrollbar {
 	}
 }
 
-.prompter-timing-clock {
+.screen-timing-clock {
 	position: fixed;
 	display: block;
 	top: 0;
 	right: 0;
-	left: auto;
-	font-size: 75%;
-	padding: 0.05em 0.3em;
-	border-radius: 1em;
-	box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.5);
+	font-size: 9vmin;
+	box-shadow: 0px 0px 3px 3px rgba(0, 0, 0, 0.5);
+}
 
-	&.heavy-light {
-		font-weight: 600;
+.prompter-rundown-status-bar {
+	position: fixed;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	z-index: 1100;
+}
 
-		&.light {
-			// color: $general-late-color;
-			background-color: #ffe900;
-			color: #000;
-		}
+.prompter-rundown-status-bar.rundown-status-bar {
+	font-size: 6.95vmin;
+}
 
-		&.heavy {
-			background-color: $general-fast-color;
-			color: #fff;
-			text-shadow: 1px 1px 0px #000, 1px -1px 0px #000, -1px -1px 0px #000, -1px 1px 0px #000;
-		}
+.script-text-formatted {
+	--background-color: #000;
+	--foreground-color: #fff;
+
+	color: var(--foreground-color);
+	background: var(--background-color);
+
+	* {
+		color: var(--foreground-color);
+	}
+
+	p {
+		margin: 0;
+		padding: 0;
+	}
+
+	b,
+	b * {
+		font-weight: 700;
+	}
+
+	i,
+	i * {
+		font-style: italic;
+	}
+
+	u,
+	u * {
+		text-decoration: underline;
+	}
+
+	.reverse,
+	.reverse * {
+		background-color: var(--foreground-color);
+		color: var(--background-color);
+	}
+
+	.spacer {
+		height: 100vh;
+	}
+
+	span.screen-marker {
+		margin: 0 0.1em;
 	}
 }

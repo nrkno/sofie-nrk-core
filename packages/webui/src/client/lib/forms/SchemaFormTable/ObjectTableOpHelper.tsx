@@ -1,8 +1,8 @@
 import { clone, joinObjectPathFragments, objectPathSet } from '@sofie-automation/corelib/dist/lib'
-import {
+import type {
 	OverrideOpHelperForItemContentsBatcher,
 	WrappedOverridableItem,
-} from '../../../ui/Settings/util/OverrideOpHelper'
+} from '../../../ui/Settings/util/OverrideOpHelper.js'
 
 /**
  * The OverrideOp system does not support tables of objects currently.

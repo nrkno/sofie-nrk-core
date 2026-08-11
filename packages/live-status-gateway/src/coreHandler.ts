@@ -3,6 +3,8 @@ import {
 	CoreConnection,
 	CoreOptions,
 	DDPConnectorOptions,
+	DDPTLSOptions,
+	ICoreHandler,
 	Observer,
 	PeripheralDevicePubSub,
 	PeripheralDevicePubSubCollections,
@@ -10,23 +12,23 @@ import {
 	PeripheralDevicePubSubTypes,
 	SubscriptionId,
 	stringifyError,
+	ParametersOfFunctionOrNever,
 	KubernetesRestarter,
 } from '@sofie-automation/server-core-integration'
-import { DeviceConfig } from './connector'
+import { DeviceConfig } from './connector.js'
 import { Logger } from 'winston'
-import { Process } from './process'
-import { LIVE_STATUS_DEVICE_CONFIG } from './configManifest'
+import { LIVE_STATUS_DEVICE_CONFIG } from './configManifest.js'
 import {
 	PeripheralDeviceCategory,
 	PeripheralDeviceType,
+	PeripheralDeviceStatusObject,
 } from '@sofie-automation/shared-lib/dist/peripheralDevice/peripheralDeviceAPI'
 import { protectString } from '@sofie-automation/shared-lib/dist/lib/protectedString'
 import { PeripheralDeviceCommandId, StudioId } from '@sofie-automation/shared-lib/dist/core/model/Ids'
 import { StatusCode } from '@sofie-automation/shared-lib/dist/lib/status'
 import { PeripheralDeviceCommand } from '@sofie-automation/shared-lib/dist/core/model/PeripheralDeviceCommand'
-import { LiveStatusGatewayConfig } from './generated/options'
+import { LiveStatusGatewayConfig } from '@sofie-automation/shared-lib/dist/generated/LiveStatusGatewayOptionsTypes'
 import { CorelibPubSubTypes, CorelibPubSubCollections } from '@sofie-automation/corelib/dist/pubsub'
-import { ParametersOfFunctionOrNever } from '@sofie-automation/server-core-integration/dist/lib/subscriptions'
 
 export interface CoreConfig {
 	host: string
@@ -37,7 +39,7 @@ export interface CoreConfig {
 /**
  * Represents a connection between the Gateway and Core
  */
-export class CoreHandler {
+export class CoreHandler implements ICoreHandler {
 	core!: CoreConnection<
 		CorelibPubSubTypes & PeripheralDevicePubSubTypes,
 		CorelibPubSubCollections & PeripheralDevicePubSubCollections
@@ -46,21 +48,18 @@ export class CoreHandler {
 	public _observers: Array<any> = []
 	public deviceSettings: LiveStatusGatewayConfig = {}
 
-	public errorReporting = false
-	public multithreading = false
-	public reportAllCommands = false
-
 	private _deviceOptions: DeviceConfig
-	private _onConnected?: () => any
 	private _executedFunctions = new Set<PeripheralDeviceCommandId>()
 	private _coreConfig?: CoreConfig
-	private _process?: Process
 
 	private _studioId: StudioId | undefined
 
 	private _statusInitialized = false
 	private _statusDestroyed = false
 
+	public get connectedToCore(): boolean {
+		return this.core && this.core.connected
+	}
 	private _k8sRestarter?: KubernetesRestarter
 
 	constructor(logger: Logger, deviceOptions: DeviceConfig) {
@@ -71,10 +70,9 @@ export class CoreHandler {
 		}
 	}
 
-	async init(config: CoreConfig, process: Process): Promise<void> {
+	async init(config: CoreConfig, tlsOptions: DDPTLSOptions): Promise<void> {
 		this._statusInitialized = false
 		this._coreConfig = config
-		this._process = process
 
 		this.core = new CoreConnection<CorelibPubSubTypes & PeripheralDevicePubSubTypes>(
 			this.getCoreConnectionOptions()
@@ -85,7 +83,6 @@ export class CoreHandler {
 			this.setupObserversAndSubscriptions().catch((e) => {
 				this.logger.error('Core Error during setupObserversAndSubscriptions:', e)
 			})
-			if (this._onConnected) this._onConnected()
 		})
 		this.core.onDisconnected(() => {
 			this.logger.warn('Core Disconnected!')
@@ -97,11 +94,7 @@ export class CoreHandler {
 		const ddpConfig: DDPConnectorOptions = {
 			host: config.host,
 			port: config.port,
-		}
-		if (this._process && this._process.certificates.length) {
-			ddpConfig.tlsOpts = {
-				ca: this._process.certificates,
-			}
+			tlsOpts: tlsOptions,
 		}
 
 		await this.core.init(ddpConfig)
@@ -109,7 +102,6 @@ export class CoreHandler {
 
 		this.logger.info('Core id: ' + this.core.deviceId)
 		await this.setupObserversAndSubscriptions()
-		if (this._onConnected) this._onConnected()
 
 		this._statusInitialized = true
 		await this.updateCoreStatus()
@@ -192,9 +184,6 @@ export class CoreHandler {
 
 		return options
 	}
-	onConnected(fcn: () => any): void {
-		this._onConnected = fcn
-	}
 
 	onDeviceChanged(): void {
 		const col = this.core.getCollection(PeripheralDevicePubSubCollectionsNames.peripheralDeviceForDevice)
@@ -257,7 +246,7 @@ export class CoreHandler {
 					this.logger.error(e)
 				})
 			}
-			// eslint-disable-next-line @typescript-eslint/ban-types
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
 			const fcn: Function = fcnObject[cmd.functionName as keyof CoreHandler] as Function
 			try {
 				if (!fcn) throw Error(`Function "${cmd.functionName}" not found on device "${cmd.deviceId}"!`)
@@ -287,11 +276,9 @@ export class CoreHandler {
 			if (!cmds) throw Error('"peripheralDeviceCommands" collection not found!')
 			const cmd = cmds.findOne(id)
 			if (!cmd) throw Error('PeripheralCommand "' + id + '" not found!')
-			// console.log('addedChangedCommand', id)
+
 			if (cmd.deviceId === functionObject.core.deviceId) {
 				this.executeFunction(cmd, functionObject)
-			} else {
-				// console.log('not mine', cmd.deviceId, this.core.deviceId)
 			}
 		}
 		observer.added = (id) => {
@@ -319,7 +306,7 @@ export class CoreHandler {
 		} else {
 			this.logger.info('killing process in 1000ms!')
 			setTimeout(() => {
-				// eslint-disable-next-line no-process-exit
+				// eslint-disable-next-line n/no-process-exit
 				process.exit(0)
 			}, 1000)
 			return true
@@ -336,30 +323,31 @@ export class CoreHandler {
 		this.logger.info('getDevicesInfo')
 		return []
 	}
-	async updateCoreStatus(): Promise<any> {
+	getCoreStatus(): PeripheralDeviceStatusObject {
 		let statusCode = StatusCode.GOOD
-		const messages: Array<string> = []
+		const statusDetails: Array<{ message: string }> = []
 
 		if (!this._statusInitialized) {
 			statusCode = StatusCode.BAD
-			messages.push('Starting up...')
+			statusDetails.push({ message: 'Starting up...' })
 		}
 		if (this._statusDestroyed) {
 			statusCode = StatusCode.BAD
-			messages.push('Shut down')
+			statusDetails.push({ message: 'Shut down' })
 		}
-
-		return this.core.setStatus({
-			statusCode: statusCode,
-			messages: messages,
-		})
+		return {
+			statusCode,
+			statusDetails,
+		}
+	}
+	async updateCoreStatus(): Promise<any> {
+		return this.core.setStatus(this.getCoreStatus())
 	}
 	private _getVersions() {
 		const versions: { [packageName: string]: string } = {}
 
-		if (process.env.npm_package_version) {
-			versions['_process'] = process.env.npm_package_version
-		}
+		const pkg = require('../package.json')
+		if (pkg?.version) versions['_process'] = pkg.version
 
 		return versions
 	}

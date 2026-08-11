@@ -5,12 +5,31 @@ import type {
 	UserEditingSourceLayer,
 	DefaultUserOperationsTypes,
 } from '@sofie-automation/blueprints-integration'
-import type { ITranslatableMessage } from '../TranslatableMessage'
+import type { ITranslatableMessage } from '../TranslatableMessage.js'
 
 export type CoreUserEditingDefinition =
+	| CoreUserEditingDefinitionState
 	| CoreUserEditingDefinitionAction
 	| CoreUserEditingDefinitionForm
 	| CoreUserEditingDefinitionSofie
+
+export interface CoreUserEditingDefinitionState {
+	type: UserEditingType.STATE
+	/** Id of this operation */
+	id: string
+	/** Label to show to the user for this operation */
+	label: ITranslatableMessage
+	/** Icon to show when this state is 'active'.
+	 *
+	 * This can either be a relative URL to an image in the Blueprints assets or a `data:` URL */
+	icon?: string
+	/** Icon to show when this state is 'disabled'.
+	 *
+	 * This can either be a relative URL to an image in the Blueprints assets or a `data:` URL */
+	iconInactive?: string
+	/** Whether this state should be indicated as being active */
+	isActive?: boolean
+}
 
 export interface CoreUserEditingDefinitionAction {
 	type: UserEditingType.ACTION
@@ -96,4 +115,9 @@ export interface CoreUserEditingDefinitionSofie {
 	type: UserEditingType.SOFIE
 	/** Id of this operation */
 	id: DefaultUserOperationsTypes
+	/**
+	 * If true, the operation is limited to the current part.
+	 * Only applicable for RETIME_PIECE
+	 */
+	limitToCurrentPart?: boolean
 }

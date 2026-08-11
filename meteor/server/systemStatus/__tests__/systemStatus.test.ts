@@ -1,6 +1,7 @@
 import '../../../__mocks__/_extendJest'
 import { setupDefaultStudioEnvironment, DefaultEnvironment } from '../../../__mocks__/helpers/database'
-import { generateTranslation, literal, protectString, unprotectString } from '../../lib/tempLib'
+import { generateTranslation, literal } from '@sofie-automation/corelib/dist/lib'
+import { protectString, unprotectString } from '@sofie-automation/corelib/dist/protectedString'
 import { MeteorMock } from '../../../__mocks__/meteor'
 import { status2ExternalStatus, setSystemStatus } from '../systemStatus'
 import { StatusResponse } from '@sofie-automation/meteor-lib/dist/api/systemStatus'
@@ -89,6 +90,7 @@ describe('systemStatus', () => {
 			$set: {
 				status: literal<PeripheralDeviceStatusObject>({
 					statusCode: StatusCode.WARNING_MAJOR,
+					statusDetails: [],
 					messages: [],
 				}),
 			},
@@ -115,6 +117,7 @@ describe('systemStatus', () => {
 			$set: {
 				status: literal<PeripheralDeviceStatusObject>({
 					statusCode: StatusCode.GOOD,
+					statusDetails: [],
 					messages: [],
 				}),
 			},

@@ -1,18 +1,18 @@
 import { literal } from '@sofie-automation/corelib/dist/lib'
-import { ProtectedString } from '@sofie-automation/corelib/dist/protectedString'
-import {
+import type { ProtectedString } from '@sofie-automation/corelib/dist/protectedString'
+import type {
 	ObjectOverrideDeleteOp,
 	ObjectOverrideSetOp,
 } from '@sofie-automation/corelib/dist/settings/objectWithOverrides'
 import { useCallback, useMemo } from 'react'
-import { MongoCollection } from '../../collections/lib'
-import {
+import type { MongoCollection } from '../../collections/lib.js'
+import type {
 	WrappedOverridableItemNormal,
 	OverrideOpHelperForItemContentsBatcher,
-} from '../../ui/Settings/util/OverrideOpHelper'
-import { SchemaFormCommonProps } from './schemaFormUtil'
-import { SchemaFormWithOverrides } from './SchemaFormWithOverrides'
-import { MongoModifier } from '@sofie-automation/corelib/dist/mongo'
+} from '../../ui/Settings/util/OverrideOpHelper.js'
+import type { SchemaFormCommonProps } from './schemaFormUtil.js'
+import { SchemaFormWithOverrides } from './SchemaFormWithOverrides.js'
+import type { MongoModifier } from '@sofie-automation/corelib/dist/mongo'
 
 interface SchemaFormForCollectionProps extends Omit<SchemaFormCommonProps, 'isRequired'> {
 	/** The collection to operate on */
@@ -58,12 +58,12 @@ export function SchemaFormForCollection({
 					? literal<ObjectOverrideDeleteOp>({
 							op: 'delete',
 							path: `0.${key}`,
-					  })
+						})
 					: literal<ObjectOverrideSetOp>({
 							op: 'set',
 							path: `0.${key}`,
 							value: val,
-					  })
+						})
 			)
 
 			return literal<WrappedOverridableItemNormal<any>>({

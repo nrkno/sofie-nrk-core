@@ -6,17 +6,17 @@ sidebar_position: 3
 
 ## Permissions
 
-There are a few different access levels that users can be assigned. They are not heirarchical, you will often need to enable multiple for each user.
+There are a few different access levels that users can be assigned. They are not hierarchical, you will often need to enable multiple for each user.
 Any client that can access Sofie always has at least view-only access to the rundowns, and system status pages.
 
-| Level         | Summary                                                                                                                                          |
-| :------------ | :----------------------------------------------------------------------------------------------------------------------------------------------- |
-| **studio**    | Grants access to operate a studio for playout of a rundown.                                                                                      |
-| **configure** | Grants access to the settings pages of Sofie, and other abilities to configure the system.                                                       |
-| **developer** | Grants access to some tools useful to developers. This also changes some ui behaviours to be less agressive in what is shown in the rundown view |
-| **testing**   | Enables the page Test Tools, which contains various tools useful for testing the system during development                                       |
-| **service**   | Grants access to the external message status page, and some additional rundown management options that are not commonly needed                   |
-| **gateway**   | Grants access to various APIs intended for use by the various gateways that connect Sofie to other systems.                                      |
+| Level         | Summary                                                                                                                                           |
+| :------------ | :------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **studio**    | Grants access to operate a studio for playout of a rundown.                                                                                       |
+| **configure** | Grants access to the settings pages of Sofie, and other abilities to configure the system.                                                        |
+| **developer** | Grants access to some tools useful to developers. This also changes some ui behaviours to be less aggressive in what is shown in the rundown view |
+| **testing**   | Enables the page Test Tools, which contains various tools useful for testing the system during development                                        |
+| **service**   | Grants access to the external message status page, and some additional rundown management options that are not commonly needed                    |
+| **gateway**   | Grants access to various APIs intended for use by the various gateways that connect Sofie to other systems.                                       |
 
 ## Authentication providers
 
@@ -54,7 +54,7 @@ It is known that secrets can be leaked to all clients who can connect to Sofie, 
 :::
 
 In this mode, we rely on Sofie being run behind a reverse-proxy which will inform Sofie of the permissions of each connection. This allows you to use your organisations preferred auth provider, and translate that into something that Sofie can understand.
-To enable this mode, you need to enable the `enableHeaderAuth` property in the [settings file](../configuration/sofie-core-settings.md)
+To enable this mode, set the `SOFIE_ENABLE_HEADER_AUTH` [environment variable](../configuration/sofie-core-settings.md) to `1` or `true`.
 
 Sofie expects that for each DDP connection or http request, the `dnt` header will be set containing a comma separated list of the levels from the above table. If the header is not defined or is empty, the connection will have view-only access to Sofie.
 This header can also contain simply `admin` to grant the connection permission to everything.

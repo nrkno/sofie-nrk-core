@@ -1,6 +1,6 @@
 import { AppsV1Api, KubeConfig, PatchUtils } from '@kubernetes/client-node'
 import * as fs from 'node:fs/promises'
-import { SomeLogger } from './types'
+import type { SomeLogger } from './types.js'
 
 export class KubernetesRestarter {
 	private static namespaceCache: string | null = null
@@ -21,7 +21,10 @@ export class KubernetesRestarter {
 	}
 	private readonly k8sApi: AppsV1Api
 	private readonly deploymentName: string
-	constructor(private readonly logger: SomeLogger, defaultDeploymentName: string) {
+	constructor(
+		private readonly logger: SomeLogger,
+		defaultDeploymentName: string
+	) {
 		const kc = new KubeConfig()
 		kc.loadFromDefault()
 

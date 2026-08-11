@@ -2,27 +2,28 @@ import React, { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 // import classNames from 'classnames'
 // import Tooltip from 'rc-tooltip'
-// import { TOOLTIP_DEFAULT_DELAY } from '../../lib/lib'
-import { RundownPlaylistId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { useTracker } from '../../../lib/ReactMeteorData/ReactMeteorData'
+// import { TOOLTIP_DEFAULT_DELAY } from '../../lib/lib.js'
+import type { RundownPlaylistId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import { useTracker } from '../../../lib/ReactMeteorData/ReactMeteorData.js'
 import { unprotectString } from '@sofie-automation/corelib/dist/protectedString'
 import {
 	MediaStatus,
-	MediaStatusListItem as IMediaStatusListItem,
+	type MediaStatusListItem as IMediaStatusListItem,
 	sortItems,
-	SortBy,
-	SortOrder,
-} from '../../MediaStatus/MediaStatus'
-import { MediaStatusPopUpItem } from './MediaStatusPopUpItem'
+	type SortBy,
+	type SortOrder,
+} from '../../MediaStatus/MediaStatus.js'
+import { MediaStatusPopUpItem } from './MediaStatusPopUpItem.js'
 import { translateMessage } from '@sofie-automation/corelib/dist/TranslatableMessage'
-import { MediaStatusPopUpHeader } from './MediaStatusPopUpHeader'
-import { RundownPlaylists } from '../../../collections'
-import { MediaStatusPopUpSegmentRule } from './MediaStatusPopUpSegmentRule'
-import { mapOrFallback, useDebounce } from '../../../lib/lib'
-import { Spinner } from '../../../lib/Spinner'
+import { MediaStatusPopUpHeader } from './MediaStatusPopUpHeader.js'
+import { RundownPlaylists } from '../../../collections/index.js'
+import { UIStudios } from '../../Collections.js'
+import { MediaStatusPopUpSegmentRule } from './MediaStatusPopUpSegmentRule.js'
+import { mapOrFallback, useDebounce } from '../../../lib/lib.js'
+import { Spinner } from '../../../lib/Spinner.js'
 import { NavLink } from 'react-router-dom'
-import { MediaStatusPopOutIcon } from '../../../lib/ui/icons/mediaStatus'
-import { PopUpPanel } from '../PopUpPanel'
+import { MediaStatusPopOutIcon } from '../../../lib/ui/icons/mediaStatus.js'
+import { PopUpPanel } from '../PopUpPanel.js'
 
 interface IProps {
 	playlistId: RundownPlaylistId
@@ -60,23 +61,27 @@ export function MediaStatusPopUp({ playlistId }: Readonly<IProps>): JSX.Element 
 
 	const playlistIds = useMemo(() => [playlistId], [playlistId])
 
-	const { currentPartInstanceId, nextPartInstanceId } = useTracker(
+	const { currentPartInstanceId, nextPartInstanceId, followOnAirSegmentsHistory } = useTracker(
 		() => {
 			const playlist = RundownPlaylists.findOne(playlistId, {
 				projection: {
 					nextPartInfo: 1,
 					currentPartInfo: 1,
+					studioId: 1,
 				},
 			})
+			const studio = playlist && UIStudios.findOne(playlist.studioId)
 			return {
 				currentPartInstanceId: playlist?.currentPartInfo?.partInstanceId,
 				nextPartInstanceId: playlist?.nextPartInfo?.partInstanceId,
+				followOnAirSegmentsHistory: studio?.settings.followOnAirSegmentsHistory ?? 0,
 			}
 		},
 		[playlistId],
 		{
 			currentPartInstanceId: undefined,
 			nextPartInstanceId: undefined,
+			followOnAirSegmentsHistory: 0,
 		}
 	)
 
@@ -88,7 +93,7 @@ export function MediaStatusPopUp({ playlistId }: Readonly<IProps>): JSX.Element 
 						<MediaStatusPopOutIcon />
 					</NavLink>
 				</div>
-				<h2 className="mhm mvn">{t('Media Status')}</h2>
+				<h2 className="mx-3 my-0">{t('Media Status')}</h2>
 				<div className="media-status-panel__scrollbox">
 					<table className="media-status-panel__table">
 						<MediaStatusPopUpHeader
@@ -134,6 +139,7 @@ export function MediaStatusPopUp({ playlistId }: Readonly<IProps>): JSX.Element 
 															partId={item.partId}
 															segmentId={item.segmentId}
 															partInstanceId={item.partInstanceId}
+															followOnAirSegmentsHistory={followOnAirSegmentsHistory}
 															partIdentifier={item.partIdentifier}
 															segmentIdentifier={item.segmentIdentifier}
 															sourceLayerName={item.sourceLayerName}

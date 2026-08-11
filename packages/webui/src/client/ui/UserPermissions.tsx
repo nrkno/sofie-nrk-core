@@ -10,12 +10,12 @@ import {
 	setAllowDeveloper,
 	setAllowTesting,
 	setAllowService,
-} from '../lib/localStorage'
+} from '../lib/localStorage.js'
 import { parse as queryStringParse } from 'query-string'
-import { MeteorCall } from '../lib/meteorApi'
-import { UserPermissions } from '@sofie-automation/meteor-lib/dist/userPermissions'
-import { Settings } from '../lib/Settings'
-import { useTracker } from '../lib/ReactMeteorData/ReactMeteorData'
+import { MeteorCall } from '../lib/meteorApi.js'
+import type { UserPermissions } from '@sofie-automation/meteor-lib/dist/userPermissions'
+import { APP_HEADER_AUTH_ENABLED } from '../lib/Settings.js'
+import { useTracker } from '../lib/ReactMeteorData/ReactMeteorData.js'
 import { Meteor } from 'meteor/meteor'
 
 export type { UserPermissions }
@@ -34,10 +34,10 @@ export const UserPermissionsContext = React.createContext<Readonly<UserPermissio
 export function useUserPermissions(): [roles: UserPermissions, ready: boolean] {
 	const location = window.location
 
-	const [ready, setReady] = useState(!Settings.enableHeaderAuth)
+	const [ready, setReady] = useState(!APP_HEADER_AUTH_ENABLED)
 
 	const [permissions, setPermissions] = useState<UserPermissions>(
-		Settings.enableHeaderAuth
+		APP_HEADER_AUTH_ENABLED
 			? NO_PERMISSIONS
 			: {
 					studio: getLocalAllowStudio(),
@@ -46,13 +46,13 @@ export function useUserPermissions(): [roles: UserPermissions, ready: boolean] {
 					testing: getLocalAllowTesting(),
 					service: getLocalAllowService(),
 					gateway: false,
-			  }
+				}
 	)
 
 	const isConnected = useTracker(() => Meteor.status().connected, [], false)
 
 	useEffect(() => {
-		if (!Settings.enableHeaderAuth) return
+		if (!APP_HEADER_AUTH_ENABLED) return
 
 		// Do nothing when not connected. Persist the previous values.
 		if (!isConnected) return
@@ -78,10 +78,10 @@ export function useUserPermissions(): [roles: UserPermissions, ready: boolean] {
 		return () => {
 			clearInterval(interval)
 		}
-	}, [Settings.enableHeaderAuth, isConnected])
+	}, [APP_HEADER_AUTH_ENABLED, isConnected])
 
 	useEffect(() => {
-		if (Settings.enableHeaderAuth) return
+		if (APP_HEADER_AUTH_ENABLED) return
 
 		if (!location.search) return
 
@@ -110,7 +110,7 @@ export function useUserPermissions(): [roles: UserPermissions, ready: boolean] {
 			service: getLocalAllowService(),
 			gateway: false,
 		})
-	}, [location.search, Settings.enableHeaderAuth])
+	}, [location.search, APP_HEADER_AUTH_ENABLED])
 
 	// A naive memoizing of the value, to avoid reactions when the value is identical
 	return [useMemo(() => permissions, [JSON.stringify(permissions)]), ready]

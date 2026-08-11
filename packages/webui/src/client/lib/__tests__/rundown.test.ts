@@ -1,44 +1,38 @@
 import {
 	setupDefaultStudioEnvironment,
-	DefaultEnvironment,
+	type DefaultEnvironment,
 	setupDefaultRundownPlaylist,
-	convertToUIShowStyleBase,
-} from '../../../__mocks__/helpers/database'
-import { RundownUtils } from '../rundown'
-import { Piece } from '@sofie-automation/corelib/dist/dataModel/Piece'
-import { defaultPartInstance, defaultPiece, defaultPieceInstance } from '../../../__mocks__/defaultCollectionObjects'
+	convertToUIStudio,
+} from '../../../__mocks__/helpers/database.js'
+import { RundownUtils } from '../rundown.js'
+import type { Piece } from '@sofie-automation/corelib/dist/dataModel/Piece'
+import { defaultPartInstance, defaultPiece, defaultPieceInstance } from '../../../__mocks__/defaultCollectionObjects.js'
 import { protectString, unprotectString } from '@sofie-automation/corelib/dist/protectedString'
 import { PieceLifespan } from '@sofie-automation/blueprints-integration'
-import { PartInstance } from '@sofie-automation/meteor-lib/dist/collections/PartInstances'
-import { PieceInstance } from '@sofie-automation/corelib/dist/dataModel/PieceInstance'
-import { RundownPlaylistId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { PartInstances, PieceInstances, Pieces, RundownPlaylists } from '../../collections'
-import { MongoMock } from '../../../__mocks__/mongo'
-import { RundownPlaylistCollectionUtil } from '../../collections/rundownPlaylistUtil'
-import { RundownPlaylistClientUtil } from '../rundownPlaylistUtil'
+import type { PieceInstance } from '@sofie-automation/corelib/dist/dataModel/PieceInstance'
+import type { RundownPlaylistId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import { PieceInstances, Pieces, RundownPlaylists } from '../../collections/index.js'
+import { MongoMock } from '../../../__mocks__/mongo.js'
+import { RundownPlaylistCollectionUtil } from '../../collections/rundownPlaylistUtil.js'
+import { RundownPlaylistClientUtil } from '../rundownPlaylistUtil.js'
+import type { UIStudio } from '@sofie-automation/corelib/src/dataModel/Studio.js'
+import type { PartInstance } from '@sofie-automation/corelib/src/dataModel/PartInstance.js'
+import { convertToUIShowStyleBase } from '@sofie-automation/corelib/src/playout/stateCacheResolver.js'
+import { UIPartInstances } from '../../ui/Collections.js'
 
 const mockRundownPlaylistsCollection = MongoMock.getInnerMockCollection(RundownPlaylists)
-const mockPartInstancesCollection = MongoMock.getInnerMockCollection(PartInstances)
+const mockPartInstancesCollection = MongoMock.getInnerMockCollection(UIPartInstances)
 const mockPieceInstancesCollection = MongoMock.getInnerMockCollection(PieceInstances)
 const mockPiecesCollection = MongoMock.getInnerMockCollection(Pieces)
-
-// This is a hack, the tests should be rewriten to not use methods unrelated to the testee
-jest.mock('../../ui/Collections', () => {
-	const mockClientCollections = jest.requireActual('../../ui/Collections')
-	const mockLibCollections = jest.requireActual('../../collections/index')
-	return {
-		...mockClientCollections,
-		UIParts: mockLibCollections.Parts, // for most purposes they're equivalent
-		UIPartInstances: mockLibCollections.PartInstances, // for most purposes they're equivalent
-	}
-})
 
 describe('client/lib/rundown', () => {
 	let env: DefaultEnvironment
 	let playlistId: RundownPlaylistId
+	let studio: UIStudio
 	beforeEach(async () => {
 		env = await setupDefaultStudioEnvironment()
 		playlistId = (await setupDefaultRundownPlaylist(env)).playlistId
+		studio = convertToUIStudio(env.studio)
 	})
 	describe('RundownUtils.getResolvedSegment', () => {
 		test('Basic Segment resolution', () => {
@@ -54,18 +48,19 @@ describe('client/lib/rundown', () => {
 			const rundown = rundowns[0]
 			const segment = segments[0]
 
-			const resolvedSegment = RundownUtils.getResolvedSegment(
+			const resolvedSegment = RundownUtils.getResolvedSegment({
 				showStyleBase,
+				studio,
 				playlist,
 				rundown,
 				segment,
-				new Set(segments.slice(0, 0).map((s) => s._id)),
-				[],
-				new Map(),
-				parts.map((part) => part._id),
+				segmentsToReceiveOnRundownEndFromSet: new Set(segments.slice(0, 0).map((s) => s._id)),
+				rundownsToReceiveOnShowStyleEndFrom: [],
+				rundownsToShowStyles: new Map(),
+				orderedAllPartIds: parts.map((part) => part._id),
 				currentPartInstance,
-				nextPartInstance
-			)
+				nextPartInstance,
+			})
 			expect(resolvedSegment).toBeTruthy()
 			expect(resolvedSegment.parts).toHaveLength(2)
 			expect(resolvedSegment).toMatchObject({
@@ -115,18 +110,19 @@ describe('client/lib/rundown', () => {
 
 			mockPiecesCollection.insert(infinitePiece)
 
-			const resolvedSegment = RundownUtils.getResolvedSegment(
+			const resolvedSegment = RundownUtils.getResolvedSegment({
 				showStyleBase,
+				studio,
 				playlist,
 				rundown,
 				segment,
-				new Set(segments.slice(0, 1).map((s) => s._id)),
-				[],
-				new Map(),
-				parts.map((part) => part._id),
+				segmentsToReceiveOnRundownEndFromSet: new Set(segments.slice(0, 1).map((s) => s._id)),
+				rundownsToReceiveOnShowStyleEndFrom: [],
+				rundownsToShowStyles: new Map(),
+				orderedAllPartIds: parts.map((part) => part._id),
 				currentPartInstance,
-				nextPartInstance
-			)
+				nextPartInstance,
+			})
 			expect(resolvedSegment).toBeTruthy()
 			expect(resolvedSegment.parts).toHaveLength(3)
 			expect(resolvedSegment).toMatchObject({
@@ -200,18 +196,19 @@ describe('client/lib/rundown', () => {
 			}
 			mockPiecesCollection.insert(croppingPiece)
 
-			const resolvedSegment = RundownUtils.getResolvedSegment(
+			const resolvedSegment = RundownUtils.getResolvedSegment({
 				showStyleBase,
+				studio,
 				playlist,
 				rundown,
 				segment,
-				new Set(segments.slice(0, 1).map((s) => s._id)),
-				[],
-				new Map(),
-				parts.map((part) => part._id),
+				segmentsToReceiveOnRundownEndFromSet: new Set(segments.slice(0, 1).map((s) => s._id)),
+				rundownsToReceiveOnShowStyleEndFrom: [],
+				rundownsToShowStyles: new Map(),
+				orderedAllPartIds: parts.map((part) => part._id),
 				currentPartInstance,
-				nextPartInstance
-			)
+				nextPartInstance,
+			})
 			expect(resolvedSegment).toBeTruthy()
 			expect(resolvedSegment.parts).toHaveLength(3)
 			expect(resolvedSegment).toMatchObject({
@@ -350,18 +347,19 @@ describe('client/lib/rundown', () => {
 			const { currentPartInstance, nextPartInstance } =
 				RundownPlaylistClientUtil.getSelectedPartInstances(playlist)
 
-			const resolvedSegment = RundownUtils.getResolvedSegment(
+			const resolvedSegment = RundownUtils.getResolvedSegment({
 				showStyleBase,
+				studio,
 				playlist,
 				rundown,
 				segment,
-				new Set(segments.slice(0, 1).map((s) => s._id)),
-				[],
-				new Map(),
-				parts.map((part) => part._id),
+				segmentsToReceiveOnRundownEndFromSet: new Set(segments.slice(0, 1).map((s) => s._id)),
+				rundownsToReceiveOnShowStyleEndFrom: [],
+				rundownsToShowStyles: new Map(),
+				orderedAllPartIds: parts.map((part) => part._id),
 				currentPartInstance,
-				nextPartInstance
-			)
+				nextPartInstance,
+			})
 			expect(resolvedSegment).toBeTruthy()
 			expect(resolvedSegment.parts).toHaveLength(3)
 			expect(resolvedSegment).toMatchObject({

@@ -1,7 +1,6 @@
-// eslint-disable-next-line node/no-missing-import
-import { Configuration, PlaylistsApi, ResponseError } from '../../client/ts'
-import { checkServer } from '../checkServer'
-import Logging from '../httpLogging'
+import { Configuration, PlaylistsApi, ResponseError } from '../../client/ts/index.js'
+import { checkServer } from '../checkServer.js'
+import Logging from '../httpLogging.js'
 
 const httpLogging = false
 let testServer = false
@@ -62,6 +61,18 @@ describe('Network client', () => {
 		})
 		expect(active.status).toBe(200)
 	})
+
+	if (testServer) {
+		test('can activate adlib testing mode', async () => {
+			const active = await playlistsApi.activateAdlibTesting({
+				playlistId: playlistIds[0],
+				rundownId: 'rundownId',
+			})
+			expect(active.status).toBe(200)
+		})
+	} else {
+		test.todo('activate adlib testing mode - need to read a rundown ID')
+	}
 
 	let partId = ''
 	test('can move next part in a playlist', async () => {

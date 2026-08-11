@@ -2,6 +2,7 @@ import {
 	CoreConnection,
 	CoreOptions,
 	DDPConnectorOptions,
+	DDPTLSOptions,
 	Observer,
 	PeripheralDeviceAPI,
 	PeripheralDeviceCommand,
@@ -16,11 +17,11 @@ import {
 import * as Winston from 'winston'
 
 import { IMOSDevice } from '@mos-connection/connector'
-import { MosHandler } from './mosHandler'
-import { DeviceConfig } from './connector'
-import { MOS_DEVICE_CONFIG_MANIFEST } from './configManifest'
-import { getVersions } from './versions'
-import { CoreMosDeviceHandler, CoreMosDeviceHandlerOptions } from './CoreMosDeviceHandler'
+import { MosHandler } from './mosHandler.js'
+import { DeviceConfig } from './connector.js'
+import { MOS_DEVICE_CONFIG_MANIFEST } from './configManifest.js'
+import { getVersions } from './versions.js'
+import { CoreMosDeviceHandler, CoreMosDeviceHandlerOptions } from './CoreMosDeviceHandler.js'
 import { PeripheralDeviceCommandId } from '@sofie-automation/shared-lib/dist/core/model/Ids'
 
 export interface CoreConfig {
@@ -35,7 +36,6 @@ export class CoreHandler implements ICoreHandler {
 	core: CoreConnection | undefined
 	logger: Winston.Logger
 	public _observers: Array<Observer<any>> = []
-	public connectedToCore = false
 	private _deviceOptions: DeviceConfig
 	private _coreMosHandlers: Array<CoreMosDeviceHandler> = []
 	private _onConnected?: () => any
@@ -43,10 +43,24 @@ export class CoreHandler implements ICoreHandler {
 	private _isDestroyed = false
 	private _executedFunctions = new Set<PeripheralDeviceCommandId>()
 	private _coreConfig?: CoreConfig
-	private _certificates?: Buffer[]
 	private _k8sRestarter?: KubernetesRestarter
 
-	constructor(logger: Winston.Logger, deviceOptions: DeviceConfig) {
+	public get connectedToCore(): boolean {
+		return !!this.core && this.core.connected
+	}
+
+	public static async create(
+		logger: Winston.Logger,
+		config: CoreConfig,
+		tlsOptions: DDPTLSOptions,
+		deviceOptions: DeviceConfig
+	): Promise<CoreHandler> {
+		const handler = new CoreHandler(logger, deviceOptions)
+		await handler.init(config, tlsOptions)
+		return handler
+	}
+
+	private constructor(logger: Winston.Logger, deviceOptions: DeviceConfig) {
 		this.logger = logger
 		this._deviceOptions = deviceOptions
 		if (KubernetesRestarter.canUseK8sRestarter()) {
@@ -54,20 +68,17 @@ export class CoreHandler implements ICoreHandler {
 		}
 	}
 
-	async init(config: CoreConfig, certificates: Buffer[]): Promise<void> {
+	private async init(config: CoreConfig, tlsOptions: DDPTLSOptions): Promise<void> {
 		// this.logger.info('========')
 		this._coreConfig = config
-		this._certificates = certificates
 		this.core = new CoreConnection(this.getCoreConnectionOptions())
 
 		this.core.onConnected(() => {
 			this.logger.info('Core Connected!')
-			this.connectedToCore = true
 			if (this._isInitialized) this.onConnectionRestored()
 		})
 		this.core.onDisconnected(() => {
 			this.logger.info('Core Disconnected!')
-			this.connectedToCore = false
 		})
 		this.core.onError((err) => {
 			this.logger.error('Core Error: ' + (typeof err === 'string' ? err : err.message || err.toString()))
@@ -76,11 +87,7 @@ export class CoreHandler implements ICoreHandler {
 		const ddpConfig: DDPConnectorOptions = {
 			host: config.host,
 			port: config.port,
-		}
-		if (this._certificates?.length) {
-			ddpConfig.tlsOpts = {
-				ca: this._certificates,
-			}
+			tlsOpts: tlsOptions,
 		}
 		await this.core.init(ddpConfig)
 
@@ -90,24 +97,21 @@ export class CoreHandler implements ICoreHandler {
 
 		await this.updateCoreStatus()
 	}
-	getCoreStatus(): {
-		statusCode: StatusCode
-		messages: string[]
-	} {
+	getCoreStatus(): PeripheralDeviceAPI.PeripheralDeviceStatusObject {
 		let statusCode = StatusCode.GOOD
-		const messages: string[] = []
+		const statusDetails: Array<{ message: string }> = []
 
 		if (!this._isInitialized) {
 			statusCode = StatusCode.BAD
-			messages.push('Starting up...')
+			statusDetails.push({ message: 'Starting up...' })
 		}
 		if (this._isDestroyed) {
 			statusCode = StatusCode.FATAL
-			messages.push('Shut down')
+			statusDetails.push({ message: 'Shut down' })
 		}
 		return {
 			statusCode,
-			messages,
+			statusDetails,
 		}
 	}
 	async updateCoreStatus(): Promise<void> {
@@ -329,7 +333,7 @@ export class CoreHandler implements ICoreHandler {
 		} else {
 			this.logger.debug('killing process in 1000ms!')
 			setTimeout(() => {
-				// eslint-disable-next-line no-process-exit
+				// eslint-disable-next-line n/no-process-exit
 				process.exit(0)
 			}, 1000)
 			return true

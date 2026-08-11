@@ -1,34 +1,38 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
-	CameraContent,
-	RemoteContent,
-	RemoteSpeakContent,
+	type CameraContent,
+	type RemoteContent,
+	type RemoteSpeakContent,
 	SourceLayerType,
-	SplitsContent,
+	type SplitsContent,
 } from '@sofie-automation/blueprints-integration'
-import { RundownId, ShowStyleBaseId, StudioId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { Rundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
+import type { RundownId, ShowStyleBaseId, StudioId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import type { Rundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
 import { unprotectString } from '@sofie-automation/corelib/dist/protectedString'
 import { MeteorPubSub } from '@sofie-automation/meteor-lib/dist/api/pubsub'
-import { UIStudio } from '@sofie-automation/meteor-lib/dist/api/studios'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
-import { PieceExtended } from '../../../lib/RundownResolver'
-import { Rundowns } from '../../../collections'
-import { useSubscription, useSubscriptionIfEnabled, useTracker } from '../../../lib/ReactMeteorData/ReactMeteorData'
-import { UIPartInstances, UIStudios } from '../../Collections'
-import { Rundown as RundownComponent } from './Rundown'
+import type { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
+import { Rundowns } from '../../../collections/index.js'
+import { useSubscription, useSubscriptionIfEnabled, useTracker } from '../../../lib/ReactMeteorData/ReactMeteorData.js'
+import { UIPartInstances, UIStudios } from '../../Collections.js'
+import { Rundown as RundownComponent } from './Rundown.js'
 import { useLocation } from 'react-router-dom'
 import { parse as queryStringParse } from 'query-string'
-import { PartInstance } from '@sofie-automation/meteor-lib/dist/collections/PartInstances'
-import { OrderedPartsProvider } from './OrderedPartsProvider'
-import { offElementResize, onElementResize } from '../../../lib/resizeObserver'
+import { OrderedPartsProvider } from './OrderedPartsProvider.js'
+import { offElementResize, onElementResize } from '../../../lib/resizeObserver.js'
 import { useTranslation } from 'react-i18next'
-import { Spinner } from '../../../lib/Spinner'
-import { useBlackBrowserTheme } from '../../../lib/useBlackBrowserTheme'
-import { useWakeLock } from './useWakeLock'
-import { catchError, useDebounce } from '../../../lib/lib'
+import { Spinner } from '../../../lib/Spinner.js'
+import { useBlackBrowserTheme } from '../../../lib/useBlackBrowserTheme.js'
+import { useWakeLock } from './useWakeLock.js'
+import { useDebounce } from '../../../lib/lib.js'
 import { CorelibPubSub } from '@sofie-automation/corelib/dist/pubsub'
-import { useSetDocumentClass } from '../../util/useSetDocumentClass'
+import {
+	useSetDocumentClass,
+	useSetDocumentDarkTheme,
+	useOwnedElementClassToggle,
+} from '../../util/useSetDocumentClass.js'
+import type { UIStudio } from '@sofie-automation/corelib/src/dataModel/Studio.js'
+import type { PartInstance } from '@sofie-automation/corelib/src/dataModel/PartInstance.js'
+import type { PieceExtended } from '@sofie-automation/corelib/src/dataModel/Piece.js'
 
 interface IProps {
 	playlist: DBRundownPlaylist | undefined
@@ -54,14 +58,12 @@ export const CanvasSizeContext = React.createContext<number>(1)
 
 const PARAM_NAME_SOURCE_LAYER_IDS = 'sourceLayerIds'
 const PARAM_NAME_STUDIO_LABEL = 'studioLabels'
-const PARAM_NAME_FULLSCREEN = 'fullscreen'
 
 export function CameraScreen({ playlist, studioId }: Readonly<IProps>): JSX.Element | null {
 	const playlistIds = playlist ? [playlist._id] : []
 
 	const [studioLabels, setStudioLabels] = useState<string[] | null>(null)
 	const [sourceLayerIds, setSourceLayerIds] = useState<string[] | null>(null)
-	const [fullScreenMode, setFullScreenMode] = useState<boolean>(false)
 
 	useBlackBrowserTheme()
 
@@ -73,7 +75,6 @@ export function CameraScreen({ playlist, studioId }: Readonly<IProps>): JSX.Elem
 
 		const studioLabelParam = queryParams[PARAM_NAME_STUDIO_LABEL] ?? null
 		const sourceLayerTypeParam = queryParams[PARAM_NAME_SOURCE_LAYER_IDS] ?? null
-		const fullscreenParam = queryParams[PARAM_NAME_FULLSCREEN] ?? false
 
 		setStudioLabels(
 			Array.isArray(studioLabelParam) ? studioLabelParam : studioLabelParam === null ? null : [studioLabelParam]
@@ -82,10 +83,9 @@ export function CameraScreen({ playlist, studioId }: Readonly<IProps>): JSX.Elem
 			Array.isArray(sourceLayerTypeParam)
 				? sourceLayerTypeParam
 				: sourceLayerTypeParam === null
-				? null
-				: [sourceLayerTypeParam]
+					? null
+					: [sourceLayerTypeParam]
 		)
-		setFullScreenMode(Array.isArray(fullscreenParam) ? fullscreenParam[0] === '1' : fullscreenParam === '1')
 	}, [location.search])
 
 	const rundowns = useTracker(
@@ -148,14 +148,8 @@ export function CameraScreen({ playlist, studioId }: Readonly<IProps>): JSX.Elem
 	)
 
 	useSetDocumentClass('dark', 'xdark', 'vertical-overflow-only')
-	useEffect(() => {
-		const containerEl = document.querySelector('#render-target > .container-fluid.header-clear')
-		if (containerEl) containerEl.classList.remove('header-clear')
-
-		return () => {
-			if (containerEl) containerEl.classList.add('header-clear')
-		}
-	}, [])
+	useSetDocumentDarkTheme()
+	useOwnedElementClassToggle('#render-target > .container-fluid', 'header-clear')
 
 	const studio = useTracker(() => UIStudios.findOne(studioId), [studioId], undefined)
 
@@ -169,6 +163,7 @@ export function CameraScreen({ playlist, studioId }: Readonly<IProps>): JSX.Elem
 
 	const pieceFilterFunction = useMemo(() => {
 		return (piece: PieceExtended) => {
+			// eslint-disable-next-line @typescript-eslint/no-duplicate-type-constituents
 			const camLikeContent = piece.instance.piece.content as CameraContent | RemoteContent | RemoteSpeakContent
 			if (
 				sourceLayerIds !== null &&
@@ -214,37 +209,16 @@ export function CameraScreen({ playlist, studioId }: Readonly<IProps>): JSX.Elem
 		}
 	}, [canvasElRef.current])
 
-	useLayoutEffect(() => {
-		if (!document.fullscreenEnabled || !fullScreenMode) return
-
-		const targetEl = document.documentElement
-
-		function onCanvasClick() {
-			if (document.fullscreenElement !== null) return
-			targetEl
-				?.requestFullscreen({
-					navigationUI: 'hide',
-				})
-				.catch(catchError('targetEl.requestFullscreen'))
-		}
-
-		document.documentElement.addEventListener('click', onCanvasClick)
-
-		return () => {
-			document.documentElement.removeEventListener('click', onCanvasClick)
-		}
-	}, [fullScreenMode])
-
 	useWakeLock()
 
-	if (!studio && studioReady) return <h1 className="mod mal alc">{t("This studio doesn't exist.")}</h1>
+	if (!studio && studioReady) return <h1 className="m-4 text-center">{t("This studio doesn't exist.")}</h1>
 
 	if (!playlist && rundownsReady)
-		return <h1 className="mod mal alc">{t('There is no rundown active in this studio.')}</h1>
+		return <h1 className="m-4 text-center">{t('There is no rundown active in this studio.')}</h1>
 
 	if ((playlist && !piecesReadyOnce) || !playlist)
 		return (
-			<div className="mod mal alc">
+			<div className="m-4">
 				<Spinner />
 			</div>
 		)

@@ -1,15 +1,14 @@
 import { PartInstanceId, PieceInstanceId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import { OnTimelineTriggerTimeProps } from '@sofie-automation/corelib/dist/worker/studio'
-import { logger } from '../../logging'
-import { JobContext } from '../../jobs'
-import { runJobWithPlaylistLock } from '../lock'
-import { saveTimeline } from '../timeline/generate'
+import { logger } from '../../logging.js'
+import { JobContext } from '../../jobs/index.js'
+import { runJobWithPlaylistLock } from '../lock.js'
 import { applyToArray, normalizeArrayToMap } from '@sofie-automation/corelib/dist/lib'
 import { PieceInstance } from '@sofie-automation/corelib/dist/dataModel/PieceInstance'
-import { runJobWithStudioPlayoutModel } from '../../studio/lock'
-import { StudioPlayoutModel } from '../../studio/model/StudioPlayoutModel'
-import { PieceTimelineMetadata } from '../timeline/pieceGroup'
+import { runJobWithStudioPlayoutModel } from '../../studio/lock.js'
+import { StudioPlayoutModel } from '../../studio/model/StudioPlayoutModel.js'
+import { PieceTimelineMetadata } from '../timeline/pieceGroup.js'
 import { deserializeTimelineBlob } from '@sofie-automation/corelib/dist/dataModel/Timeline'
 import { ReadonlyDeep } from 'type-fest'
 import { AnyBulkWriteOperation } from 'mongodb'
@@ -69,7 +68,6 @@ export async function handleTimelineTriggerTime(context: JobContext, data: OnTim
 
 					// Take ownership of the playlist in the db, so that we can mutate the timeline and piece instances
 					const changes = timelineTriggerTimeInner(
-						context,
 						studioCache,
 						data.results,
 						partInstanceMap,
@@ -81,7 +79,7 @@ export async function handleTimelineTriggerTime(context: JobContext, data: OnTim
 				})
 			} else {
 				// No playlist is active. no extra lock needed
-				timelineTriggerTimeInner(context, studioCache, data.results, undefined, undefined, undefined)
+				timelineTriggerTimeInner(studioCache, data.results, undefined, undefined, undefined)
 			}
 		})
 	}
@@ -123,7 +121,6 @@ interface PieceInstancesChanges {
 }
 
 function timelineTriggerTimeInner(
-	context: JobContext,
 	studioPlayoutModel: StudioPlayoutModel,
 	results: OnTimelineTriggerTimeProps['results'],
 	partInstances: Map<PartInstanceId, Pick<DBPartInstance, '_id' | 'partPlayoutTimings'>> | undefined,
@@ -205,7 +202,11 @@ function timelineTriggerTimeInner(
 			}
 		}
 		if (tlChanged) {
-			const timelineHash = saveTimeline(context, studioPlayoutModel, timelineObjs, timeline.generationVersions)
+			const timelineHash = studioPlayoutModel.setTimeline(
+				timelineObjs,
+				timeline.generationVersions,
+				timeline.regenerateTimelineToken
+			).timelineHash
 
 			logger.verbose(`timelineTriggerTime: Updated Timeline, hash: "${timelineHash}"`)
 		}

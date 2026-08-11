@@ -1,20 +1,19 @@
 import { ContextMenuTrigger } from '@jstarpl/react-contextmenu'
 import classNames from 'classnames'
 // import { InView } from 'react-intersection-observer'
-import { contextMenuHoldToDisplayTime } from '../../lib/lib'
-import { ErrorBoundary } from '../../lib/ErrorBoundary'
-import { SwitchViewModeButton } from '../SegmentContainer/SwitchViewModeButton'
-import { SegmentViewMode } from '../SegmentContainer/SegmentViewModes'
-import { PartUi, SegmentNoteCounts, SegmentUi } from '../SegmentContainer/withResolvedSegment'
-import { PartCountdown } from '../RundownView/RundownTiming/PartCountdown'
-import { SegmentDuration } from '../RundownView/RundownTiming/SegmentDuration'
-import { PartId, SegmentId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import { contextMenuHoldToDisplayTime } from '../../lib/lib.js'
+import { ErrorBoundary } from '../../lib/ErrorBoundary.js'
+import { SwitchViewModeButton } from '../SegmentContainer/SwitchViewModeButton.js'
+import { SegmentViewMode } from '../SegmentContainer/SegmentViewModes.js'
+import type { PartUi, SegmentNoteCounts, SegmentUi } from '../SegmentContainer/withResolvedSegment.js'
+import { PartCountdown } from '../RundownView/RundownTiming/PartCountdown.js'
+import { SegmentDuration } from '../RundownView/RundownTiming/SegmentDuration.js'
+import type { PartId, SegmentId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { useTranslation } from 'react-i18next'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
-import { IContextMenuContext } from '../RundownView'
+import type { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
+import type { IContextMenuContext } from '../RundownView.js'
 import { NoteSeverity } from '@sofie-automation/blueprints-integration'
-import { CriticalIconSmall, WarningIconSmall } from '../../lib/ui/icons/notifications'
-import { SegmentTimeAnchorTime } from '../RundownView/RundownTiming/SegmentTimeAnchorTime'
+import { CriticalIconSmall, WarningIconSmall } from '../../lib/ui/icons/notifications.js'
 
 export function SegmentListHeader({
 	isDetached,
@@ -35,6 +34,7 @@ export function SegmentListHeader({
 	getSegmentContext,
 	onTimeUntilClick,
 	onHeaderNoteClick,
+	hideRundownHeader,
 }: Readonly<{
 	isDetached: boolean
 	isDetachedStick: boolean
@@ -54,6 +54,7 @@ export function SegmentListHeader({
 	onTimeUntilClick: () => void
 	getSegmentContext: () => IContextMenuContext
 	onHeaderNoteClick?: (segmentId: SegmentId, level: NoteSeverity) => void
+	hideRundownHeader?: boolean
 }>): JSX.Element {
 	const { t } = useTranslation()
 
@@ -114,45 +115,35 @@ export function SegmentListHeader({
 				{segment.name}
 			</h2>
 			<div className="segment-opl__counters">
-				{segment.segmentTiming?.expectedStart || segment.segmentTiming?.expectedEnd ? (
-					<div className={classNames('segment-opl__expectedTime')} onClick={onTimeUntilClick}>
-						<SegmentTimeAnchorTime
-							segment={segment}
-							isLiveSegment={isLiveSegment}
-							labelClassName="segment-timeline__expectedTime__label"
+				<div
+					className={classNames('segment-opl__timeUntil', {
+						'segment-opl__timeUntil--time-of-day': useTimeOfDayCountdowns,
+					})}
+					onClick={onTimeUntilClick}
+				>
+					{playlist && parts && parts.length > 0 && showCountdownToSegment && (
+						<PartCountdown
+							partId={countdownToPartId}
+							hideOnZero={!useTimeOfDayCountdowns}
+							useWallClock={useTimeOfDayCountdowns}
+							playlist={playlist}
+							label={
+								useTimeOfDayCountdowns ? (
+									<span className="segment-timeline__timeUntil__label">{t('On Air At')}</span>
+								) : (
+									<span className="segment-timeline__timeUntil__label">{t('On Air In')}</span>
+								)
+							}
 						/>
-					</div>
-				) : (
-					<div
-						className={classNames('segment-opl__timeUntil', {
-							'segment-opl__timeUntil--time-of-day': useTimeOfDayCountdowns,
-						})}
-						onClick={onTimeUntilClick}
-					>
-						{playlist && parts && parts.length > 0 && showCountdownToSegment && (
-							<PartCountdown
-								partId={countdownToPartId}
-								hideOnZero={!useTimeOfDayCountdowns}
-								useWallClock={useTimeOfDayCountdowns}
-								playlist={playlist}
-								label={
-									useTimeOfDayCountdowns ? (
-										<span className="segment-timeline__timeUntil__label">{t('On Air At')}</span>
-									) : (
-										<span className="segment-timeline__timeUntil__label">{t('On Air In')}</span>
-									)
-								}
-							/>
-						)}
-					</div>
-				)}
+					)}
+				</div>
 			</div>
 			{(criticalNotes > 0 || warningNotes > 0) && (
 				<div className="segment-opl__notes">
 					{criticalNotes > 0 && (
 						<div
 							className="segment-timeline__title__notes__note segment-timeline__title__notes__note--critical"
-							onClick={() => onHeaderNoteClick && onHeaderNoteClick(segment._id, NoteSeverity.ERROR)}
+							onClick={() => onHeaderNoteClick?.(segment._id, NoteSeverity.ERROR)}
 							aria-label={t('Critical problems')}
 						>
 							<CriticalIconSmall />
@@ -162,7 +153,7 @@ export function SegmentListHeader({
 					{warningNotes > 0 && (
 						<div
 							className="segment-timeline__title__notes__note segment-timeline__title__notes__note--warning"
-							onClick={() => onHeaderNoteClick && onHeaderNoteClick(segment._id, NoteSeverity.WARNING)}
+							onClick={() => onHeaderNoteClick?.(segment._id, NoteSeverity.WARNING)}
 							aria-label={t('Warnings')}
 						>
 							<WarningIconSmall />
@@ -194,6 +185,8 @@ export function SegmentListHeader({
 						'invert-flash': highlight,
 
 						'time-of-day-countdowns': useTimeOfDayCountdowns,
+
+						'no-rundown-header_OLD': hideRundownHeader,
 					})}
 				>
 					{contents}

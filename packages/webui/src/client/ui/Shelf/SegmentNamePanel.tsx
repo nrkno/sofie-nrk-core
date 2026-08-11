@@ -1,17 +1,17 @@
 import ClassNames from 'classnames'
-import {
+import type {
 	DashboardLayoutSegmentName,
 	RundownLayoutBase,
 	RundownLayoutSegmentName,
 } from '@sofie-automation/meteor-lib/dist/collections/RundownLayouts'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
-import { dashboardElementStyle } from './DashboardPanel'
-import { RundownLayoutsAPI } from '../../lib/rundownLayouts'
-import { useTracker } from '../../lib/ReactMeteorData/ReactMeteorData'
-import { DBSegment } from '@sofie-automation/corelib/dist/dataModel/Segment'
-import { PartInstance } from '@sofie-automation/meteor-lib/dist/collections/PartInstances'
-import { RundownPlaylistClientUtil } from '../../lib/rundownPlaylistUtil'
+import type { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
+import { dashboardElementStyle } from './DashboardPanel.js'
+import { RundownLayoutsAPI } from '../../lib/rundownLayouts.js'
+import { useTracker } from '../../lib/ReactMeteorData/ReactMeteorData.js'
+import type { DBSegment } from '@sofie-automation/corelib/dist/dataModel/Segment'
+import { RundownPlaylistClientUtil } from '../../lib/rundownPlaylistUtil.js'
 import { useTranslation } from 'react-i18next'
+import type { PartInstance } from '@sofie-automation/corelib/src/dataModel/PartInstance.js'
 
 interface ISegmentNamePanelProps {
 	layout: RundownLayoutBase
@@ -48,7 +48,7 @@ function getSegmentName(selectedSegment: 'current' | 'next', playlist: DBRundown
 	const currentPartInstance = playlist.currentPartInfo
 		? (RundownPlaylistClientUtil.getActivePartInstances(playlist, {
 				_id: playlist.currentPartInfo.partInstanceId,
-		  })[0] as PartInstance | undefined)
+			})[0] as PartInstance | undefined)
 		: undefined
 
 	if (!currentPartInstance) return

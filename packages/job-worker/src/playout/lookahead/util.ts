@@ -5,9 +5,9 @@ import { Piece } from '@sofie-automation/corelib/dist/dataModel/Piece'
 import { PieceInstance, PieceInstancePiece } from '@sofie-automation/corelib/dist/dataModel/PieceInstance'
 import { PartCalculatedTimings } from '@sofie-automation/corelib/dist/playout/timings'
 import { ReadonlyDeep } from 'type-fest'
-import { JobContext } from '../../jobs'
-import { PlayoutModel } from '../model/PlayoutModel'
-import { selectNextPart } from '../selectNextPart'
+import { JobContext } from '../../jobs/index.js'
+import { PlayoutModel } from '../model/PlayoutModel.js'
+import { selectNextPart } from '../selectNextPart.js'
 
 export interface PartInstanceAndPieceInstances {
 	part: ReadonlyDeep<DBPartInstance>
@@ -18,7 +18,7 @@ export interface PartInstanceAndPieceInstances {
 }
 export interface PieceInstanceWithObjectMap extends ReadonlyDeep<PieceInstance> {
 	/** Cache of objects built by findObjects. */
-	objectMap?: Map<string, TimelineObjectCoreExt<any>>
+	objectMap?: Map<string, TimelineObjectCoreExt<any>[]>
 }
 export interface PartAndPieces {
 	part: ReadonlyDeep<DBPart>
@@ -34,11 +34,16 @@ export function isPieceInstance(piece: Piece | PieceInstance | PieceInstancePiec
 
 /**
  * Excludes the previous, current and next part
+ * @param context Job context
+ * @param playoutModel The playout model
+ * @param partCount Maximum number of parts to return
+ * @param ignoreQuickLoop If true, ignores quickLoop markers and returns parts in linear order. Defaults to false for backwards compatibility.
  */
 export function getOrderedPartsAfterPlayhead(
 	context: JobContext,
 	playoutModel: PlayoutModel,
-	partCount: number
+	partCount: number,
+	ignoreQuickLoop: boolean = false
 ): ReadonlyDeep<DBPart>[] {
 	if (partCount <= 0) {
 		return []
@@ -66,7 +71,7 @@ export function getOrderedPartsAfterPlayhead(
 		null,
 		orderedSegments,
 		orderedParts,
-		{ ignoreUnplayable: true, ignoreQuickLoop: false }
+		{ ignoreUnplayable: true, ignoreQuickLoop }
 	)
 	if (!nextNextPart) {
 		// We don't know where to begin searching, so we can't do anything

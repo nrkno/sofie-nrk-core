@@ -3,9 +3,9 @@ import { MappingExt, MappingsExt, StudioRouteSet } from '@sofie-automation/corel
 import { ReadonlyDeep } from 'type-fest'
 import { getActiveRoutes, getRoutedMappings } from '@sofie-automation/meteor-lib/dist/collections/Studios'
 
-type MappingExtWithOriginalName = MappingExt & { originalLayerName: string }
+type MappingExtWithOriginalName = ReadonlyDeep<MappingExt> & { originalLayerName: string }
 type MappingsExtWithOriginalName = {
-	[layerName: string]: ReadonlyDeep<MappingExtWithOriginalName>
+	[layerName: string]: MappingExtWithOriginalName
 }
 export function buildMappingsToDeviceIdMap(
 	routeSets: Record<string, StudioRouteSet>,
@@ -26,7 +26,7 @@ export function buildMappingsToDeviceIdMap(
 
 	// Compile the result
 	const result = new Map<string, PeripheralDeviceId[]>()
-	for (const item of Object.values<ReadonlyDeep<MappingExtWithOriginalName>>(routedMappings)) {
+	for (const item of Object.values<MappingExtWithOriginalName>(routedMappings)) {
 		const key = item.originalLayerName
 		const existing = result.get(key)
 		if (existing) {

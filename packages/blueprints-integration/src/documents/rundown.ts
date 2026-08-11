@@ -1,5 +1,5 @@
-import type { UserEditingDefinition } from '../userEditing'
-import type { RundownPlaylistTiming } from './playlistTiming'
+import type { UserEditingDefinition } from '../userEditing.js'
+import type { RundownPlaylistTiming } from './playlistTiming.js'
 
 /** The Rundown generated from Blueprint */
 
@@ -23,12 +23,6 @@ export interface IBlueprintRundown<TPrivateData = unknown, TPublicData = unknown
 	playlistExternalId?: string
 
 	/**
-	 * Whether the end of the rundown marks a break in the show.
-	 * Allows the Next Break timer in the Rundown Header to time to the end of this rundown when looking for the next break.
-	 */
-	endOfRundownIsShowBreak?: boolean
-
-	/**
 	 * User editing definitions for this rundown
 	 */
 	userEditOperations?: UserEditingDefinition[]
@@ -36,8 +30,7 @@ export interface IBlueprintRundown<TPrivateData = unknown, TPublicData = unknown
 /** The Rundown sent from Core */
 
 export interface IBlueprintRundownDB<TPrivateData = unknown, TPublicData = unknown>
-	extends IBlueprintRundown<TPrivateData, TPublicData>,
-		IBlueprintRundownDBData {}
+	extends IBlueprintRundown<TPrivateData, TPublicData>, IBlueprintRundownDBData {}
 /** Properties added to a rundown in Core */
 
 export interface IBlueprintRundownDBData {
@@ -55,6 +48,9 @@ export interface IBlueprintRundownDBData {
 
 export interface IBlueprintSegmentRundown<TPrivateData = unknown, TPublicData = unknown> {
 	externalId: string
+
+	/** Rundown timing information */
+	timing: RundownPlaylistTiming
 
 	/** Arbitraty data storage for internal use in the blueprints */
 	privateData?: TPrivateData

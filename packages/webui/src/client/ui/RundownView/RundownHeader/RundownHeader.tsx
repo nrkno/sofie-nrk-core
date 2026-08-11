@@ -1,0 +1,178 @@
+import { useCallback, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import ClassNames from 'classnames'
+import { NavLink } from 'react-router-dom'
+import type { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
+import type { Rundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
+import Navbar from 'react-bootstrap/Navbar'
+import { RundownContextMenu, RundownHeaderContextMenuTrigger, RundownHamburgerButton } from './RundownContextMenu'
+import { TimeOfDay } from '../RundownTiming/TimeOfDay'
+import { RundownHeaderPartRemaining, RundownHeaderSegmentBudget } from '../RundownHeader/CurrentPartOrSegmentRemaining'
+import { RundownHeaderTimers } from './RundownHeaderTimers'
+
+import { PlaylistTiming } from '@sofie-automation/corelib/dist/playout/rundownTiming'
+import { useTiming } from '../RundownTiming/withTiming'
+import { RundownHeaderTimingDisplay } from './RundownHeaderTimingDisplay'
+import { RundownHeaderPlannedStart } from './RundownHeaderPlannedStart'
+import { RundownHeaderDurations } from './RundownHeaderDurations'
+import { RundownHeaderExpectedEnd } from './RundownHeaderExpectedEnd'
+import { HeaderFreezeFrameIcon } from './HeaderFreezeFrameIcon'
+import './RundownHeader.scss'
+import type { UIStudio } from '@sofie-automation/corelib/src/dataModel/Studio'
+
+interface IRundownHeaderProps {
+	playlist: DBRundownPlaylist
+	currentRundown: Rundown | undefined
+	studio: UIStudio
+	firstRundown: Rundown | undefined
+	rundownCount: number
+	lockView?: boolean
+}
+
+export function RundownHeader({
+	playlist,
+	studio,
+	firstRundown,
+	currentRundown,
+	rundownCount,
+	lockView,
+}: IRundownHeaderProps): JSX.Element {
+	const { t } = useTranslation()
+	const timingDurations = useTiming()
+	const [isMenuOpen, setIsMenuOpen] = useState(false)
+	const [isContextMenuOpen, setIsContextMenuOpen] = useState(false)
+	// User's explicit toggle preference; defaults to false (show advanced)
+	const [userPrefersSimplified, setUserPrefersSimplified] = useState(false)
+
+	const expectedStart = PlaylistTiming.getExpectedStart(playlist.timing)
+	const expectedEnd = PlaylistTiming.getExpectedEnd(playlist.timing)
+	const expectedDuration = PlaylistTiming.getExpectedDuration(playlist.timing)
+
+	const hasSimple = !!(expectedStart || expectedDuration || expectedEnd)
+
+	// Fallback duration for untimed playlists
+	const fallbackDuration = PlaylistTiming.isPlaylistTimingNone(playlist.timing)
+		? Object.values<number>(timingDurations.partExpectedDurations || {}).reduce((a, b) => a + b, 0)
+		: undefined
+
+	const hasAdvanced = !!(
+		playlist.startedPlayback ||
+		expectedStart ||
+		timingDurations.remainingPlaylistDuration ||
+		fallbackDuration
+	)
+
+	const canToggle = hasSimple && hasAdvanced
+
+	// When toggling is available, respect the user's preference; otherwise show whichever mode has data
+	const simplified = canToggle ? userPrefersSimplified : hasSimple
+
+	const toggleSimplified = useCallback(() => {
+		if (canToggle) {
+			setUserPrefersSimplified((s) => !s)
+		}
+	}, [canToggle])
+
+	const onMenuClose = useCallback(() => setIsMenuOpen(false), [setIsMenuOpen])
+
+	return (
+		<>
+			<RundownContextMenu
+				playlist={playlist}
+				studio={studio}
+				firstRundown={firstRundown}
+				lockView={lockView}
+				onShow={() => setIsContextMenuOpen(true)}
+				onHide={() => {
+					setIsMenuOpen(false)
+					setIsContextMenuOpen(false)
+				}}
+			/>
+			<Navbar
+				data-bs-theme="dark"
+				fixed="top"
+				expand
+				className={ClassNames('rundown-header', {
+					active: !!playlist.activationId,
+					'not-active': !playlist.activationId,
+					rehearsal: playlist.rehearsal,
+				})}
+			>
+				<RundownHeaderContextMenuTrigger>
+					<div className="rundown-header__content">
+						<div className="rundown-header__left">
+							<RundownHamburgerButton
+								isOpen={isMenuOpen}
+								disabled={isContextMenuOpen && !isMenuOpen}
+								onOpen={() => setIsMenuOpen(true)}
+								onClose={onMenuClose}
+							/>
+							<div className="rundown-header__left-context-menu-wrapper">
+								<div className="rundown-header__onair-wrapper">
+									{playlist.currentPartInfo && (
+										<div className="rundown-header__onair">
+											<RundownHeaderSegmentBudget
+												currentPartInstanceId={playlist.currentPartInfo.partInstanceId}
+												label={t('Seg. Budg.')}
+											/>
+											<span className="rundown-header__timers-onair-remaining">
+												<span className="rundown-header__timers-onair-remaining__label">{t('On Air')}</span>
+												<RundownHeaderPartRemaining
+													currentPartInstanceId={playlist.currentPartInfo.partInstanceId}
+													heavyClassName="overtime"
+												/>
+												<HeaderFreezeFrameIcon partInstanceId={playlist.currentPartInfo.partInstanceId} />
+											</span>
+										</div>
+									)}
+								</div>
+								<RundownHeaderTimers tTimers={playlist.tTimers} />
+							</div>
+						</div>
+
+						<div className="rundown-header__clocks">
+							<div className="rundown-header__clocks-clock-group">
+								<div className="rundown-header__clocks-top-row">
+									<RundownHeaderTimingDisplay playlist={playlist} />
+									<TimeOfDay className="rundown-header__clocks-time-now" />
+								</div>
+								<div className="rundown-header__clocks-playlist-name">
+									{rundownCount > 1 ? (
+										<span className="playlist-name">{playlist.name}</span>
+									) : (
+										<span className="rundown-name">{(currentRundown ?? firstRundown)?.name}</span>
+									)}
+								</div>
+							</div>
+						</div>
+
+						<div className="rundown-header__right">
+							<button
+								className={ClassNames('rundown-header__show-timers', {
+									'rundown-header__show-timers--simplified': simplified,
+									'rundown-header__show-timers--disabled': !canToggle,
+								})}
+								type="button"
+								onClick={toggleSimplified}
+							>
+								<RundownHeaderPlannedStart playlist={playlist} simplified={simplified} />
+								<RundownHeaderDurations playlist={playlist} simplified={simplified} />
+								<RundownHeaderExpectedEnd playlist={playlist} simplified={simplified} />
+							</button>
+							{lockView ? (
+								<span className="rundown-header__close-btn rundown-header__close-btn--placeholder" aria-hidden="true">
+									<FontAwesomeIcon icon="close" size="xl" />
+								</span>
+							) : (
+								<NavLink to="/" title={t('Exit')} aria-label={t('Exit')} className="rundown-header__close-btn">
+									<FontAwesomeIcon icon="close" size="xl" />
+								</NavLink>
+							)}
+						</div>
+					</div>
+				</RundownHeaderContextMenuTrigger>
+			</Navbar>
+		</>
+	)
+}

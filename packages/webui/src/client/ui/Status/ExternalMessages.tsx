@@ -1,67 +1,32 @@
 import React, { useCallback, useContext, useState } from 'react'
-import { useSubscription, useTracker } from '../../lib/ReactMeteorData/react-meteor-data'
-import { Time, unprotectString } from '../../lib/tempLib'
-import { getCurrentTime } from '../../lib/systemTime'
-import { MomentFromNow } from '../../lib/Moment'
+import { useSubscription, useTracker } from '../../lib/ReactMeteorData/react-meteor-data.js'
+import type { Time } from '@sofie-automation/shared-lib/dist/lib/lib'
+import { unprotectString } from '@sofie-automation/shared-lib/dist/lib/protectedString'
+import { getCurrentTime } from '../../lib/systemTime.js'
+import { MomentFromNow } from '../../lib/Moment.js'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { ExternalMessageQueueObj } from '@sofie-automation/corelib/dist/dataModel/ExternalMessageQueue'
-import { makeTableOfObject } from '../../lib/utilComponents'
+import type { ExternalMessageQueueObj } from '@sofie-automation/corelib/dist/dataModel/ExternalMessageQueue'
+import { makeTableOfObject } from '../../lib/utilComponents.js'
 import ClassNames from 'classnames'
-import { DatePickerFromTo } from '../../lib/datePicker'
+import { DatePickerFromTo } from '../../lib/datePicker.js'
 import moment from 'moment'
 import { faTrash, faPause, faPlay, faRedo } from '@fortawesome/free-solid-svg-icons'
-import { MeteorPubSub } from '@sofie-automation/meteor-lib/dist/api/pubsub'
-import { MeteorCall } from '../../lib/meteorApi'
-import { UIStudios } from '../Collections'
-import { StudioId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { ExternalMessageQueue } from '../../collections'
-import { catchError } from '../../lib/lib'
+import { MeteorCall } from '../../lib/meteorApi.js'
+import { ExternalMessageQueue } from '../../collections/index.js'
+import { catchError } from '../../lib/lib.js'
 import { CorelibPubSub } from '@sofie-automation/corelib/dist/pubsub'
 import { useTranslation } from 'react-i18next'
-import { UserPermissionsContext } from '../UserPermissions'
+import { UserPermissionsContext } from '../UserPermissions.js'
+import Row from 'react-bootstrap/Row'
+import Col from 'react-bootstrap/Col'
 
-function ExternalMessages(): JSX.Element {
+export function ExternalMessages(): JSX.Element {
 	const { t } = useTranslation()
 
-	useSubscription(MeteorPubSub.uiStudio, null)
-
-	const studios = useTracker(() => UIStudios.find({}).fetch(), [], [])
-
-	const [selectedStudioId, setSelectedStudioId] = useState<StudioId | null>(null)
-
-	return (
-		<div className="mhl gutter external-message-status">
-			<header className="mbs">
-				<h1>{t('Message Queue')}</h1>
-			</header>
-			<div className="mod mvl">
-				<strong>Studio</strong>
-				<ul>
-					{studios.map((studio) => {
-						return (
-							<li key={unprotectString(studio._id)}>
-								<a href="#" onClick={() => setSelectedStudioId(studio._id)}>
-									{studio.name}
-								</a>
-							</li>
-						)
-					})}
-				</ul>
-			</div>
-			<div>{selectedStudioId ? <ExternalMessagesInStudio studioId={selectedStudioId} /> : null}</div>
-		</div>
-	)
-}
-
-interface IExternalMessagesInStudioProps {
-	studioId: StudioId
-}
-function ExternalMessagesInStudio({ studioId }: Readonly<IExternalMessagesInStudioProps>) {
 	const [dateFrom, setDateFrom] = useState(() => moment().startOf('day').valueOf())
 	const [dateTo, setDateTo] = useState(() => moment().add(1, 'days').startOf('day').valueOf())
 
 	useSubscription(CorelibPubSub.externalMessageQueue, {
-		studioId: studioId,
 		created: {
 			$gte: dateFrom,
 			$lt: dateTo,
@@ -74,29 +39,32 @@ function ExternalMessagesInStudio({ studioId }: Readonly<IExternalMessagesInStud
 	}, [])
 
 	return (
-		<div className="mhl gutter external-message-status">
-			<div className="paging alc">
-				<DatePickerFromTo from={dateFrom} to={dateTo} onChange={handleChangeDate} />
-			</div>
-			<div className="mod mvl">
-				<ExternalMessagesQueuedMessages studioId={studioId} />
-				<ExternalMessagesSentMessages studioId={studioId} />
+		<div className="external-message-status">
+			<header className="mb-2">
+				<h1>{t('Message Queue')}</h1>
+			</header>
+			<div>
+				<div className="external-message-status">
+					<div className="paging alc">
+						<DatePickerFromTo from={dateFrom} to={dateTo} onChange={handleChangeDate} />
+					</div>
+					<div className="my-5">
+						<ExternalMessagesQueuedMessages />
+						<ExternalMessagesSentMessages />
+					</div>
+				</div>{' '}
 			</div>
 		</div>
 	)
 }
 
-interface ExternalMessagesQueuedMessagesProps {
-	studioId: StudioId
-}
-function ExternalMessagesQueuedMessages({ studioId }: Readonly<ExternalMessagesQueuedMessagesProps>) {
+function ExternalMessagesQueuedMessages() {
 	const { t } = useTranslation()
 
 	const queuedMessages = useTracker(
 		() =>
 			ExternalMessageQueue.find(
 				{
-					studioId: studioId,
 					sent: { $not: { $gt: 0 } },
 				},
 				{
@@ -106,35 +74,29 @@ function ExternalMessagesQueuedMessages({ studioId }: Readonly<ExternalMessagesQ
 					},
 				}
 			).fetch(),
-		[studioId],
+		[],
 		[]
 	)
 
 	return (
 		<div>
 			<h2>{t('Queued Messages')}</h2>
-			<table className="table system-status-table">
-				<tbody>
-					{queuedMessages.map((msg) => (
-						<ExternalMessagesRow key={unprotectString(msg._id)} msg={msg} />
-					))}
-				</tbody>
-			</table>
+			<Row className="system-status-table">
+				{queuedMessages.map((msg) => (
+					<ExternalMessagesRow key={unprotectString(msg._id)} msg={msg} />
+				))}
+			</Row>
 		</div>
 	)
 }
 
-interface ExternalMessagesSentMessagesProps {
-	studioId: StudioId
-}
-function ExternalMessagesSentMessages({ studioId }: Readonly<ExternalMessagesSentMessagesProps>) {
+function ExternalMessagesSentMessages() {
 	const { t } = useTranslation()
 
 	const sentMessages = useTracker(
 		() =>
 			ExternalMessageQueue.find(
 				{
-					studioId: studioId,
 					sent: { $gt: 0 },
 				},
 				{
@@ -144,20 +106,19 @@ function ExternalMessagesSentMessages({ studioId }: Readonly<ExternalMessagesSen
 					},
 				}
 			).fetch(),
-		[studioId],
+		[],
 		[]
 	)
 
 	return (
 		<div>
 			<h2>{t('Sent Messages')}</h2>
-			<table className="table system-status-table">
-				<tbody>
-					{sentMessages.map((msg) => (
-						<ExternalMessagesRow key={unprotectString(msg._id)} msg={msg} />
-					))}
-				</tbody>
-			</table>
+
+			<Row className="system-status-table">
+				{sentMessages.map((msg) => (
+					<ExternalMessagesRow key={unprotectString(msg._id)} msg={msg} />
+				))}
+			</Row>
 		</div>
 	)
 }
@@ -233,17 +194,17 @@ function ExternalMessagesRow({ msg }: Readonly<ExternalMessagesRowProps>) {
 		}
 	}
 	return (
-		<tr key={unprotectString(msg._id)} className={ClassNames(classes)}>
-			<td className="c2">
+		<React.Fragment key={unprotectString(msg._id)}>
+			<Col xs={2} className={ClassNames(classes)}>
 				{userPermissions.configure ? (
 					<React.Fragment>
-						<button className="action-btn mod mls" onClick={removeMessage}>
+						<button className="action-btn m-2 ms-1" onClick={removeMessage}>
 							<FontAwesomeIcon icon={faTrash} />
 						</button>
-						<button className="action-btn mod" onClick={toggleHoldMessage}>
+						<button className="action-btn m-2" onClick={toggleHoldMessage}>
 							{msg.hold ? <FontAwesomeIcon icon={faPlay} /> : <FontAwesomeIcon icon={faPause} />}
 						</button>
-						<button className="action-btn mod" onClick={retryMessage}>
+						<button className="action-btn m-2" onClick={retryMessage}>
 							<FontAwesomeIcon icon={faRedo} />
 						</button>
 						<br />
@@ -257,8 +218,8 @@ function ExternalMessagesRow({ msg }: Readonly<ExternalMessagesRowProps>) {
 						<b>Queued for later due to: {msg.queueForLaterReason || 'Unknown reason'}</b>
 					</div>
 				) : null}
-			</td>
-			<td className="c7 small">
+			</Col>
+			<Col xs={8} className={ClassNames(classes, 'small')}>
 				<div>{info}</div>
 				<div>
 					<div>
@@ -272,9 +233,7 @@ function ExternalMessagesRow({ msg }: Readonly<ExternalMessagesRowProps>) {
 						{makeTableOfObject(msg.message)}
 					</div>
 				</div>
-			</td>
-		</tr>
+			</Col>
+		</React.Fragment>
 	)
 }
-
-export { ExternalMessages }

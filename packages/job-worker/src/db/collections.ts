@@ -9,13 +9,12 @@ import {
 	ChangeStreamDocument,
 	CountOptions,
 } from 'mongodb'
-import { wrapMongoCollection } from './collection'
+import { wrapMongoCollection } from './collection.js'
 import { AdLibAction } from '@sofie-automation/corelib/dist/dataModel/AdlibAction'
 import { AdLibPiece } from '@sofie-automation/corelib/dist/dataModel/AdLibPiece'
 import { Blueprint } from '@sofie-automation/corelib/dist/dataModel/Blueprint'
 import { BucketAdLibAction } from '@sofie-automation/corelib/dist/dataModel/BucketAdLibAction'
 import { BucketAdLib } from '@sofie-automation/corelib/dist/dataModel/BucketAdLibPiece'
-import { ExpectedMediaItem } from '@sofie-automation/corelib/dist/dataModel/ExpectedMediaItem'
 import { ExpectedPlayoutItem } from '@sofie-automation/corelib/dist/dataModel/ExpectedPlayoutItem'
 import { NrcsIngestDataCacheObj } from '@sofie-automation/corelib/dist/dataModel/NrcsIngestDataCache'
 import { SofieIngestDataCacheObj } from '@sofie-automation/corelib/dist/dataModel/SofieIngestDataCache'
@@ -29,7 +28,7 @@ import { DBRundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
 import { RundownBaselineAdLibAction } from '@sofie-automation/corelib/dist/dataModel/RundownBaselineAdLibAction'
 import { RundownBaselineAdLibItem } from '@sofie-automation/corelib/dist/dataModel/RundownBaselineAdLibPiece'
 import { RundownBaselineObj } from '@sofie-automation/corelib/dist/dataModel/RundownBaselineObj'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import { DBSegment } from '@sofie-automation/corelib/dist/dataModel/Segment'
 import { DBShowStyleBase } from '@sofie-automation/corelib/dist/dataModel/ShowStyleBase'
 import { DBShowStyleVariant } from '@sofie-automation/corelib/dist/dataModel/ShowStyleVariant'
@@ -54,8 +53,8 @@ export interface IReadOnlyCollection<TDoc extends { _id: ProtectedString<any> }>
 
 	readonly rawCollection: MongoCollection<TDoc>
 
-	findFetch(selector?: MongoQuery<TDoc>, options?: FindOptions<TDoc>): Promise<Array<TDoc>>
-	findOne(selector?: MongoQuery<TDoc> | TDoc['_id'], options?: FindOptions<TDoc>): Promise<TDoc | undefined>
+	findFetch(selector?: MongoQuery<TDoc>, options?: FindOptions): Promise<Array<TDoc>>
+	findOne(selector?: MongoQuery<TDoc> | TDoc['_id'], options?: FindOptions): Promise<TDoc | undefined>
 	count(selector?: MongoQuery<TDoc> | TDoc['_id'], options?: CountOptions): Promise<number>
 
 	/**
@@ -84,8 +83,9 @@ export type IChangeStreamEvents<TDoc extends { _id: ProtectedString<any> }> = {
 	change: [doc: ChangeStreamDocument<TDoc>]
 }
 
-export interface IChangeStream<TDoc extends { _id: ProtectedString<any> }>
-	extends EventEmitter<IChangeStreamEvents<TDoc>> {
+export interface IChangeStream<TDoc extends { _id: ProtectedString<any> }> extends EventEmitter<
+	IChangeStreamEvents<TDoc>
+> {
 	readonly closed: boolean
 
 	close(): Promise<void>
@@ -97,14 +97,13 @@ export interface IDirectCollections {
 	Blueprints: ICollection<Blueprint>
 	BucketAdLibActions: ICollection<BucketAdLibAction>
 	BucketAdLibPieces: ICollection<BucketAdLib>
-	ExpectedMediaItems: ICollection<ExpectedMediaItem>
 	ExpectedPlayoutItems: ICollection<ExpectedPlayoutItem>
 	Notifications: ICollection<DBNotificationObj>
 	SofieIngestDataCache: ICollection<SofieIngestDataCacheObj>
 	NrcsIngestDataCache: ICollection<NrcsIngestDataCacheObj>
 	Parts: ICollection<DBPart>
 	PartInstances: ICollection<DBPartInstance>
-	PeripheralDevices: IReadOnlyCollection<PeripheralDevice>
+	PeripheralDevices: ICollection<PeripheralDevice>
 	PeripheralDeviceCommands: ICollection<PeripheralDeviceCommand>
 	Pieces: ICollection<Piece>
 	PieceInstances: ICollection<PieceInstance>
@@ -152,10 +151,6 @@ export function getMongoCollections(
 			),
 			BucketAdLibPieces: wrapMongoCollection(
 				database.collection(CollectionName.BucketAdLibPieces),
-				allowWatchers
-			),
-			ExpectedMediaItems: wrapMongoCollection(
-				database.collection(CollectionName.ExpectedMediaItems),
 				allowWatchers
 			),
 			ExpectedPlayoutItems: wrapMongoCollection(

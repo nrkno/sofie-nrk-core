@@ -1,0 +1,21 @@
+{
+	"extends": "@sofie-automation/code-standard-preset/ts/tsconfig.lib",
+	"include": ["src/**/*.ts"],
+	"exclude": ["node_modules/**", "**/*spec.ts", "**/__tests__/*", "**/__mocks__/*"],
+	"compilerOptions": {
+		"target": "es2024",
+		"outDir": "./dist",
+		"rootDir": "./src",
+		"declaration": true,
+		"declarationMap": true,
+		"baseUrl": "./",
+		"paths": {
+			"*": ["./node_modules/*"],
+			"@sofie-automation/live-status-gateway-api": ["./src/index.ts"]
+		},
+		"resolveJsonModule": true,
+		"types": ["node"],
+		"composite": true,
+		"module": "node20"
+	}
+}

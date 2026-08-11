@@ -1,12 +1,12 @@
-import {
+import type {
 	RundownId,
 	RundownPlaylistId,
 	ShowStyleBaseId,
 	ShowStyleVariantId,
 } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { Rundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
-import { RundownPlaylistCollectionUtil } from '../../collections/rundownPlaylistUtil'
-import { useTracker } from '../../lib/ReactMeteorData/ReactMeteorData'
+import type { Rundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
+import { RundownPlaylistCollectionUtil } from '../../collections/rundownPlaylistUtil.js'
+import { useTracker } from '../../lib/ReactMeteorData/ReactMeteorData.js'
 import _ from 'underscore'
 
 interface RundownAndShowStyleIds {

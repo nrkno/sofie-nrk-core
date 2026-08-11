@@ -1,23 +1,26 @@
 import { MarkerPosition, compareMarkerPositions } from '@sofie-automation/corelib/dist/playout/playlist'
-import { PlayoutModelReadonly } from '../PlayoutModel'
+import { PlayoutModelReadonly } from '../PlayoutModel.js'
 import {
 	QuickLoopMarker,
 	QuickLoopMarkerType,
 	QuickLoopProps,
-} from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+} from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import { ForceQuickLoopAutoNext } from '@sofie-automation/shared-lib/dist/core/model/StudioSettings'
 import { ReadonlyObjectDeep } from 'type-fest/source/readonly-deep'
 import { DBPart } from '@sofie-automation/corelib/dist/dataModel/Part'
 import { PartId, RundownId, SegmentId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { DBSegment } from '@sofie-automation/corelib/dist/dataModel/Segment'
-import { PlayoutPartInstanceModel } from '../PlayoutPartInstanceModel'
-import { JobContext } from '../../../jobs'
+import { PlayoutPartInstanceModel } from '../PlayoutPartInstanceModel.js'
+import { JobContext } from '../../../jobs/index.js'
 import { clone } from '@sofie-automation/corelib/dist/lib'
 import { DEFAULT_FALLBACK_PART_DURATION } from '@sofie-automation/shared-lib/dist/core/constants'
-import { getCurrentTime } from '../../../lib'
+import { getCurrentTime } from '../../../lib/index.js'
 
 export class QuickLoopService {
-	constructor(private readonly context: JobContext, private readonly playoutModel: PlayoutModelReadonly) {}
+	constructor(
+		private readonly context: JobContext,
+		private readonly playoutModel: PlayoutModelReadonly
+	) {}
 
 	isPartWithinQuickLoop(partInstanceModel: PlayoutPartInstanceModel | null): boolean | null {
 		const quickLoopProps = this.playoutModel.playlist.quickLoop
@@ -34,7 +37,7 @@ export class QuickLoopService {
 		const partPosition = this.findPartPosition(partInstanceModel, rundownIds)
 		const isPartBetweenMarkers = partPosition
 			? compareMarkerPositions(startPosition, partPosition) >= 0 &&
-			  compareMarkerPositions(partPosition, endPosition) >= 0
+				compareMarkerPositions(partPosition, endPosition) >= 0
 			: false
 
 		return isPartBetweenMarkers
@@ -77,7 +80,7 @@ export class QuickLoopService {
 
 	getUpdatedProps(hasJustSetMarker?: 'start' | 'end'): QuickLoopProps | undefined {
 		if (this.playoutModel.playlist.quickLoop == null) return undefined
-		const quickLoopProps = clone(this.playoutModel.playlist.quickLoop)
+		const quickLoopProps = clone<QuickLoopProps>(this.playoutModel.playlist.quickLoop)
 		const wasLoopRunning = quickLoopProps.running
 
 		this.resetDynamicallyInsertedPartOverrideIfNoLongerNeeded(quickLoopProps)
@@ -142,12 +145,12 @@ export class QuickLoopService {
 		if (!this.playoutModel.playlist.quickLoop) return undefined
 
 		if (this.playoutModel.playlist.quickLoop.locked) {
-			const quickLoopProps = clone(this.playoutModel.playlist.quickLoop)
+			const quickLoopProps = clone<QuickLoopProps>(this.playoutModel.playlist.quickLoop)
 			quickLoopProps.running = false
 			return quickLoopProps
 		}
 
-		const quickLoopProps = clone(this.playoutModel.playlist.quickLoop)
+		const quickLoopProps = clone<QuickLoopProps>(this.playoutModel.playlist.quickLoop)
 		delete quickLoopProps.start
 		delete quickLoopProps.end
 		quickLoopProps.running = false

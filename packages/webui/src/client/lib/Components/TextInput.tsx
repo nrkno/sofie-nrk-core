@@ -1,7 +1,8 @@
-import React, { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import ClassNames from 'classnames'
-import { DropdownInputOption } from './DropdownInput'
+import type { DropdownInputOption } from './DropdownInput.js'
 import { getRandomString } from '@sofie-automation/corelib/dist/lib'
+import Form from 'react-bootstrap/Form'
 
 export type TextInputSuggestion = DropdownInputOption<string>
 export interface TextInputSuggestionGroup {
@@ -12,6 +13,7 @@ interface ITextInputControlProps {
 	classNames?: string
 	modifiedClassName?: string
 	disabled?: boolean
+	readOnly?: boolean
 	placeholder?: string
 	spellCheck?: boolean
 
@@ -28,6 +30,7 @@ export function TextInputControl({
 	modifiedClassName,
 	value,
 	disabled,
+	readOnly,
 	placeholder,
 	spellCheck,
 	suggestions,
@@ -38,16 +41,20 @@ export function TextInputControl({
 
 	const handleChange = useCallback(
 		(event: React.ChangeEvent<HTMLInputElement>) => {
+			if (readOnly) return
+
 			setEditingValue(event.target.value)
 
 			if (updateOnKey) {
 				handleUpdate(event.target.value)
 			}
 		},
-		[handleUpdate, updateOnKey]
+		[handleUpdate, updateOnKey, readOnly]
 	)
 	const handleBlur = useCallback(
 		(event: React.FocusEvent<HTMLInputElement>) => {
+			if (readOnly) return
+
 			let value: string = event.target.value
 			if (value) {
 				value = value.trim()
@@ -56,34 +63,37 @@ export function TextInputControl({
 
 			setEditingValue(null)
 		},
-		[handleUpdate]
+		[handleUpdate, readOnly]
 	)
 	const handleFocus = useCallback((event: React.FocusEvent<HTMLInputElement>) => {
 		setEditingValue(event.currentTarget.value)
 	}, [])
 	const handleKeyUp = useCallback(
 		(event: React.KeyboardEvent<HTMLInputElement>) => {
+			if (readOnly) return
+
 			if (event.key === 'Escape') {
 				setEditingValue(null)
 			} else if (event.key === 'Enter') {
 				handleUpdate(event.currentTarget.value)
 			}
 		},
-		[handleUpdate]
+		[handleUpdate, readOnly]
 	)
 
 	const fieldId = useMemo(() => getRandomString(), [])
 
 	const textInput = (
-		<input
+		<Form.Control
 			type="text"
-			className={ClassNames('form-control', classNames, editingValue !== null && modifiedClassName)}
+			className={ClassNames(classNames, editingValue !== null && modifiedClassName)}
 			placeholder={placeholder}
 			value={editingValue ?? value ?? ''}
 			onChange={handleChange}
 			onBlur={handleBlur}
 			onFocus={handleFocus}
 			onKeyUp={handleKeyUp}
+			readOnly={readOnly}
 			disabled={disabled}
 			spellCheck={spellCheck}
 			list={suggestions ? fieldId : undefined}
@@ -102,7 +112,9 @@ export function TextInputControl({
 						'options' in o ? (
 							<optgroup key={j} label={o.name}>
 								{o.options.map((v, i) => (
-									<option key={i} value={v + ''}></option>
+									<option key={i} value={v.value + ''}>
+										{v.value !== v.name ? v.name : null}
+									</option>
 								))}
 							</optgroup>
 						) : (

@@ -1,13 +1,12 @@
 import { useTranslation } from 'react-i18next'
-import { withTiming, WithTiming } from './withTiming'
 import ClassNames from 'classnames'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
-import { LoopingIcon } from '../../../lib/ui/icons/looping'
-import { Rundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
-import { RundownUtils } from '../../../lib/rundown'
-import { getCurrentTime } from '../../../lib/systemTime'
+import type { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
+import { LoopingIcon } from '../../../lib/ui/icons/looping.js'
+import type { Rundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
+import { RundownUtils } from '../../../lib/rundown.js'
+import { getCurrentTime } from '../../../lib/systemTime.js'
 import { PlaylistTiming } from '@sofie-automation/corelib/dist/playout/rundownTiming'
-import { isLoopDefined } from '../../../lib/RundownResolver'
+import { isLoopDefined } from '@sofie-automation/corelib/src/playout/stateCacheResolver.js'
 
 interface IRundownNameProps {
 	rundownPlaylist: DBRundownPlaylist
@@ -16,12 +15,12 @@ interface IRundownNameProps {
 	hideDiff?: boolean
 }
 
-export const RundownName = withTiming<IRundownNameProps, {}>()(function RundownName({
+export function RundownName({
 	rundownPlaylist,
 	currentRundown,
 	rundownCount,
 	hideDiff,
-}: WithTiming<IRundownNameProps>): JSX.Element {
+}: IRundownNameProps): JSX.Element {
 	const { t } = useTranslation()
 
 	const expectedStart = PlaylistTiming.getExpectedStart(rundownPlaylist.timing)
@@ -51,11 +50,11 @@ export const RundownName = withTiming<IRundownNameProps, {}>()(function RundownN
 							? t('{{currentRundownName}} - {{rundownPlaylistName}} (Looping)', {
 									currentRundownName: currentRundown.name,
 									rundownPlaylistName: rundownPlaylist.name,
-							  })
+								})
 							: t('{{currentRundownName}} - {{rundownPlaylistName}}', {
 									currentRundownName: currentRundown.name,
 									rundownPlaylistName: rundownPlaylist.name,
-							  })
+								})
 					}
 					id="rundown-playlist-name"
 				>
@@ -68,7 +67,7 @@ export const RundownName = withTiming<IRundownNameProps, {}>()(function RundownN
 						isPlaylistLooping
 							? t('{{rundownPlaylistName}} (Looping)', {
 									rundownPlaylistName: rundownPlaylist.name,
-							  })
+								})
 							: rundownPlaylist.name
 					}
 					id="rundown-playlist-name"
@@ -77,17 +76,8 @@ export const RundownName = withTiming<IRundownNameProps, {}>()(function RundownN
 				</h1>
 			)}
 			{!hideDiff && rundownPlaylist.startedPlayback && rundownPlaylist.activationId && !rundownPlaylist.rehearsal
-				? expectedStart &&
-				  RundownUtils.formatDiffToTimecode(
-						rundownPlaylist.startedPlayback - expectedStart,
-						true,
-						false,
-						true,
-						true,
-						true
-				  )
-				: expectedStart &&
-				  RundownUtils.formatDiffToTimecode(getCurrentTime() - expectedStart, true, false, true, true, true)}
+				? expectedStart && RundownUtils.formatDiffToTimecodeOverUnder(rundownPlaylist.startedPlayback - expectedStart)
+				: expectedStart && RundownUtils.formatDiffToTimecodeOverUnder(getCurrentTime() - expectedStart)}
 		</div>
 	)
-})
+}

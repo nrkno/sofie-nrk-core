@@ -1,8 +1,7 @@
-import React from 'react'
 import ClassNames from 'classnames'
-import { RundownUtils } from '../../../lib/rundown'
-import { ILayerItemRendererProps } from './ItemRendererFactory'
-import { ActionAdLibHotkeyPreview } from '../../../lib/triggers/ActionAdLibHotkeyPreview'
+import type { ILayerItemRendererProps } from './ItemRendererFactory.js'
+import { ActionAdLibHotkeyPreview } from '../../../lib/triggers/ActionAdLibHotkeyPreview.js'
+import { RundownUtils } from '../../../lib/rundown.js'
 
 export const DefaultListItemRenderer: React.FunctionComponent<ILayerItemRendererProps> = (
 	props: Readonly<ILayerItemRendererProps>
@@ -12,12 +11,12 @@ export const DefaultListItemRenderer: React.FunctionComponent<ILayerItemRenderer
 			? 'rundownBaselineAdLibAction'
 			: 'adLibAction'
 		: props.adLibListItem.isClearSourceLayer
-		? 'clearSourceLayer'
-		: props.adLibListItem.isSticky
-		? 'sticky'
-		: props.adLibListItem.isGlobal
-		? 'rundownBaselineAdLibItem'
-		: 'adLibPiece'
+			? 'clearSourceLayer'
+			: props.adLibListItem.isSticky
+				? 'sticky'
+				: props.adLibListItem.isGlobal
+					? 'rundownBaselineAdLibItem'
+					: 'adLibPiece'
 
 	return (
 		<>

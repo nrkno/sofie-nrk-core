@@ -1,19 +1,23 @@
-import { NavLink, Route, Switch, useRouteMatch } from 'react-router-dom'
-import { useSubscription, useTracker } from '../lib/ReactMeteorData/ReactMeteorData'
+import { NavLink, Route, Switch, useLocation, useRouteMatch } from 'react-router-dom'
+import { parse as queryStringParse } from 'query-string'
+import { useSubscription, useTracker } from '../lib/ReactMeteorData/ReactMeteorData.js'
 
-import { Spinner } from '../lib/Spinner'
-import { RundownView } from './RundownView'
+import { Spinner } from '../lib/Spinner.js'
+import { RundownView } from './RundownView.js'
+import { StudioScreenSaver } from './StudioScreenSaver/StudioScreenSaver.js'
 import { MeteorPubSub } from '@sofie-automation/meteor-lib/dist/api/pubsub'
-import { UIStudios } from './Collections'
-import { StudioId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { RundownPlaylists } from '../collections'
+import { UIStudios } from './Collections.js'
+import type { StudioId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import { RundownPlaylists } from '../collections/index.js'
 import { useTranslation } from 'react-i18next'
-import { useSetDocumentClass } from './util/useSetDocumentClass'
+import { useSetDocumentClass, useSetDocumentDarkTheme } from './util/useSetDocumentClass.js'
 
 export function ActiveRundownView({ studioId }: Readonly<{ studioId: StudioId }>): JSX.Element | null {
 	const { t } = useTranslation()
 
 	const { path } = useRouteMatch()
+	const { search } = useLocation()
+	const lockView = queryStringParse(search)['lockView'] === '1'
 
 	const studioReady = useSubscription(MeteorPubSub.uiStudio, studioId)
 	const playlistReady = useSubscription(MeteorPubSub.rundownPlaylistForStudio, studioId, true)
@@ -48,6 +52,9 @@ export function ActiveRundownView({ studioId }: Readonly<{ studioId: StudioId }>
 			</Switch>
 		)
 	} else if (studio) {
+		if (lockView) {
+			return <StudioScreenSaver studioId={studioId} ownBackground={true} screenName={t('Rundown View')} />
+		}
 		return <NotFoundMessage message={t('There is no rundown active in this studio.')} />
 	} else if (studioId) {
 		return <NotFoundMessage message={t("This studio doesn't exist.")} />
@@ -60,11 +67,12 @@ function NotFoundMessage({ message }: Readonly<{ message: string }>) {
 	const { t } = useTranslation()
 
 	useSetDocumentClass('dark', 'vertical-overflow-only')
+	useSetDocumentDarkTheme()
 
 	return (
 		<div className="rundown-view rundown-view--unpublished">
 			<div className="rundown-view__label">
-				<p>{message}</p>
+				<p className="summary">{message}</p>
 				<p>
 					<NavLink to="/rundowns" className="btn btn-primary">
 						{t('Return to list')}

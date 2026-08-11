@@ -1,14 +1,15 @@
-import { IBlueprintDeviceTrigger } from '@sofie-automation/blueprints-integration'
+import type { IBlueprintDeviceTrigger } from '@sofie-automation/blueprints-integration'
 import { protectString, unprotectString } from '@sofie-automation/corelib/dist/protectedString'
 import classNames from 'classnames'
 import { useMemo } from 'react'
 import { MeteorPubSub } from '@sofie-automation/meteor-lib/dist/api/pubsub'
-import { Studios } from '../../../../../collections'
-import { getCurrentTime } from '../../../../../lib/systemTime'
-import { UIDeviceTriggerPreview } from '@sofie-automation/meteor-lib/dist/api/MountedTriggers'
-import { useSubscriptionIfEnabled, useTracker } from '../../../../../lib/ReactMeteorData/ReactMeteorData'
-import { DeviceTriggersPreviews } from '../../../../Collections'
-import { DeviceTrigger } from './DeviceTrigger'
+import { Studios } from '../../../../../collections/index.js'
+import { getCurrentTime } from '../../../../../lib/systemTime.js'
+import type { UIDeviceTriggerPreview } from '@sofie-automation/meteor-lib/dist/api/MountedTriggers'
+import { useSubscriptionIfEnabled, useTracker } from '../../../../../lib/ReactMeteorData/ReactMeteorData.js'
+import { DeviceTriggersPreviews } from '../../../../Collections.js'
+import { DeviceTrigger } from './DeviceTrigger.js'
+import Form from 'react-bootstrap/esm/Form'
 
 interface IProps {
 	trigger: IBlueprintDeviceTrigger
@@ -37,9 +38,9 @@ export const DeviceEditor = function DeviceEditor({ trigger, modified, readonly,
 
 	return (
 		<>
-			<input
+			<Form.Control
 				type="text"
-				className={classNames('form-control input text-input input-m', {
+				className={classNames('mb-2', {
 					bghl: modified,
 				})}
 				value={trigger.deviceId ?? ''}
@@ -51,9 +52,9 @@ export const DeviceEditor = function DeviceEditor({ trigger, modified, readonly,
 				}
 				disabled={readonly}
 			/>
-			<input
+			<Form.Control
 				type="text"
-				className={classNames('form-control input text-input input-m', {
+				className={classNames('mb-2', {
 					bghl: modified,
 				})}
 				value={trigger.triggerId ?? ''}

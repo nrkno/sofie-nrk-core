@@ -1,18 +1,14 @@
 import { Time } from '@sofie-automation/blueprints-integration'
 import { PieceInstanceInfiniteId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { PeripheralDeviceType } from '@sofie-automation/corelib/dist/dataModel/PeripheralDevice'
 import { TimelineObjRundown } from '@sofie-automation/corelib/dist/dataModel/Timeline'
 import { normalizeArray } from '@sofie-automation/corelib/dist/lib'
-import { PieceTimelineMetadata } from './pieceGroup'
-import { StudioPlayoutModelBase } from '../../studio/model/StudioPlayoutModel'
-import { logger } from '../../logging'
-import { JobContext } from '../../jobs'
-import { PlayoutModel } from '../model/PlayoutModel'
-import { RundownTimelineTimingContext, getInfinitePartGroupId } from './rundown'
-import { getExpectedLatency } from '@sofie-automation/corelib/dist/studio/playout'
+import { PieceTimelineMetadata } from './pieceGroup.js'
+import { logger } from '../../logging.js'
+import { PlayoutModel } from '../model/PlayoutModel.js'
+import { RundownTimelineTimingContext, getInfinitePartGroupId } from './rundown.js'
+import { PlayoutPartInstanceModel } from '../model/PlayoutPartInstanceModel.js'
+import { PlayoutPieceInstanceModel } from '../model/PlayoutPieceInstanceModel.js'
 import { getPieceControlObjectId } from '@sofie-automation/corelib/dist/playout/ids'
-import { PlayoutPartInstanceModel } from '../model/PlayoutPartInstanceModel'
-import { PlayoutPieceInstanceModel } from '../model/PlayoutPieceInstanceModel'
 
 /**
  * We want it to be possible to generate a timeline without it containing any `start: 'now'`.
@@ -24,12 +20,13 @@ import { PlayoutPieceInstanceModel } from '../model/PlayoutPieceInstanceModel'
 export function deNowifyMultiGatewayTimeline(
 	playoutModel: PlayoutModel,
 	timelineObjs: TimelineObjRundown[],
-	timingContext: RundownTimelineTimingContext | undefined,
-	targetNowTime: number
+	timingContext: RundownTimelineTimingContext | undefined
 ): void {
 	if (!timingContext) return
 
 	const timelineObjsMap = normalizeArray(timelineObjs, 'id')
+
+	const targetNowTime = playoutModel.getNowInPlayout()
 
 	logger.info(`deNowifyMultiGatewayTimeline: ${targetNowTime}`)
 
@@ -63,30 +60,6 @@ export function deNowifyMultiGatewayTimeline(
 			logger.error(`deNowifyMultiGatewayTimeline: "${obj.id}" still set to 'now'`)
 		}
 	}
-}
-
-/**
- * Calculate an offset to apply to the 'now' value, to compensate for delay in playout-gateway
- * The intention is that any concrete value used instead of 'now' should still be just in the future for playout-gateway
- */
-export function calculateNowOffsetLatency(
-	context: JobContext,
-	studioPlayoutModel: StudioPlayoutModelBase
-): Time | undefined {
-	/** The timestamp that "now" was set to */
-	let nowOffsetLatency: Time | undefined
-
-	if (studioPlayoutModel.isMultiGatewayMode) {
-		const playoutDevices = studioPlayoutModel.peripheralDevices.filter(
-			(device) => device.type === PeripheralDeviceType.PLAYOUT
-		)
-		const worstLatency = Math.max(0, ...playoutDevices.map((device) => getExpectedLatency(device).safe))
-		/** Add a little more latency, to account for network latency variability */
-		const ADD_SAFE_LATENCY = context.studio.settings.multiGatewayNowSafeLatency || 30
-		nowOffsetLatency = worstLatency + ADD_SAFE_LATENCY
-	}
-
-	return nowOffsetLatency
 }
 
 interface PartGroupTimings {
@@ -158,12 +131,12 @@ function updatePartInstancePlannedTimes(
  * regeneration, items will already use the timestamps persited by `updatePlannedTimingsForPieceInstances` and will not
  * be included in `infiniteObjs`.
  */
-function deNowifyInfinites(
+export function deNowifyInfinites(
 	targetNowTime: number,
 	/** A list of objects that need to be updated */
 	infiniteObjs: TimelineObjRundown[],
 	timelineObjsMap: Record<string, TimelineObjRundown>
-) {
+): void {
 	/**
 	 * Recursively look up the absolute starttime of a timeline object
 	 * taking into account its parent's times.
@@ -211,7 +184,7 @@ function deNowifyInfinites(
 
 		obj.enable = { ...obj.enable, start: targetNowTime - parentStartTime }
 		logger.silly(
-			`deNowifyInfinites: Setting "${obj.id}" enable.start = ${obj.enable.start}, ${targetNowTime} ${parentStartTime} parentObject: "${parentObject.id}"`
+			`deNowifyInfinites: Setting "${obj.id}" enable.start = ${JSON.stringify(obj.enable.start)}, ${targetNowTime} ${parentStartTime} parentObject: "${parentObject.id}"`
 		)
 	}
 }
@@ -258,29 +231,6 @@ function deNowifyCurrentPieces(
 		}
 	}
 
-	// Ensure any pieces with an unconfirmed userDuration is confirmed
-	for (const pieceInstance of currentPartInstance.pieceInstances) {
-		if (
-			pieceInstance.pieceInstance.userDuration &&
-			'endRelativeToNow' in pieceInstance.pieceInstance.userDuration
-		) {
-			const relativeToNow = pieceInstance.pieceInstance.userDuration.endRelativeToNow
-			const endRelativeToPart = relativeToNow + nowInPart
-			pieceInstance.setDuration({ endRelativeToPart })
-
-			// Update the piece control obj
-			const controlObj = timelineObjsMap[getPieceControlObjectId(pieceInstance.pieceInstance)]
-			if (controlObj && !Array.isArray(controlObj.enable) && controlObj.enable.end === 'now') {
-				controlObj.enable.end = endRelativeToPart
-			}
-
-			// If the piece is an infinite, there may be a now in the parent group
-			const infiniteGroup = timelineObjsMap[getInfinitePartGroupId(pieceInstance.pieceInstance._id)]
-			if (infiniteGroup && !Array.isArray(infiniteGroup.enable) && infiniteGroup.enable.end === 'now') {
-				infiniteGroup.enable.end = targetNowTime + relativeToNow
-			}
-		}
-	}
 	return { objectsNotDeNowified }
 }
 
@@ -341,18 +291,24 @@ function setPlannedTimingsOnPieceInstance(
 	}
 
 	if (typeof pieceInstance.pieceInstance.piece.enable.start === 'number') {
-		const plannedStart = partPlannedStart + pieceInstance.pieceInstance.piece.enable.start
+		const plannedStart =
+			(pieceInstance.pieceInstance.piece.enable.isAbsolute ? 0 : partPlannedStart) +
+			pieceInstance.pieceInstance.piece.enable.start
 		pieceInstance.setPlannedStartedPlayback(plannedStart)
 
 		const userDurationEnd =
 			pieceInstance.pieceInstance.userDuration && 'endRelativeToPart' in pieceInstance.pieceInstance.userDuration
 				? partPlannedStart + pieceInstance.pieceInstance.userDuration.endRelativeToPart
 				: null
-		const plannedEnd =
-			userDurationEnd ??
-			(pieceInstance.pieceInstance.piece.enable.duration
-				? plannedStart + pieceInstance.pieceInstance.piece.enable.duration
-				: partPlannedEnd)
+
+		let plannedEnd: number | undefined = userDurationEnd ?? undefined
+		if (plannedEnd === undefined) {
+			if (pieceInstance.pieceInstance.piece.enable.duration !== undefined) {
+				plannedEnd = plannedStart + pieceInstance.pieceInstance.piece.enable.duration
+			} else if (!pieceInstance.pieceInstance.piece.enable.isAbsolute) {
+				plannedEnd = partPlannedEnd
+			}
+		}
 
 		pieceInstance.setPlannedStoppedPlayback(plannedEnd)
 	}
@@ -379,8 +335,6 @@ function preserveOrTrackInfiniteTimings(
 	// Update the timeline group
 	const startedPlayback = plannedStartedPlayback ?? pieceInstance.pieceInstance.plannedStartedPlayback
 	if (startedPlayback) {
-		const infinitePartGroupId = getInfinitePartGroupId(pieceInstance.pieceInstance._id)
-		const infinitePartGroupObj = timelineObjsMap[infinitePartGroupId]
 		const pieceControlObjectId = getPieceControlObjectId(pieceInstance.pieceInstance)
 		const pieceControlObj = timelineObjsMap[pieceControlObjectId]
 
@@ -394,6 +348,8 @@ function preserveOrTrackInfiniteTimings(
 			pieceEnableStartOffset = pieceControlObj.enable.start
 		}
 
+		const infinitePartGroupId = getInfinitePartGroupId(pieceInstance.pieceInstance._id)
+		const infinitePartGroupObj = timelineObjsMap[infinitePartGroupId]
 		if (
 			infinitePartGroupObj &&
 			!Array.isArray(infinitePartGroupObj.enable) &&

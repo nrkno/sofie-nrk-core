@@ -1,12 +1,13 @@
 import classNames from 'classnames'
-import React, { CSSProperties, useCallback, useMemo, useRef, useState } from 'react'
-import { PieceExtended } from '../../../lib/RundownResolver'
-import { RundownUtils } from '../../../lib/rundown'
-import { PieceHoverInspector } from '../PieceHoverInspector'
-import { getElementDocumentOffset, OffsetPosition } from '../../../utils/positions'
-import { PieceUi } from '../../SegmentContainer/withResolvedSegment'
-import StudioContext from '../../RundownView/StudioContext'
-import { useContentStatusForPieceInstance } from '../../SegmentTimeline/withMediaObjectStatus'
+import React, { type CSSProperties, useCallback, useContext, useEffect, useMemo, useRef } from 'react'
+import { useContentStatusForPieceInstance } from '../../SegmentTimeline/withMediaObjectStatus.js'
+import {
+	PreviewPopUpContext,
+	type IPreviewPopUpSession,
+	convertSourceLayerItemToPreview,
+} from '../../PreviewPopUp/PreviewPopUpContext.js'
+import type { PieceExtended, PieceUi } from '@sofie-automation/corelib/src/dataModel/Piece.js'
+import { RundownUtils } from '../../../lib/rundown.js'
 
 interface IProps {
 	piece: PieceExtended
@@ -32,9 +33,6 @@ export const LinePartSecondaryPiece: React.FC<IProps> = React.memo(function Line
 	const contentStatus = useContentStatusForPieceInstance(piece.instance)
 
 	const pieceEl = useRef<HTMLDivElement>(null)
-	const [hovering, setHover] = useState(false)
-	const [origin, setOrigin] = useState<OffsetPosition>({ left: 0, top: 0 })
-	const [mousePosition, setMousePosition] = useState(0)
 	const typeClass = piece?.sourceLayer?.type ? RundownUtils.getSourceLayerClassName(piece?.sourceLayer?.type) : ''
 
 	const pieceStyle = useMemo<CSSProperties>(() => {
@@ -47,42 +45,65 @@ export const LinePartSecondaryPiece: React.FC<IProps> = React.memo(function Line
 		}
 	}, [piece, partDuration, timelineBase])
 
+	const previewContext = useContext(PreviewPopUpContext)
+	const previewSession = useRef<IPreviewPopUpSession | null>(null)
+	const previewProps = convertSourceLayerItemToPreview(piece.sourceLayer?.type, piece.instance.piece, contentStatus, {
+		in: piece.renderedInPoint,
+		dur: piece.renderedDuration,
+	})
+
 	const onPointerEnter = (e: React.PointerEvent<HTMLDivElement>) => {
 		if (e.pointerType !== 'mouse') {
 			return
 		}
-		setHover(true)
 
-		const newOffset = pieceEl.current && getElementDocumentOffset(pieceEl.current)
-		if (newOffset !== null) {
-			setOrigin(newOffset)
+		if (previewSession.current) {
+			previewSession.current.close()
+			previewSession.current = null
 		}
+
+		if (previewProps.contents.length > 0)
+			previewSession.current = previewContext.requestPreview(e.currentTarget, previewProps.contents, {
+				...previewProps.options,
+				initialOffsetX: e.screenX,
+			})
 	}
+
+	useEffect(() => {
+		return () => {
+			if (previewSession.current) {
+				previewSession.current.close()
+				previewSession.current = null
+			}
+		}
+	}, [])
 
 	const onPointerLeave = (e: React.PointerEvent<HTMLDivElement>) => {
 		if (e.pointerType !== 'mouse') {
 			return
 		}
-		setHover(false)
+		if (previewSession.current) {
+			previewSession.current.close()
+			previewSession.current = null
+		}
 	}
 
 	const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
 		if (e.pointerType !== 'mouse') {
 			return
 		}
-		setMousePosition(e.pageX - origin.left)
 	}
 
 	const onClick = useCallback(
 		(e: React.MouseEvent<HTMLDivElement>) => {
-			incomingOnClick && incomingOnClick(piece, e)
+			incomingOnClick?.(piece, e)
 		},
 		[piece, incomingOnClick]
 	)
 
 	const onDoubleClick = useCallback(
 		(e: React.MouseEvent<HTMLDivElement>) => {
-			incomingOnDoubleClick && incomingOnDoubleClick(piece, e)
+			incomingOnDoubleClick?.(piece, e)
 		},
 		[piece, incomingOnDoubleClick]
 	)
@@ -101,23 +122,6 @@ export const LinePartSecondaryPiece: React.FC<IProps> = React.memo(function Line
 			onPointerMove={onPointerMove}
 			onClick={onClick}
 			onDoubleClick={onDoubleClick}
-		>
-			<StudioContext.Consumer>
-				{(studio) =>
-					studio && (
-						<PieceHoverInspector
-							hovering={hovering}
-							hoverScrubTimePosition={0}
-							layer={piece.sourceLayer}
-							mousePosition={mousePosition}
-							originPosition={origin}
-							pieceInstance={piece}
-							contentStatus={contentStatus}
-							studio={studio}
-						/>
-					)
-				}
-			</StudioContext.Consumer>
-		</div>
+		></div>
 	)
 })

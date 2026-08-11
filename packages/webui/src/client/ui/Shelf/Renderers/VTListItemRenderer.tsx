@@ -1,16 +1,19 @@
-import React, { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useContext } from 'react'
 import ClassNames from 'classnames'
-import { RundownUtils } from '../../../lib/rundown'
-import { ILayerItemRendererProps } from './ItemRendererFactory'
-import { VTContent, LiveSpeakContent } from '@sofie-automation/blueprints-integration'
-import { VTFloatingInspector } from '../../FloatingInspectors/VTFloatingInspector'
-import { getNoticeLevelForPieceStatus } from '../../../lib/notifications/notifications'
-import { getElementDocumentOffset, OffsetPosition } from '../../../utils/positions'
-import { getElementWidth } from '../../../utils/dimensions'
-import { StyledTimecode } from '../../../lib/StyledTimecode'
-import { ActionAdLibHotkeyPreview } from '../../../lib/triggers/ActionAdLibHotkeyPreview'
+import type { ILayerItemRendererProps } from './ItemRendererFactory.js'
+import type { VTContent, LiveSpeakContent } from '@sofie-automation/blueprints-integration'
+import { getElementDocumentOffset, type OffsetPosition } from '../../../utils/positions.js'
+import { getElementWidth } from '../../../utils/dimensions.js'
+import { StyledTimecode } from '../../../lib/StyledTimecode.js'
+import { ActionAdLibHotkeyPreview } from '../../../lib/triggers/ActionAdLibHotkeyPreview.js'
 import { PieceStatusCode } from '@sofie-automation/corelib/dist/dataModel/Piece'
-import { HourglassIconSmall } from '../../../lib/ui/icons/notifications'
+import { HourglassIconSmall } from '../../../lib/ui/icons/notifications.js'
+import {
+	PreviewPopUpContext,
+	type IPreviewPopUpSession,
+	convertSourceLayerItemToPreview,
+} from '../../PreviewPopUp/PreviewPopUpContext.js'
+import { RundownUtils } from '../../../lib/rundown.js'
 
 export const VTListItemRenderer: React.FunctionComponent<ILayerItemRendererProps> = (
 	props: ILayerItemRendererProps
@@ -20,6 +23,7 @@ export const VTListItemRenderer: React.FunctionComponent<ILayerItemRendererProps
 	const [showMiniInspector, setShowMiniInspector] = useState(false)
 	const [itemIconPosition, setItemIconPosition] = useState<(OffsetPosition & { width: number }) | null>(null)
 
+	// eslint-disable-next-line @typescript-eslint/no-duplicate-type-constituents
 	const vtContent = props.adLibListItem.content as VTContent | LiveSpeakContent | undefined
 	let sourceDuration: number | null = null
 
@@ -55,17 +59,44 @@ export const VTListItemRenderer: React.FunctionComponent<ILayerItemRendererProps
 		}
 	})
 
+	const previewContext = useContext(PreviewPopUpContext)
+	const previewSession = useRef<IPreviewPopUpSession | null>(null)
+	const { contents: previewContents, options: previewOptions } = convertSourceLayerItemToPreview(
+		props.adLibListItem.sourceLayer?.type,
+		props.adLibListItem,
+		props.contentStatus
+	)
+
 	const handleOnMouseOver = (e: React.MouseEvent) => {
 		if (itemIconPosition) {
 			const left = e.pageX - itemIconPosition.left
 			const unprocessedPercentage = left / itemIconPosition.width
-			if (unprocessedPercentage <= 1 && !showMiniInspector) {
-				setShowMiniInspector(true)
+			if (unprocessedPercentage <= 1 && !previewSession.current) {
+				previewSession.current = previewContext.requestPreview(e.currentTarget, previewContents, {
+					...previewOptions,
+					time: hoverScrubTimePosition,
+				})
 			}
 		}
 	}
 
-	const handleOnMouseLeave = () => setShowMiniInspector(false)
+	const handleOnMouseLeave = () => {
+		setShowMiniInspector(false)
+
+		if (previewSession.current) {
+			previewSession.current.close()
+			previewSession.current = null
+		}
+	}
+
+	useEffect(() => {
+		return () => {
+			if (previewSession.current) {
+				previewSession.current.close()
+				previewSession.current = null
+			}
+		}
+	}, [])
 
 	const handleOnMouseMove = (e: React.MouseEvent) => {
 		if (itemIconPosition) {
@@ -73,6 +104,10 @@ export const VTListItemRenderer: React.FunctionComponent<ILayerItemRendererProps
 			let unprocessedPercentage = left / itemIconPosition.width
 			if ((unprocessedPercentage > 1 || unprocessedPercentage < 0) && showMiniInspector) {
 				setShowMiniInspector(false)
+				if (previewSession.current) {
+					previewSession.current.close()
+					previewSession.current = null
+				}
 				return false
 			} else if (unprocessedPercentage >= 0 && unprocessedPercentage <= 1 && !showMiniInspector) {
 				setShowMiniInspector(true)
@@ -80,6 +115,9 @@ export const VTListItemRenderer: React.FunctionComponent<ILayerItemRendererProps
 			unprocessedPercentage = (left - 5) / (itemIconPosition.width - 15)
 			const percentage = Math.max(0, Math.min(1, unprocessedPercentage))
 			setHoverScrubTimePosition(percentage * (sourceDuration || 0))
+			if (previewSession.current) {
+				previewSession.current.setPointerTime(percentage * (sourceDuration || 0))
+			}
 		}
 	}
 
@@ -88,12 +126,12 @@ export const VTListItemRenderer: React.FunctionComponent<ILayerItemRendererProps
 			? 'rundownBaselineAdLibAction'
 			: 'adLibAction'
 		: props.adLibListItem.isClearSourceLayer
-		? 'clearSourceLayer'
-		: props.adLibListItem.isSticky
-		? 'sticky'
-		: props.adLibListItem.isGlobal
-		? 'rundownBaselineAdLibItem'
-		: 'adLibPiece'
+			? 'clearSourceLayer'
+			: props.adLibListItem.isSticky
+				? 'sticky'
+				: props.adLibListItem.isGlobal
+					? 'rundownBaselineAdLibItem'
+					: 'adLibPiece'
 
 	return (
 		<>
@@ -125,24 +163,6 @@ export const VTListItemRenderer: React.FunctionComponent<ILayerItemRendererProps
 					</div>
 				)}
 				{props.adLibListItem.name}
-				<VTFloatingInspector
-					status={props.status || PieceStatusCode.UNKNOWN}
-					showMiniInspector={showMiniInspector}
-					timePosition={hoverScrubTimePosition}
-					content={vtContent}
-					position={{
-						top: itemIconPosition?.top ?? 0,
-						left: itemIconPosition?.left ?? 0,
-						anchor: 'start',
-						position: 'top-start',
-					}}
-					typeClass={props.layer && RundownUtils.getSourceLayerClassName(props.layer.type)}
-					itemElement={itemIcon.current}
-					noticeMessages={props.messages || null}
-					noticeLevel={getNoticeLevelForPieceStatus(props.status ?? undefined)}
-					previewUrl={props.contentStatus?.previewUrl}
-					studio={props.studio}
-				/>
 			</td>
 			<td className="adlib-panel__list-view__list__table__cell--duration">
 				{sourceDuration ? <StyledTimecode time={sourceDuration} studioSettings={props.studio?.settings} /> : null}

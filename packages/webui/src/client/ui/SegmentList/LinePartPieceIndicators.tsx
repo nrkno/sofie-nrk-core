@@ -1,10 +1,9 @@
-import React from 'react'
-import { ISourceLayerExtended, PieceExtended } from '../../lib/RundownResolver'
-import { PartId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { LinePartAdLibIndicator } from './LinePartPieceIndicator/LinePartAdLibIndicator'
-import { LinePartPieceIndicator } from './LinePartPieceIndicator/LinePartPieceIndicator'
-import { LinePartScriptPiece } from './LinePartPieceIndicator/LinePartScriptPiece'
-import { PieceUi } from '../SegmentContainer/withResolvedSegment'
+import type { PartId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import { LinePartAdLibIndicator } from './LinePartPieceIndicator/LinePartAdLibIndicator.js'
+import { LinePartPieceIndicator } from './LinePartPieceIndicator/LinePartPieceIndicator.js'
+import { LinePartScriptPiece } from './LinePartPieceIndicator/LinePartScriptPiece.js'
+import type { PieceExtended, PieceUi } from '@sofie-automation/corelib/src/dataModel/Piece.js'
+import type { ISourceLayerExtended } from '@sofie-automation/corelib/src/dataModel/ShowStyleBase.js'
 
 interface IProps {
 	partId: PartId

@@ -1,11 +1,10 @@
-import { PieceLifespan, SourceLayerType } from '@sofie-automation/blueprints-integration'
-import { PartId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { PieceStatusCode } from '@sofie-automation/corelib/dist/dataModel/Piece'
+import { PieceLifespan, type SourceLayerType } from '@sofie-automation/blueprints-integration'
+import type { PartId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import { PieceStatusCode, type PieceUi } from '@sofie-automation/corelib/dist/dataModel/Piece'
 import classNames from 'classnames'
-import { PieceUi } from '../../ui/SegmentContainer/withResolvedSegment'
-import { RundownUtils } from '../rundown'
-import { ReadonlyDeep } from 'type-fest'
-import { PieceContentStatusObj } from '@sofie-automation/meteor-lib/dist/api/pieceContentStatus'
+import type { ReadonlyDeep } from 'type-fest'
+import type { PieceContentStatusObj } from '@sofie-automation/corelib/dist/dataModel/PieceContentStatus'
+import { RundownUtils } from '../rundown.js'
 
 export function pieceUiClassNames(
 	pieceInstance: PieceUi,
@@ -19,7 +18,8 @@ export function pieceUiClassNames(
 	uiState?: {
 		leftAnchoredWidth: number
 		rightAnchoredWidth: number
-	}
+	},
+	draggable?: boolean
 ): string {
 	const typeClass = layerType ? RundownUtils.getSourceLayerClassName(layerType) : ''
 
@@ -32,10 +32,12 @@ export function pieceUiClassNames(
 				: undefined,
 
 		'super-infinite':
+			!innerPiece.enable.isAbsolute &&
 			innerPiece.lifespan !== PieceLifespan.WithinPart &&
 			innerPiece.lifespan !== PieceLifespan.OutOnSegmentChange &&
 			innerPiece.lifespan !== PieceLifespan.OutOnSegmentEnd,
 		'infinite-starts':
+			!innerPiece.enable.isAbsolute &&
 			innerPiece.lifespan !== PieceLifespan.WithinPart &&
 			innerPiece.lifespan !== PieceLifespan.OutOnSegmentChange &&
 			innerPiece.lifespan !== PieceLifespan.OutOnSegmentEnd &&
@@ -57,5 +59,7 @@ export function pieceUiClassNames(
 		'invert-flash': highlight,
 
 		'element-selected': selected,
+
+		'draggable-element': draggable,
 	})
 }

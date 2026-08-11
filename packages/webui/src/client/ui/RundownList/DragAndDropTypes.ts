@@ -1,6 +1,6 @@
-import { isProtectedString } from '../../lib/tempLib'
-import { RundownLayoutBase } from '@sofie-automation/meteor-lib/dist/collections/RundownLayouts'
-import { RundownId, RundownPlaylistId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import { isProtectedString } from '@sofie-automation/shared-lib/dist/lib/protectedString'
+import type { RundownLayoutBase } from '@sofie-automation/meteor-lib/dist/collections/RundownLayouts'
+import type { RundownId, RundownPlaylistId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 
 enum RundownListDragDropTypes {
 	RUNDOWN = 'rundown',

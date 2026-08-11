@@ -8,7 +8,7 @@ import { clone, getRandomId, literal } from '@sofie-automation/corelib/dist/lib'
 import { protectString } from '@sofie-automation/corelib/dist/protectedString'
 import { UISegmentPartNote } from '@sofie-automation/meteor-lib/dist/api/rundownNotifications'
 import { DBSegment } from '@sofie-automation/corelib/dist/dataModel/Segment'
-import { generateTranslation } from '../../../lib/tempLib'
+import { generateTranslation } from '@sofie-automation/corelib/dist/lib'
 import { generateNotesForSegment } from '../generateNotesForSegment'
 import { PartFields, PartInstanceFields, SegmentFields } from '../reactiveContentCache'
 
@@ -485,5 +485,122 @@ describe('generateNotesForSegment', () => {
 				},
 			])
 		)
+	})
+
+	test('partInstance with runtime invalidReason', async () => {
+		const playlistId = protectString<RundownPlaylistId>('playlist0')
+		const nrcsName = 'some nrcs'
+
+		const segment: Pick<DBSegment, SegmentFields> = {
+			_id: protectString('segment0'),
+			_rank: 1,
+			rundownId: protectString('rundown0'),
+			name: 'A segment',
+			notes: [],
+			orphaned: undefined,
+		}
+
+		const partInstance0: Pick<DBPartInstance, PartInstanceFields> = {
+			_id: protectString('instance0'),
+			segmentId: segment._id,
+			rundownId: segment.rundownId,
+			orphaned: undefined,
+			reset: false,
+			invalidReason: {
+				message: generateTranslation('Runtime error occurred'),
+				severity: NoteSeverity.ERROR,
+			},
+			part: {
+				_id: protectString('part0'),
+				title: 'Test Part',
+			} as any,
+		}
+
+		const notes = generateNotesForSegment(playlistId, segment, nrcsName, [], [partInstance0])
+		expect(notes).toEqual(
+			literal<UISegmentPartNote[]>([
+				{
+					_id: protectString('segment0_partinstance_instance0_invalid_runtime'),
+					note: {
+						type: NoteSeverity.ERROR,
+						message: partInstance0.invalidReason!.message,
+						rank: segment._rank,
+						origin: {
+							segmentId: segment._id,
+							rundownId: segment.rundownId,
+							name: partInstance0.part.title,
+							partId: partInstance0.part._id,
+							segmentName: segment.name,
+						},
+					},
+					playlistId: playlistId,
+					rundownId: segment.rundownId,
+					segmentId: segment._id,
+				},
+			])
+		)
+	})
+
+	test('partInstance with runtime invalidReason but reset - no note', async () => {
+		const playlistId = protectString<RundownPlaylistId>('playlist0')
+		const nrcsName = 'some nrcs'
+
+		const segment: Pick<DBSegment, SegmentFields> = {
+			_id: protectString('segment0'),
+			_rank: 1,
+			rundownId: protectString('rundown0'),
+			name: 'A segment',
+			notes: [],
+			orphaned: undefined,
+		}
+
+		const partInstance0: Pick<DBPartInstance, PartInstanceFields> = {
+			_id: protectString('instance0'),
+			segmentId: segment._id,
+			rundownId: segment.rundownId,
+			orphaned: undefined,
+			reset: true,
+			invalidReason: {
+				message: generateTranslation('Runtime error occurred'),
+				severity: NoteSeverity.ERROR,
+			},
+			part: {
+				_id: protectString('part0'),
+				title: 'Test Part',
+			} as any,
+		}
+
+		const notes = generateNotesForSegment(playlistId, segment, nrcsName, [], [partInstance0])
+		expect(notes).toHaveLength(0)
+	})
+
+	test('partInstance without invalidReason - no note', async () => {
+		const playlistId = protectString<RundownPlaylistId>('playlist0')
+		const nrcsName = 'some nrcs'
+
+		const segment: Pick<DBSegment, SegmentFields> = {
+			_id: protectString('segment0'),
+			_rank: 1,
+			rundownId: protectString('rundown0'),
+			name: 'A segment',
+			notes: [],
+			orphaned: undefined,
+		}
+
+		const partInstance0: Pick<DBPartInstance, PartInstanceFields> = {
+			_id: protectString('instance0'),
+			segmentId: segment._id,
+			rundownId: segment.rundownId,
+			orphaned: undefined,
+			reset: false,
+			invalidReason: undefined,
+			part: {
+				_id: protectString('part0'),
+				title: 'Test Part',
+			} as any,
+		}
+
+		const notes = generateNotesForSegment(playlistId, segment, nrcsName, [], [partInstance0])
+		expect(notes).toHaveLength(0)
 	})
 })

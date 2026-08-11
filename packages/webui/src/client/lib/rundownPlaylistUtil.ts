@@ -1,13 +1,13 @@
-import { DBPart } from '@sofie-automation/corelib/dist/dataModel/Part'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
-import { FindOptions, MongoQuery } from '@sofie-automation/corelib/dist/mongo'
-import { RundownPlaylistCollectionUtil } from '../collections/rundownPlaylistUtil'
-import { UIPartInstances, UIParts } from '../ui/Collections'
-import { DBSegment } from '@sofie-automation/corelib/dist/dataModel/Segment'
-import { Pieces, Segments } from '../collections'
-import { DBRundown, Rundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
-import { RundownId, PartId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { Piece } from '@sofie-automation/corelib/dist/dataModel/Piece'
+import type { DBPart } from '@sofie-automation/corelib/dist/dataModel/Part'
+import type { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
+import type { FindOptions, MongoQuery } from '@sofie-automation/corelib/dist/mongo'
+import { RundownPlaylistCollectionUtil } from '../collections/rundownPlaylistUtil.js'
+import { UIPartInstances, UIParts } from '../ui/Collections.js'
+import type { DBSegment } from '@sofie-automation/corelib/dist/dataModel/Segment'
+import { Pieces, Segments } from '../collections/index.js'
+import type { DBRundown, Rundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
+import type { RundownId, PartId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import type { Piece } from '@sofie-automation/corelib/dist/dataModel/Piece'
 import { normalizeArrayFunc, groupByToMap } from '@sofie-automation/corelib/dist/lib'
 import {
 	sortSegmentsInRundowns,
@@ -15,26 +15,17 @@ import {
 	sortPartsInSortedSegments,
 } from '@sofie-automation/corelib/dist/playout/playlist'
 import { unprotectString } from '@sofie-automation/corelib/dist/protectedString'
-import { PartInstance } from '@sofie-automation/meteor-lib/dist/collections/PartInstances'
-import * as _ from 'underscore'
+import _ from 'underscore'
+import type { PartInstance } from '@sofie-automation/corelib/src/dataModel/PartInstance.js'
 
 export class RundownPlaylistClientUtil {
-	/** Returns all segments joined with their rundowns in their correct oreder for this RundownPlaylist */
+	/** Returns all segments joined with their rundowns in their correct order for this RundownPlaylist */
 	static getRundownsAndSegments(
 		playlist: Pick<DBRundownPlaylist, '_id' | 'rundownIdsInOrder'>,
 		selector?: MongoQuery<DBSegment>,
 		options?: FindOptions<DBSegment>
 	): Array<{
-		rundown: Pick<
-			Rundown,
-			| '_id'
-			| 'name'
-			| 'playlistId'
-			| 'timing'
-			| 'showStyleBaseId'
-			| 'showStyleVariantId'
-			| 'endOfRundownIsShowBreak'
-		>
+		rundown: Pick<Rundown, '_id' | 'name' | 'playlistId' | 'timing' | 'showStyleBaseId' | 'showStyleVariantId'>
 		segments: DBSegment[]
 	}> {
 		const rundowns = RundownPlaylistCollectionUtil.getRundownsOrdered(playlist, undefined, {
@@ -44,7 +35,6 @@ export class RundownPlaylistClientUtil {
 				timing: 1,
 				showStyleBaseId: 1,
 				showStyleVariantId: 1,
-				endOfRundownIsShowBreak: 1,
 			},
 		})
 		const segments = Segments.find(
@@ -113,7 +103,7 @@ export class RundownPlaylistClientUtil {
 						rundownId: { $in: unorderedRundownIds },
 						_id: { $in: ids },
 						reset: { $ne: true },
-				  }).fetch()
+					}).fetch()
 				: []
 
 		return {
@@ -164,7 +154,7 @@ export class RundownPlaylistClientUtil {
 	static getPiecesForParts(
 		parts: Array<PartId>,
 		piecesOptions?: Omit<FindOptions<Piece>, 'projection'> // We are mangling fields, so block projection
-	): Map<PartId, Piece[]> {
+	): Map<PartId | null, Piece[]> {
 		const allPieces = Pieces.find(
 			{ startPartId: { $in: parts } },
 			{
@@ -174,7 +164,7 @@ export class RundownPlaylistClientUtil {
 					? {
 							...piecesOptions?.fields,
 							startPartId: 1,
-					  }
+						}
 					: undefined,
 			}
 		).fetch()
@@ -270,7 +260,7 @@ export class RundownPlaylistClientUtil {
 							...segmentsOptions?.fields,
 							_rank: 1,
 							rundownId: 1,
-					  }
+						}
 					: undefined,
 				sort: {
 					...segmentsOptions?.sort,
@@ -296,7 +286,7 @@ export class RundownPlaylistClientUtil {
 							rundownId: 1,
 							segmentId: 1,
 							_rank: 1,
-					  }
+						}
 					: undefined,
 				sort: {
 					...segmentsOptions?.sort,

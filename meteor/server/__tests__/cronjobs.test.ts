@@ -2,7 +2,8 @@ import '../../__mocks__/_extendJest'
 import { runAllTimers, waitUntil } from '../../__mocks__/helpers/jest'
 import { MeteorMock } from '../../__mocks__/meteor'
 import { logger } from '../logging'
-import { getRandomId, getRandomString, literal, protectString } from '../lib/tempLib'
+import { getRandomId, getRandomString, literal } from '@sofie-automation/corelib/dist/lib'
+import { protectString } from '@sofie-automation/corelib/dist/protectedString'
 import { SnapshotType } from '@sofie-automation/meteor-lib/dist/collections/Snapshots'
 import {
 	IBlueprintPieceType,
@@ -11,6 +12,7 @@ import {
 	StatusCode,
 	TSR,
 } from '@sofie-automation/blueprints-integration'
+import { ShelfButtonSize } from '@sofie-automation/shared-lib/dist/core/model/StudioSettings'
 import {
 	PeripheralDeviceType,
 	PeripheralDeviceCategory,
@@ -20,7 +22,6 @@ import {
 import { SYSTEM_ID } from '@sofie-automation/meteor-lib/dist/collections/CoreSystem'
 import * as lib from '../lib/lib'
 import { DBPart } from '@sofie-automation/corelib/dist/dataModel/Part'
-import { PartInstance } from '@sofie-automation/meteor-lib/dist/collections/PartInstances'
 import { PieceInstance } from '@sofie-automation/corelib/dist/dataModel/PieceInstance'
 import { Meteor } from 'meteor/meteor'
 import { EmptyPieceTimelineObjectsBlob } from '@sofie-automation/corelib/dist/dataModel/Piece'
@@ -72,9 +73,10 @@ import {
 	setupDefaultStudioEnvironment,
 } from '../../__mocks__/helpers/database'
 import { DBSegment } from '@sofie-automation/corelib/dist/dataModel/Segment'
-import { Settings } from '../Settings'
+import { DEFAULT_MAXIMUM_DATA_AGE } from '@sofie-automation/shared-lib/dist/core/constants'
 import { SofieIngestCacheType } from '@sofie-automation/corelib/dist/dataModel/SofieIngestDataCache'
 import { ObjectOverrideSetOp, ObjectWithOverrides } from '@sofie-automation/corelib/dist/settings/objectWithOverrides'
+import { PartInstance } from '@sofie-automation/corelib/dist/dataModel/PartInstance'
 
 describe('cronjobs', () => {
 	let env: DefaultEnvironment
@@ -111,12 +113,14 @@ describe('cronjobs', () => {
 		await MeteorMock.mockRunMeteorStartup()
 		origGetCurrentTime = lib.getCurrentTime
 		//@ts-ignore Mock getCurrentTime for tests
+		// eslint-disable-next-line no-import-assign
 		lib.getCurrentTime = jest.fn(() => {
 			return mockCurrentTime
 		})
 	})
 	afterAll(async () => {
 		//@ts-ignore Return getCurrentTime to orig
+		// eslint-disable-next-line no-import-assign
 		lib.getCurrentTime = origGetCurrentTime
 		await CoreSystem.removeAsync(SYSTEM_ID)
 	})
@@ -421,7 +425,6 @@ describe('cronjobs', () => {
 			const userAction0 = protectString<UserActionsLogItemId>(getRandomString())
 			await UserActionsLog.insertAsync({
 				_id: userAction0,
-				organizationId: null,
 				userId: null,
 				args: '',
 				clientAddress: '',
@@ -434,13 +437,12 @@ describe('cronjobs', () => {
 			const userAction1 = protectString<UserActionsLogItemId>(getRandomString())
 			await UserActionsLog.insertAsync({
 				_id: userAction1,
-				organizationId: null,
 				userId: null,
 				args: '',
 				clientAddress: '',
 				context: '',
 				method: '',
-				timestamp: lib.getCurrentTime() - Settings.maximumDataAge - 1000,
+				timestamp: lib.getCurrentTime() - DEFAULT_MAXIMUM_DATA_AGE - 1000,
 			})
 
 			await runCronjobs()
@@ -455,9 +457,9 @@ describe('cronjobs', () => {
 			const snapshot0 = protectString<SnapshotId>(getRandomString())
 			await Snapshots.insertAsync({
 				_id: snapshot0,
-				organizationId: null,
 				comment: '',
 				fileName: '',
+				longname: '',
 				name: '',
 				type: SnapshotType.DEBUG,
 				version: '',
@@ -468,14 +470,14 @@ describe('cronjobs', () => {
 			const snapshot1 = protectString<SnapshotId>(getRandomString())
 			await Snapshots.insertAsync({
 				_id: snapshot1,
-				organizationId: null,
 				comment: '',
 				fileName: '',
 				name: '',
+				longname: '',
 				type: SnapshotType.DEBUG,
 				version: '',
 				// Very old:
-				created: lib.getCurrentTime() - Settings.maximumDataAge - 1000,
+				created: lib.getCurrentTime() - DEFAULT_MAXIMUM_DATA_AGE - 1000,
 			})
 
 			await runCronjobs()
@@ -495,7 +497,6 @@ describe('cronjobs', () => {
 			const deviceId = protectString<PeripheralDeviceId>(getRandomString())
 			await PeripheralDevices.insertAsync({
 				_id: deviceId,
-				organizationId: null,
 				type: PeripheralDeviceType.PLAYOUT,
 				category: PeripheralDeviceCategory.PLAYOUT,
 				configManifest: {
@@ -509,6 +510,7 @@ describe('cronjobs', () => {
 				name: props.deviceName,
 				status: {
 					statusCode: StatusCode.GOOD,
+					statusDetails: [],
 				},
 				token: '',
 				...props,
@@ -536,7 +538,7 @@ describe('cronjobs', () => {
 					? {
 							configId: '',
 							studioId,
-					  }
+						}
 					: undefined,
 			})
 			const mockCasparCg = await insertPlayoutDevice({
@@ -566,7 +568,7 @@ describe('cronjobs', () => {
 			studioId: StudioId
 			rundownPlaylistId: RundownPlaylistId
 		}> {
-			function newObjectWithOverrides<T extends {}>(defaults: T): ObjectWithOverrides<T> {
+			function newObjectWithOverrides<T extends object>(defaults: T): ObjectWithOverrides<T> {
 				return {
 					defaults,
 					overrides: [],
@@ -575,7 +577,6 @@ describe('cronjobs', () => {
 			const studioId = protectString<StudioId>(getRandomString())
 			await Studios.insertAsync({
 				_id: studioId,
-				organizationId: null,
 				name: 'Studio',
 				blueprintConfigWithOverrides: newObjectWithOverrides({}),
 				_rundownVersionHash: '',
@@ -591,12 +592,15 @@ describe('cronjobs', () => {
 					frameRate: 25,
 					mediaPreviewsUrl: '',
 					minimumTakeSpan: 1000,
+					shelfAdlibButtonSize: ShelfButtonSize.LARGE,
 				}),
 				routeSetsWithOverrides: newObjectWithOverrides({}),
 				routeSetExclusivityGroupsWithOverrides: newObjectWithOverrides({}),
 				packageContainersWithOverrides: newObjectWithOverrides({}),
-				previewContainerIds: [],
-				thumbnailContainerIds: [],
+				packageContainerSettingsWithOverrides: newObjectWithOverrides({
+					previewContainerIds: [],
+					thumbnailContainerIds: [],
+				}),
 				peripheralDeviceSettings: {
 					deviceSettings: newObjectWithOverrides({}),
 					ingestDevices: newObjectWithOverrides({}),
@@ -621,6 +625,11 @@ describe('cronjobs', () => {
 					type: PlaylistTimingType.None,
 				},
 				activationId: protectString(''),
+				tTimers: [
+					{ index: 1, label: '', mode: null, state: null },
+					{ index: 2, label: '', mode: null, state: null },
+					{ index: 3, label: '', mode: null, state: null },
+				],
 			})
 
 			return {

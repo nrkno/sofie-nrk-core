@@ -1,14 +1,16 @@
-import { JobContext, ProcessedShowStyleCompound } from '../../../jobs'
-import { PlayoutModel } from '../../../playout/model/PlayoutModel'
-import { PlayoutPartInstanceModel } from '../../../playout/model/PlayoutPartInstanceModel'
+import { JobContext, ProcessedShowStyleCompound } from '../../../jobs/index.js'
+import { PlayoutModel } from '../../../playout/model/PlayoutModel.js'
+import { PlayoutPartInstanceModel } from '../../../playout/model/PlayoutPartInstanceModel.js'
 import {
 	IBlueprintMutatablePart,
+	IBlueprintMutatablePartInstance,
 	IBlueprintPart,
 	IBlueprintPartInstance,
 	IBlueprintPiece,
 	IBlueprintPieceDB,
 	IBlueprintPieceInstance,
 	IBlueprintResolvedPieceInstance,
+	IBlueprintSegmentDB,
 	OmitId,
 	SomeContent,
 	Time,
@@ -19,13 +21,15 @@ import {
 	convertPartInstanceToBlueprints,
 	convertPartToBlueprints,
 	convertPartialBlueprintMutablePartToCore,
+	convertPartialBlueprintMutatablePartInstanceToCore,
 	convertPieceInstanceToBlueprints,
 	convertPieceToBlueprints,
 	convertResolvedPieceInstanceToBlueprints,
+	convertSegmentToBlueprints,
 	createBlueprintQuickLoopInfo,
 	getMediaObjectDuration,
-} from '../lib'
-import { getResolvedPiecesForCurrentPartInstance } from '../../../playout/resolvedPieces'
+} from '../lib.js'
+import { getResolvedPiecesForCurrentPartInstance } from '../../../playout/resolvedPieces.js'
 import { ReadonlyDeep } from 'type-fest'
 import { MongoQuery } from '@sofie-automation/corelib/dist/mongo'
 import { PieceInstance } from '@sofie-automation/corelib/dist/dataModel/PieceInstance'
@@ -34,28 +38,28 @@ import {
 	innerFindLastScriptedPieceOnLayer,
 	innerStopPieces,
 	insertQueuedPartWithPieces,
-} from '../../../playout/adlibUtils'
+} from '../../../playout/adlibUtils.js'
 import { assertNever, getRandomId, omit } from '@sofie-automation/corelib/dist/lib'
-import { logger } from '../../../logging'
+import { logger } from '../../../logging.js'
 import {
 	Piece,
 	PieceTimelineObjectsBlob,
 	serializePieceTimelineObjectsBlob,
 } from '@sofie-automation/corelib/dist/dataModel/Piece'
-import { PartInstanceId, PieceInstanceId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import { PartInstanceId, PieceInstanceId, RundownId, SegmentId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import {
 	protectString,
 	unprotectString,
 	protectStringArray,
 	unprotectStringArray,
 } from '@sofie-automation/corelib/dist/protectedString'
-import { postProcessPieces, postProcessTimelineObjects } from '../../postProcess'
-import { getCurrentTime } from '../../../lib'
-import _ = require('underscore')
-import { syncPlayheadInfinitesForNextPartInstance } from '../../../playout/infinites'
-import { validateAdlibTestingPartInstanceProperties } from '../../../playout/adlibTesting'
+import { postProcessPieces, postProcessTimelineObjects } from '../../postProcess.js'
+import { getCurrentTime } from '../../../lib/index.js'
+import _ from 'underscore'
+import { syncPlayheadInfinitesForNextPartInstance } from '../../../playout/infinites.js'
+import { validateAdlibTestingPartInstanceProperties } from '../../../playout/adlibTesting.js'
 import { DBPart, isPartPlayable } from '@sofie-automation/corelib/dist/dataModel/Part'
-import { PlayoutRundownModel } from '../../../playout/model/PlayoutRundownModel'
+import { PlayoutRundownModel } from '../../../playout/model/PlayoutRundownModel.js'
 import { BlueprintQuickLookInfo } from '@sofie-automation/blueprints-integration/dist/context/quickLoopInfo'
 
 export enum ActionPartChange {
@@ -66,6 +70,11 @@ export enum ActionPartChange {
 export interface IPartAndPieceInstanceActionContext {
 	readonly currentPartState: ActionPartChange
 	readonly nextPartState: ActionPartChange
+}
+
+export interface QueueablePartAndPieces {
+	part: Omit<DBPart, 'segmentId' | 'rundownId' | '_rank'>
+	pieces: Piece[]
 }
 
 export class PartAndPieceInstanceActionService {
@@ -137,6 +146,14 @@ export class PartAndPieceInstanceActionService {
 			partInstance
 		)
 		return resolvedInstances.map(convertResolvedPieceInstanceToBlueprints)
+	}
+	getSegment(segment: 'current' | 'next'): IBlueprintSegmentDB | undefined {
+		const partInstance = this.#getPartInstance(segment)
+		if (!partInstance) return undefined
+
+		const segmentModel = this._playoutModel.findSegment(partInstance.partInstance.segmentId)
+
+		return segmentModel?.segment ? convertSegmentToBlueprints(segmentModel?.segment) : undefined
 	}
 
 	async findLastPieceOnLayer(
@@ -245,6 +262,9 @@ export class PartAndPieceInstanceActionService {
 		})
 		if (!pieceDB) throw new Error(`Cannot find Piece ${piece._id}`)
 
+		if (!pieceDB.startPartId || !pieceDB.startSegmentId)
+			throw new Error(`Piece ${piece._id} does not belong to a part`)
+
 		const rundown = this._playoutModel.getRundown(pieceDB.startRundownId)
 		const segment = rundown?.getSegment(pieceDB.startSegmentId)
 		const part = segment?.getPart(pieceDB.startPartId)
@@ -300,7 +320,10 @@ export class PartAndPieceInstanceActionService {
 
 		const { pieceInstance } = foundPieceInstance
 
-		if (pieceInstance.pieceInstance.infinite?.fromPreviousPart) {
+		if (
+			pieceInstance.pieceInstance.infinite?.fromPreviousPart &&
+			pieceInstance.pieceInstance.partInstanceId === this._playoutModel.playlist.nextPartInfo?.partInstanceId
+		) {
 			throw new Error('Cannot update an infinite piece that is continued from a previous part')
 		}
 
@@ -342,7 +365,8 @@ export class PartAndPieceInstanceActionService {
 
 	async updatePartInstance(
 		part: 'current' | 'next',
-		props: Partial<IBlueprintMutatablePart>
+		props: Partial<IBlueprintMutatablePart>,
+		instanceProps: Partial<IBlueprintMutatablePartInstance>
 	): Promise<IBlueprintPartInstance> {
 		const partInstance = this.#getPartInstance(part)
 		if (!partInstance) {
@@ -350,8 +374,23 @@ export class PartAndPieceInstanceActionService {
 		}
 
 		const playoutUpdatePart = convertPartialBlueprintMutablePartToCore(props, this.showStyleCompound.blueprintId)
+		const playoutUpdatePartInstance = convertPartialBlueprintMutatablePartInstanceToCore(
+			instanceProps,
+			this.showStyleCompound.blueprintId
+		)
 
-		if (!partInstance.updatePartProps(playoutUpdatePart)) {
+		const partPropsUpdated = partInstance.updatePartProps(playoutUpdatePart)
+		let instancePropsUpdated = false
+
+		if (playoutUpdatePartInstance && 'invalidReason' in playoutUpdatePartInstance) {
+			if (part !== 'next') {
+				throw new Error(`Can only set invalidReason on the next PartInstance`)
+			}
+			partInstance.setInvalidReason(playoutUpdatePartInstance.invalidReason)
+			instancePropsUpdated = true
+		}
+
+		if (!partPropsUpdated && !instancePropsUpdated) {
 			throw new Error('Some valid properties must be defined')
 		}
 
@@ -377,11 +416,41 @@ export class PartAndPieceInstanceActionService {
 			throw new Error('Too close to an autonext to queue a part')
 		}
 
+		const { part, pieces } = this.processPartAndPiecesToQueueOrFail(
+			rawPart,
+			rawPieces,
+			currentPartInstance.partInstance.rundownId,
+			currentPartInstance.partInstance.segmentId
+		)
+
+		// Do the work
+		const newPartInstance = await insertQueuedPartWithPieces(
+			this._context,
+			this._playoutModel,
+			this._rundown,
+			currentPartInstance,
+			part,
+			pieces,
+			undefined
+		)
+
+		this.nextPartState = ActionPartChange.SAFE_CHANGE
+		this.queuedPartInstanceId = newPartInstance.partInstance._id
+
+		return convertPartInstanceToBlueprints(newPartInstance.partInstance)
+	}
+
+	public processPartAndPiecesToQueueOrFail(
+		rawPart: IBlueprintPart<unknown, unknown>,
+		rawPieces: IBlueprintPiece<unknown, unknown>[],
+		rundownId: RundownId,
+		segmentId: SegmentId
+	): QueueablePartAndPieces {
 		if (rawPieces.length === 0) {
 			throw new Error('New part must contain at least one piece')
 		}
 
-		const newPart: Omit<DBPart, 'segmentId' | 'rundownId' | '_rank'> = {
+		const part: Omit<DBPart, 'segmentId' | 'rundownId' | '_rank'> = {
 			...rawPart,
 			_id: getRandomId(),
 			notes: [],
@@ -397,31 +466,17 @@ export class PartAndPieceInstanceActionService {
 			this._context,
 			rawPieces,
 			this.showStyleCompound.blueprintId,
-			currentPartInstance.partInstance.rundownId,
-			currentPartInstance.partInstance.segmentId,
-			newPart._id,
+			rundownId,
+			segmentId,
+			part._id,
 			false
 		)
 
-		if (!isPartPlayable(newPart)) {
+		if (!isPartPlayable(part)) {
 			throw new Error('Cannot queue a part which is not playable')
 		}
 
-		// Do the work
-		const newPartInstance = await insertQueuedPartWithPieces(
-			this._context,
-			this._playoutModel,
-			this._rundown,
-			currentPartInstance,
-			newPart,
-			pieces,
-			undefined
-		)
-
-		this.nextPartState = ActionPartChange.SAFE_CHANGE
-		this.queuedPartInstanceId = newPartInstance.partInstance._id
-
-		return convertPartInstanceToBlueprints(newPartInstance.partInstance)
+		return { part, pieces }
 	}
 
 	async stopPiecesOnLayers(sourceLayerIds: string[], timeOffset: number | undefined): Promise<string[]> {
@@ -524,6 +579,7 @@ export async function applyActionSideEffects(
 		await syncPlayheadInfinitesForNextPartInstance(
 			context,
 			playoutModel,
+			undefined,
 			playoutModel.currentPartInstance,
 			playoutModel.nextPartInstance
 		)

@@ -1,49 +1,96 @@
-import { SEGMENT_TIMELINE_ELEMENT_ID } from '../ui/SegmentTimeline/SegmentTimeline'
-import { isProtectedString } from './tempLib'
+import { SEGMENT_TIMELINE_ELEMENT_ID } from '../ui/SegmentTimeline/SegmentTimeline.js'
+import { isProtectedString } from '@sofie-automation/shared-lib/dist/lib/protectedString'
 import RundownViewEventBus, { RundownViewEvents } from '@sofie-automation/meteor-lib/dist/triggers/RundownViewEventBus'
-import { Settings } from '../lib/Settings'
-import { PartId, PartInstanceId, SegmentId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { UIPartInstances, UIParts } from '../ui/Collections'
-import { logger } from './logging'
+import type { PartId, PartInstanceId, SegmentId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import { UIPartInstances, UIParts } from '../ui/Collections.js'
+import { logger } from './logging.js'
+import { parse as queryStringParse } from 'query-string'
 
 const HEADER_MARGIN = 24 // TODOSYNC: TV2 uses 15. If it's needed to be different, it needs to be made generic somehow..
 const FALLBACK_HEADER_HEIGHT = 65
 
-let focusInterval: NodeJS.Timeout | undefined
-let _dontClearInterval = false
+// Replace the global variable with a more structured approach
+const focusState = {
+	interval: undefined as NodeJS.Timeout | undefined,
+	isScrolling: false,
+	startTime: 0,
+}
+
+const viewPortScrollingState = {
+	isProgrammaticScrollInProgress: false,
+	lastProgrammaticScrollTime: 0,
+}
+
+function clearPendingScrollState(): void {
+	if (pendingFirstStageTimeout) {
+		clearTimeout(pendingFirstStageTimeout)
+		pendingFirstStageTimeout = undefined
+	}
+
+	if (pendingSecondStageScroll) {
+		window.cancelIdleCallback(pendingSecondStageScroll)
+		pendingSecondStageScroll = undefined
+	}
+
+	currentScrollingElement = undefined
+}
+
+export function getViewPortScrollingState(): {
+	isProgrammaticScrollInProgress: boolean
+	lastProgrammaticScrollTime: number
+} {
+	return viewPortScrollingState
+}
 
 export function maintainFocusOnPartInstance(
 	partInstanceId: PartInstanceId,
+	followOnAirSegmentsHistory: number,
 	timeWindow: number,
 	forceScroll?: boolean,
 	noAnimation?: boolean
 ): void {
-	const startTime = Date.now()
-	const focus = () => {
-		if (Date.now() - startTime < timeWindow) {
-			_dontClearInterval = true
-			scrollToPartInstance(partInstanceId, forceScroll, noAnimation)
-				.then(() => {
-					_dontClearInterval = false
-				})
-				.catch(() => {
-					_dontClearInterval = false
-				})
-		} else {
+	focusState.startTime = Date.now()
+
+	const focus = async () => {
+		// Only proceed if we're not already scrolling and within the time window
+		if (!focusState.isScrolling && Date.now() - focusState.startTime < timeWindow) {
+			focusState.isScrolling = true
+
+			try {
+				await scrollToPartInstance(partInstanceId, followOnAirSegmentsHistory, forceScroll, noAnimation)
+			} catch (_error) {
+				// Handle error if needed
+			} finally {
+				focusState.isScrolling = false
+				viewPortScrollingState.lastProgrammaticScrollTime = Date.now()
+			}
+		} else if (Date.now() - focusState.startTime >= timeWindow) {
 			quitFocusOnPart()
 		}
 	}
+
 	document.addEventListener('wheel', onWheelWhenMaintainingFocus, {
 		once: true,
 		capture: true,
 		passive: true,
 	})
-	focusInterval = setInterval(focus, 500)
+
+	// Clear any existing interval before creating a new one
+	if (focusState.interval) {
+		clearInterval(focusState.interval)
+	}
+
 	focus()
+		.then(() => {
+			focusState.interval = setInterval(focus, 500)
+		})
+		.catch(() => {
+			// Handle error if needed
+		})
 }
 
 export function isMaintainingFocus(): boolean {
-	return !!focusInterval
+	return !!focusState.interval
 }
 
 function onWheelWhenMaintainingFocus() {
@@ -54,31 +101,48 @@ function quitFocusOnPart() {
 	document.removeEventListener('wheel', onWheelWhenMaintainingFocus, {
 		capture: true,
 	})
-	if (!_dontClearInterval && focusInterval) {
-		clearInterval(focusInterval)
-		focusInterval = undefined
+
+	if (focusState.interval) {
+		clearInterval(focusState.interval)
+		focusState.interval = undefined
 	}
+
+	if (!focusState.isScrolling) {
+		viewPortScrollingState.isProgrammaticScrollInProgress = false
+		viewPortScrollingState.lastProgrammaticScrollTime = Date.now()
+	}
+}
+
+export function resetViewportScrollState(): void {
+	quitFocusOnPart()
+	clearPendingScrollState()
+	viewPortScrollingState.isProgrammaticScrollInProgress = false
+}
+
+export function clearViewportLifecycleState(): void {
+	resetViewportScrollState()
+	viewPortScrollingState.lastProgrammaticScrollTime = 0
+	focusState.isScrolling = false
+	focusState.startTime = 0
 }
 
 export async function scrollToPartInstance(
 	partInstanceId: PartInstanceId,
+	followOnAirSegmentsHistory: number,
 	forceScroll?: boolean,
 	noAnimation?: boolean
 ): Promise<boolean> {
 	quitFocusOnPart()
 	const partInstance = UIPartInstances.findOne(partInstanceId)
 	if (partInstance) {
-		RundownViewEventBus.emit(RundownViewEvents.GO_TO_PART_INSTANCE, {
-			segmentId: partInstance.segmentId,
-			partInstanceId: partInstanceId,
-		})
-		return scrollToSegment(partInstance.segmentId, forceScroll, noAnimation, partInstanceId)
+		return scrollToSegment(partInstance.segmentId, followOnAirSegmentsHistory, forceScroll, noAnimation)
 	}
 	throw new Error('Could not find PartInstance')
 }
 
 export async function scrollToPart(
 	partId: PartId,
+	followOnAirSegmentsHistory: number,
 	forceScroll?: boolean,
 	noAnimation?: boolean,
 	zoomInToFit?: boolean
@@ -86,7 +150,7 @@ export async function scrollToPart(
 	quitFocusOnPart()
 	const part = UIParts.findOne(partId)
 	if (part) {
-		await scrollToSegment(part.segmentId, forceScroll, noAnimation)
+		await scrollToSegment(part.segmentId, followOnAirSegmentsHistory, forceScroll, noAnimation)
 
 		RundownViewEventBus.emit(RundownViewEvents.GO_TO_PART, {
 			segmentId: part.segmentId,
@@ -102,8 +166,14 @@ export async function scrollToPart(
 let HEADER_HEIGHT: number | undefined = undefined
 
 export function getHeaderHeight(): number {
+	if (queryStringParse(location.search)['hideRundownHeader'] === '1') {
+		return 0
+	}
+
 	if (HEADER_HEIGHT === undefined) {
-		const root = document.querySelector('#render-target > .container-fluid > .rundown-view > .header')
+		const root = document.querySelector(
+			'#render-target > .container-fluid-custom > .rundown-view > .rundown-header'
+		)
 		if (!root) {
 			return FALLBACK_HEADER_HEIGHT
 		}
@@ -118,40 +188,17 @@ let currentScrollingElement: HTMLElement | undefined
 
 export async function scrollToSegment(
 	elementToScrollToOrSegmentId: HTMLElement | SegmentId,
+	followOnAirSegmentsHistory: number,
 	forceScroll?: boolean,
-	noAnimation?: boolean,
-	partInstanceId?: PartInstanceId | undefined
+	noAnimation?: boolean
 ): Promise<boolean> {
-	const getElementToScrollTo = (showHistory: boolean): HTMLElement | null => {
-		if (isProtectedString(elementToScrollToOrSegmentId)) {
-			let targetElement = document.querySelector<HTMLElement>(
-				`#${SEGMENT_TIMELINE_ELEMENT_ID}${elementToScrollToOrSegmentId}`
-			)
+	clearPendingScrollState()
 
-			if (showHistory && Settings.followOnAirSegmentsHistory && targetElement) {
-				let i = Settings.followOnAirSegmentsHistory
-				while (i > 0) {
-					// Segment timeline is wrapped by <div><div>...</div></div> when rendered
-					const next: any = targetElement?.parentElement?.parentElement?.previousElementSibling?.children
-						.item(0)
-						?.children.item(0)
-					if (next) {
-						targetElement = next
-						i--
-					} else {
-						i = 0
-					}
-				}
-			}
-
-			return targetElement
-		}
-
-		return elementToScrollToOrSegmentId
-	}
-
-	const elementToScrollTo: HTMLElement | null = getElementToScrollTo(false)
-	const historyTarget: HTMLElement | null = getElementToScrollTo(true)
+	const elementToScrollTo: HTMLElement | null = getElementToScrollTo(elementToScrollToOrSegmentId, 0)
+	const historyTarget: HTMLElement | null = getElementToScrollTo(
+		elementToScrollToOrSegmentId,
+		followOnAirSegmentsHistory
+	)
 
 	// historyTarget will be === to elementToScrollTo if history is not used / not found
 	if (!elementToScrollTo || !historyTarget) {
@@ -162,23 +209,72 @@ export async function scrollToSegment(
 		historyTarget,
 		forceScroll || !regionInViewport(historyTarget, elementToScrollTo),
 		noAnimation,
-		false,
-		partInstanceId
+		false
 	)
 }
+
+function getElementToScrollTo(
+	elementToScrollToOrSegmentId: HTMLElement | SegmentId,
+	followOnAirSegmentsHistory: number
+): HTMLElement | null {
+	if (isProtectedString(elementToScrollToOrSegmentId)) {
+		// Get the current segment element
+		let targetElement = document.querySelector<HTMLElement>(
+			`#${SEGMENT_TIMELINE_ELEMENT_ID}${elementToScrollToOrSegmentId}`
+		)
+		// Normalize to a non-negative integer, as the value may originate from external sources (eg. the REST API)
+		const segmentsHistory = Math.max(0, Math.floor(followOnAirSegmentsHistory))
+		if (segmentsHistory && targetElement) {
+			let i = segmentsHistory
+
+			// Find previous segments
+			while (i > 0 && targetElement) {
+				const currentSegmentId = targetElement.id
+				const allSegments = Array.from(document.querySelectorAll(`[id^="${SEGMENT_TIMELINE_ELEMENT_ID}"]`))
+
+				// Find current segment's index in the array of all segments
+				const currentIndex = allSegments.findIndex((el) => el.id === currentSegmentId)
+
+				// Find the previous segment
+				if (currentIndex > 0) {
+					targetElement = allSegments[currentIndex - 1] as HTMLElement
+					i--
+				} else {
+					// No more previous segments
+					break
+				}
+			}
+		}
+
+		return targetElement
+	}
+
+	return elementToScrollToOrSegmentId
+}
+
+let pendingFirstStageTimeout: NodeJS.Timeout | undefined
 
 async function innerScrollToSegment(
 	elementToScrollTo: HTMLElement,
 	forceScroll?: boolean,
 	noAnimation?: boolean,
-	secondStage?: boolean,
-	partInstanceId?: PartInstanceId | undefined
+	secondStage?: boolean
 ): Promise<boolean> {
 	if (!secondStage) {
+		if (pendingFirstStageTimeout) {
+			clearTimeout(pendingFirstStageTimeout)
+			pendingFirstStageTimeout = undefined
+		}
 		currentScrollingElement = elementToScrollTo
 	} else if (secondStage && elementToScrollTo !== currentScrollingElement) {
 		throw new Error('Scroll overriden by another scroll')
 	}
+
+	// Ensure that the element is ready to be scrolled:
+	if (!secondStage) {
+		await new Promise((resolve) => setTimeout(resolve, 100))
+	}
+	await new Promise((resolve) => requestAnimationFrame(resolve))
 
 	let { top, bottom } = elementToScrollTo.getBoundingClientRect()
 	top = Math.floor(top)
@@ -192,45 +288,37 @@ async function innerScrollToSegment(
 
 		return scrollToPosition(top + window.scrollY, noAnimation).then(
 			async () => {
-				// retry scroll in case we have to load some data
-				if (pendingSecondStageScroll) window.cancelIdleCallback(pendingSecondStageScroll)
 				return new Promise<boolean>((resolve, reject) => {
-					// scrollToPosition will resolve after some time, at which point a new pendingSecondStageScroll may have been created
-
-					pendingSecondStageScroll = window.requestIdleCallback(
-						() => {
-							if (!secondStage) {
-								let { top, bottom } = elementToScrollTo.getBoundingClientRect()
-								top = Math.floor(top)
-								bottom = Math.floor(bottom)
-
-								if (bottom > Math.floor(window.innerHeight) || top < headerHeight) {
-									innerScrollToSegment(
-										elementToScrollTo,
-										forceScroll,
-										true,
-										true,
-										partInstanceId
-									).then(resolve, reject)
-								} else {
-									resolve(true)
-								}
+					if (!secondStage) {
+						//  Wait to settle 1 atemt to scroll
+						pendingFirstStageTimeout = setTimeout(() => {
+							pendingFirstStageTimeout = undefined
+							let { top, bottom } = elementToScrollTo.getBoundingClientRect()
+							top = Math.floor(top)
+							bottom = Math.floor(bottom)
+							if (bottom > Math.floor(window.innerHeight) || top < headerHeight) {
+								// If not in place atempt to scroll again
+								innerScrollToSegment(elementToScrollTo, forceScroll, true, true).then(resolve, reject)
 							} else {
 								currentScrollingElement = undefined
 								resolve(true)
 							}
-						},
-						{ timeout: 250 }
-					)
+						}, 1000) // When UI is getting optimized further we could lower this value
+					} else {
+						currentScrollingElement = undefined
+						resolve(true)
+					}
 				})
 			},
 			(error) => {
 				if (!error.toString().match(/another scroll/)) logger.error(error)
+				currentScrollingElement = undefined
 				return false
 			}
 		)
 	}
 
+	currentScrollingElement = undefined
 	return Promise.resolve(false)
 }
 
@@ -251,41 +339,31 @@ function getRegionPosition(topElement: HTMLElement, bottomElement: HTMLElement):
 	return { top, bottom }
 }
 
-let scrollToPositionRequest: number | undefined
-let scrollToPositionRequestReject: ((reason?: any) => void) | undefined
-
 export async function scrollToPosition(scrollPosition: number, noAnimation?: boolean): Promise<void> {
+	// Calculate the exact position
+	const headerOffset = getHeaderHeight() + HEADER_MARGIN
+	const targetTop = Math.max(0, scrollPosition - headerOffset)
+
 	if (noAnimation) {
 		window.scroll({
-			top: Math.max(0, scrollPosition - getHeaderHeight() - HEADER_MARGIN),
+			top: targetTop,
 			left: 0,
+			behavior: 'instant',
 		})
 		return Promise.resolve()
 	} else {
-		return new Promise((resolve, reject) => {
-			if (scrollToPositionRequest !== undefined) window.cancelIdleCallback(scrollToPositionRequest)
-			if (scrollToPositionRequestReject !== undefined)
-				scrollToPositionRequestReject('Prevented by another scroll')
+		viewPortScrollingState.isProgrammaticScrollInProgress = true
+		viewPortScrollingState.lastProgrammaticScrollTime = Date.now()
 
-			scrollToPositionRequestReject = reject
-			const currentTop = window.scrollY
-			const targetTop = Math.max(0, scrollPosition - getHeaderHeight() - HEADER_MARGIN)
-			scrollToPositionRequest = window.requestIdleCallback(
-				() => {
-					window.scroll({
-						top: targetTop,
-						left: 0,
-						behavior: 'smooth',
-					})
-					setTimeout(() => {
-						resolve()
-						scrollToPositionRequestReject = undefined
-						// this formula was experimentally created from Chrome 86 behavior
-					}, 3000 * Math.log(Math.abs(currentTop - targetTop) / 2000 + 1))
-				},
-				{ timeout: 250 }
-			)
+		window.scroll({
+			top: targetTop,
+			left: 0,
+			behavior: 'smooth',
 		})
+		await new Promise((resolve) => setTimeout(resolve, 300))
+
+		viewPortScrollingState.isProgrammaticScrollInProgress = false
+		viewPortScrollingState.lastProgrammaticScrollTime = Date.now()
 	}
 }
 
@@ -317,7 +395,7 @@ export function lockPointer(): void {
 	if (pointerLockTurnstile === 0) {
 		// pointerLockTurnstile === 0 means that no requests for locking the pointer have been made
 		// since we last unlocked it
-		document.body.requestPointerLock()
+		document.body.requestPointerLock().catch((e) => console.error('Lock pointer failed', e))
 		// attach the event handlers only once. Once they are attached, we will track the
 		// locked state and act according to the turnstile
 		if (!pointerHandlerAttached) {

@@ -1,11 +1,11 @@
-import { TSRHandler, TSRConfig } from './tsrHandler'
-import { CoreHandler, CoreConfig } from './coreHandler'
+import { TSRHandler, TSRConfig } from './tsrHandler.js'
+import { CoreHandler, CoreConfig } from './coreHandler.js'
 import { Logger } from 'winston'
-import { InfluxConfig } from './influxdb'
+import { InfluxConfig } from './influxdb.js'
 import {
 	CertificatesConfig,
 	PeripheralDeviceId,
-	loadCertificatesFromDisk,
+	loadDDPTLSOptions,
 	stringifyError,
 	HealthConfig,
 	HealthEndpoints,
@@ -32,7 +32,6 @@ export class Connector implements IConnector {
 	private tsrHandler: TSRHandler | undefined
 	private coreHandler: CoreHandler | undefined
 	private _logger: Logger
-	private _certificates: Buffer[] | undefined
 
 	constructor(logger: Logger) {
 		this._logger = logger
@@ -41,14 +40,14 @@ export class Connector implements IConnector {
 	public async init(config: Config): Promise<void> {
 		try {
 			this._logger.info('Initializing Certificates...')
-			this._certificates = loadCertificatesFromDisk(this._logger, config.certificates)
+			const tlsOptions = loadDDPTLSOptions(this._logger, config.certificates)
 			this._logger.info('Certificates initialized')
 
 			this._logger.info('Initializing Core...')
 			this.coreHandler = new CoreHandler(this._logger, config.device)
 			new HealthEndpoints(this, this.coreHandler, config.health)
 
-			await this.coreHandler.init(config.core, this._certificates)
+			await this.coreHandler.init(config.core, tlsOptions)
 			this._logger.info('Core initialized')
 
 			this._logger.info('Initializing TSR...')
@@ -80,7 +79,7 @@ export class Connector implements IConnector {
 
 			this._logger.info('Shutting down in 10 seconds!')
 			setTimeout(() => {
-				// eslint-disable-next-line no-process-exit
+				// eslint-disable-next-line n/no-process-exit
 				process.exit(0)
 			}, 10 * 1000)
 			return

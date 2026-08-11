@@ -1,35 +1,35 @@
-import { DashboardLayout, DashboardLayoutFilter } from '@sofie-automation/meteor-lib/dist/collections/RundownLayouts'
-import { RundownLayoutsAPI } from '../../lib/rundownLayouts'
-import { TimelineDashboardPanel } from './TimelineDashboardPanel'
-import { DashboardPanel } from './DashboardPanel'
-import { ExternalFramePanel } from './ExternalFramePanel'
-import { DashboardActionButtonGroup } from './DashboardActionButtonGroup'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
-import { AdLibRegionPanel } from './AdLibRegionPanel'
-import { PieceCountdownPanel } from './PieceCountdownPanel'
-import { BucketAdLibItem } from './RundownViewBuckets'
-import { IAdLibListItem } from './AdLibListItem'
-import { PieceUi } from '../SegmentTimeline/SegmentTimelineContainer'
-import { AdLibPieceUi } from '../../lib/shelf'
-import { MiniRundownPanel } from './MiniRundownPanel'
-import { NextInfoPanel } from './NextInfoPanel'
-import { PlaylistStartTimerPanel } from './PlaylistStartTimerPanel'
-import { EndWordsPanel } from './EndWordsPanel'
-import { PlaylistEndTimerPanel } from './PlaylistEndTimerPanel'
-import { SegmentTimingPanel } from './SegmentTimingPanel'
-import { PartTimingPanel } from './PartTimingPanel'
-import { TextLabelPanel } from './TextLabelPanel'
-import { PlaylistNamePanel } from './PlaylistNamePanel'
-import { TimeOfDayPanel } from './TimeOfDayPanel'
-import { SystemStatusPanel } from './SystemStatusPanel'
-import { ShowStylePanel } from './ShowStylePanel'
-import { DBShowStyleVariant } from '@sofie-automation/corelib/dist/dataModel/ShowStyleVariant'
-import { StudioNamePanel } from './StudioNamePanel'
-import { SegmentNamePanel } from './SegmentNamePanel'
-import { PartNamePanel } from './PartNamePanel'
-import { ColoredBoxPanel } from './ColoredBoxPanel'
-import { UIShowStyleBase } from '@sofie-automation/meteor-lib/dist/api/showStyles'
-import { UIStudio } from '@sofie-automation/meteor-lib/dist/api/studios'
+import type {
+	DashboardLayout,
+	DashboardLayoutFilter,
+} from '@sofie-automation/meteor-lib/dist/collections/RundownLayouts'
+import { RundownLayoutsAPI } from '../../lib/rundownLayouts.js'
+import { TimelineDashboardPanel } from './TimelineDashboardPanel.js'
+import { DashboardPanel } from './DashboardPanel.js'
+import { ExternalFramePanel } from './ExternalFramePanel.js'
+import { DashboardActionButtonGroup } from './DashboardActionButtonGroup.js'
+import type { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
+import { AdLibRegionPanel } from './AdLibRegionPanel.js'
+import { PieceCountdownPanel } from './PieceCountdownPanel.js'
+import type { BucketAdLibItem } from './RundownViewBuckets.js'
+import type { IAdLibListItem } from './AdLibListItem.js'
+import type { AdLibPieceUi } from '../../lib/shelf.js'
+import { MiniRundownPanel } from './MiniRundownPanel.js'
+import { NextInfoPanel } from './NextInfoPanel.js'
+import { PlaylistStartTimerPanel } from './PlaylistStartTimerPanel.js'
+import { PlaylistEndTimerPanel } from './PlaylistEndTimerPanel.js'
+import { SegmentTimingPanel } from './SegmentTimingPanel.js'
+import { PartTimingPanel } from './PartTimingPanel.js'
+import { TextLabelPanel } from './TextLabelPanel.js'
+import { PlaylistNamePanel } from './PlaylistNamePanel.js'
+import { TimeOfDayPanel } from './TimeOfDayPanel.js'
+import type { DBShowStyleVariant } from '@sofie-automation/corelib/dist/dataModel/ShowStyleVariant'
+import { StudioNamePanel } from './StudioNamePanel.js'
+import { SegmentNamePanel } from './SegmentNamePanel.js'
+import { PartNamePanel } from './PartNamePanel.js'
+import { ColoredBoxPanel } from './ColoredBoxPanel.js'
+import type { UIShowStyleBase } from '@sofie-automation/corelib/src/dataModel/ShowStyleBase.js'
+import type { UIStudio } from '@sofie-automation/corelib/src/dataModel/Studio.js'
+import type { PieceUi } from '@sofie-automation/corelib/src/dataModel/Piece.js'
 
 export interface IShelfDashboardLayoutProps {
 	rundownLayout: DashboardLayout
@@ -146,16 +146,6 @@ export function ShelfDashboardLayout(props: Readonly<IShelfDashboardLayoutProps>
 							return (
 								<PlaylistEndTimerPanel key={panel._id} playlist={props.playlist} layout={rundownLayout} panel={panel} />
 							)
-						} else if (RundownLayoutsAPI.isEndWords(panel)) {
-							return (
-								<EndWordsPanel
-									key={panel._id}
-									playlist={props.playlist}
-									layout={rundownLayout}
-									panel={panel}
-									showStyleBase={props.showStyleBase}
-								/>
-							)
 						} else if (RundownLayoutsAPI.isSegmentTiming(panel)) {
 							return (
 								<SegmentTimingPanel
@@ -164,6 +154,7 @@ export function ShelfDashboardLayout(props: Readonly<IShelfDashboardLayoutProps>
 									layout={rundownLayout}
 									panel={panel}
 									showStyleBase={props.showStyleBase}
+									studio={props.studio}
 								/>
 							)
 						} else if (RundownLayoutsAPI.isPartTiming(panel)) {
@@ -198,27 +189,6 @@ export function ShelfDashboardLayout(props: Readonly<IShelfDashboardLayoutProps>
 							)
 						} else if (RundownLayoutsAPI.isTimeOfDay(panel)) {
 							return <TimeOfDayPanel key={panel._id} playlist={props.playlist} layout={rundownLayout} panel={panel} />
-						} else if (RundownLayoutsAPI.isSystemStatus(panel)) {
-							return (
-								<SystemStatusPanel
-									key={panel._id}
-									playlistId={props.playlist._id}
-									layout={rundownLayout}
-									panel={panel}
-									studioId={props.studio._id}
-								/>
-							)
-						} else if (RundownLayoutsAPI.isShowStyleDisplay(panel)) {
-							return (
-								<ShowStylePanel
-									key={panel._id}
-									playlist={props.playlist}
-									layout={rundownLayout}
-									panel={panel}
-									showStyleBase={props.showStyleBase}
-									showStyleVariant={props.showStyleVariant}
-								/>
-							)
 						} else if (RundownLayoutsAPI.isColoredBox(panel)) {
 							return <ColoredBoxPanel key={panel._id} playlist={props.playlist} layout={rundownLayout} panel={panel} />
 						} else if (RundownLayoutsAPI.isMiniRundown(panel)) {

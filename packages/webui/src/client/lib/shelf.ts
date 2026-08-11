@@ -1,15 +1,19 @@
 import _ from 'underscore'
-import { PartInstance } from '@sofie-automation/meteor-lib/dist/collections/PartInstances'
-import { PieceInstance } from '@sofie-automation/corelib/dist/dataModel/PieceInstance'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
-import { DBSegment } from '@sofie-automation/corelib/dist/dataModel/Segment'
-import { processAndPrunePieceInstanceTimings } from '@sofie-automation/corelib/dist/playout/processAndPrune'
-import { getUnfinishedPieceInstancesReactive } from './rundownLayouts'
-import { UIShowStyleBase } from '@sofie-automation/meteor-lib/dist/api/showStyles'
-import { PieceId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { PieceInstances } from '../collections'
-import { ReadonlyDeep } from 'type-fest'
-import { AdLibPieceUi } from '@sofie-automation/meteor-lib/dist/uiTypes/Adlib'
+import type { PieceInstance } from '@sofie-automation/corelib/dist/dataModel/PieceInstance'
+import type { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
+import type { DBSegment } from '@sofie-automation/corelib/dist/dataModel/Segment'
+import {
+	createPartCurrentTimes,
+	processAndPrunePieceInstanceTimings,
+} from '@sofie-automation/corelib/dist/playout/processAndPrune'
+import { getUnfinishedPieceInstancesReactive } from './rundownLayouts.js'
+import type { PieceId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import { PieceInstances } from '../collections/index.js'
+import type { ReadonlyDeep } from 'type-fest'
+import type { AdLibPieceUi } from '@sofie-automation/meteor-lib/dist/uiTypes/Adlib'
+import { getCurrentTimeReactive } from './currentTimeReactive'
+import type { UIShowStyleBase } from '@sofie-automation/corelib/src/dataModel/ShowStyleBase.js'
+import type { PartInstance } from '@sofie-automation/corelib/src/dataModel/PartInstance.js'
 
 export type { AdLibPieceUi } from '@sofie-automation/meteor-lib/dist/uiTypes/Adlib'
 
@@ -60,10 +64,11 @@ export function getNextPiecesReactive(
 		}).fetch()
 	}
 
+	const partTimes = createPartCurrentTimes(getCurrentTimeReactive(), null)
 	prospectivePieceInstances = processAndPrunePieceInstanceTimings(
 		showsStyleBase.sourceLayers,
 		prospectivePieceInstances,
-		0
+		partTimes
 	)
 
 	return prospectivePieceInstances

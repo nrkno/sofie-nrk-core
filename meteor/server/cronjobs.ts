@@ -26,14 +26,17 @@ import {
 	translateMessage,
 } from '@sofie-automation/corelib/dist/TranslatableMessage'
 import { applyAndValidateOverrides } from '@sofie-automation/corelib/dist/settings/objectWithOverrides'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import { StudioId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 
 const lowPrioFcn = (fcn: () => any) => {
 	// Do it at a random time in the future:
-	Meteor.setTimeout(() => {
-		fcn()
-	}, Math.random() * 10 * 1000)
+	Meteor.setTimeout(
+		() => {
+			fcn()
+		},
+		Math.random() * 10 * 1000
+	)
 }
 /** Returns true if it is "low-season" (like during the night) when it is suitable to run cronjobs */
 function isLowSeason() {

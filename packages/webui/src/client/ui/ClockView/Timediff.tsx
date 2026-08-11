@@ -1,10 +1,10 @@
 import ClassNames from 'classnames'
-import { RundownUtils } from '../../lib/rundown'
+import { RundownUtils } from '../../lib/rundown.js'
 
 export function Timediff({ time: rawTime }: { time: number }): JSX.Element {
 	const time = -rawTime
 	const isNegative = Math.floor(time / 1000) > 0
-	const timeString = RundownUtils.formatDiffToTimecode(time, true, false, true, false, true, '', false, true)
+	const timeString = RundownUtils.formatDiffToTimecodeCountdown(time)
 
 	return (
 		<span

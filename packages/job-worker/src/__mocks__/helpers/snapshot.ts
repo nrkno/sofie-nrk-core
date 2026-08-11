@@ -3,11 +3,11 @@ import { DBPartInstance } from '@sofie-automation/corelib/dist/dataModel/PartIns
 import { Piece } from '@sofie-automation/corelib/dist/dataModel/Piece'
 import { PieceInstance } from '@sofie-automation/corelib/dist/dataModel/PieceInstance'
 import { DBRundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import { DBSegment } from '@sofie-automation/corelib/dist/dataModel/Segment'
 import { TimelineObjGeneric, TimelineComplete } from '@sofie-automation/corelib/dist/dataModel/Timeline'
 import { clone } from '@sofie-automation/corelib/dist/lib'
-import * as _ from 'underscore'
+import _ from 'underscore'
 
 // About snapshot testing: https://jestjs.io/docs/en/snapshot-testing
 

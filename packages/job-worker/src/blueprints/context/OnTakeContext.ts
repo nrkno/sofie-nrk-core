@@ -1,5 +1,6 @@
 import {
 	IBlueprintMutatablePart,
+	IBlueprintMutatablePartInstance,
 	IBlueprintPart,
 	IBlueprintPartInstance,
 	IBlueprintPiece,
@@ -12,24 +13,41 @@ import {
 	TSR,
 	IBlueprintPlayoutDevice,
 	IOnTakeContext,
+	IBlueprintSegmentDB,
 } from '@sofie-automation/blueprints-integration'
 import { PeripheralDeviceId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { ReadonlyDeep } from 'type-fest'
-import { PlayoutModel } from '../../playout/model/PlayoutModel'
-import { ContextInfo } from './CommonContext'
-import { ShowStyleUserContext } from './ShowStyleUserContext'
-import { WatchedPackagesHelper } from './watchedPackages'
-import { getCurrentTime } from '../../lib'
-import { JobContext, ProcessedShowStyleCompound } from '../../jobs'
-import { executePeripheralDeviceAction, listPlayoutDevices } from '../../peripheralDevice'
-import { ActionPartChange, PartAndPieceInstanceActionService } from './services/PartAndPieceInstanceActionService'
+import { PlayoutModel } from '../../playout/model/PlayoutModel.js'
+import { ContextInfo } from './CommonContext.js'
+import { ShowStyleUserContext } from './ShowStyleUserContext.js'
+import { WatchedPackagesHelper } from './watchedPackages.js'
+import { getCurrentTime } from '../../lib/index.js'
+import { JobContext, ProcessedShowStyleCompound } from '../../jobs/index.js'
+import { executePeripheralDeviceAction, listPlayoutDevices } from '../../peripheralDevice.js'
+import {
+	ActionPartChange,
+	PartAndPieceInstanceActionService,
+	QueueablePartAndPieces,
+} from './services/PartAndPieceInstanceActionService.js'
 import { BlueprintQuickLookInfo } from '@sofie-automation/blueprints-integration/dist/context/quickLoopInfo'
+import { getOrderedPartsAfterPlayhead } from '../../playout/lookahead/util.js'
+import { convertPartToBlueprints, emitIngestOperation } from './lib.js'
+import type { IPlaylistTTimer } from '@sofie-automation/blueprints-integration/dist/context/tTimersContext'
+import { TTimersService } from './services/TTimersService.js'
+import type { RundownTTimerIndex } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/TTimers'
 
 export class OnTakeContext extends ShowStyleUserContext implements IOnTakeContext, IEventContext {
+	readonly #tTimersService: TTimersService
+
 	public isTakeAborted: boolean
+	public partToQueueAfterTake: QueueablePartAndPieces | undefined
 
 	public get quickLoopInfo(): BlueprintQuickLookInfo | null {
 		return this.partAndPieceInstanceService.quickLoopInfo
+	}
+
+	public get isRehearsal(): boolean {
+		return this._playoutModel.playlist.rehearsal ?? false
 	}
 
 	public get currentPartState(): ActionPartChange {
@@ -49,6 +67,11 @@ export class OnTakeContext extends ShowStyleUserContext implements IOnTakeContex
 	) {
 		super(contextInfo, _context, showStyle, watchedPackages)
 		this.isTakeAborted = false
+		this.#tTimersService = TTimersService.withPlayoutModel(_playoutModel, _context)
+	}
+
+	async getUpcomingParts(limit: number = 5): Promise<ReadonlyDeep<IBlueprintPart[]>> {
+		return getOrderedPartsAfterPlayhead(this._context, this._playoutModel, limit).map(convertPartToBlueprints)
 	}
 
 	abortTake(): void {
@@ -63,6 +86,9 @@ export class OnTakeContext extends ShowStyleUserContext implements IOnTakeContex
 	}
 	async getResolvedPieceInstances(part: 'current' | 'next'): Promise<IBlueprintResolvedPieceInstance[]> {
 		return this.partAndPieceInstanceService.getResolvedPieceInstances(part)
+	}
+	async getSegment(segment: 'current' | 'next'): Promise<IBlueprintSegmentDB | undefined> {
+		return this.partAndPieceInstanceService.getSegment(segment)
 	}
 
 	async findLastPieceOnLayer(
@@ -106,15 +132,16 @@ export class OnTakeContext extends ShowStyleUserContext implements IOnTakeContex
 
 	async updatePartInstance(
 		part: 'current' | 'next',
-		props: Partial<IBlueprintMutatablePart>
+		props: Partial<IBlueprintMutatablePart>,
+		instanceProps: Partial<IBlueprintMutatablePartInstance> = {}
 	): Promise<IBlueprintPartInstance> {
-		return this.partAndPieceInstanceService.updatePartInstance(part, props)
+		return this.partAndPieceInstanceService.updatePartInstance(part, props, instanceProps)
 	}
 
-	async stopPiecesOnLayers(sourceLayerIds: string[], timeOffset?: number | undefined): Promise<string[]> {
+	async stopPiecesOnLayers(sourceLayerIds: string[], timeOffset?: number): Promise<string[]> {
 		return this.partAndPieceInstanceService.stopPiecesOnLayers(sourceLayerIds, timeOffset)
 	}
-	async stopPieceInstances(pieceInstanceIds: string[], timeOffset?: number | undefined): Promise<string[]> {
+	async stopPieceInstances(pieceInstanceIds: string[], timeOffset?: number): Promise<string[]> {
 		return this.partAndPieceInstanceService.stopPieceInstances(pieceInstanceIds, timeOffset)
 	}
 	async removePieceInstances(part: 'current' | 'next', pieceInstanceIds: string[]): Promise<string[]> {
@@ -144,12 +171,37 @@ export class OnTakeContext extends ShowStyleUserContext implements IOnTakeContex
 	async executeTSRAction(
 		deviceId: PeripheralDeviceId,
 		actionId: string,
-		payload: Record<string, any>
+		payload: Record<string, any>,
+		timeoutMs?: number
 	): Promise<TSR.ActionExecutionResult> {
-		return executePeripheralDeviceAction(this._context, deviceId, null, actionId, payload)
+		return executePeripheralDeviceAction(this._context, deviceId, timeoutMs ?? null, actionId, payload)
+	}
+
+	queuePartAfterTake(rawPart: IBlueprintPart, rawPieces: IBlueprintPiece[]): void {
+		const currentPartInstance = this._playoutModel.currentPartInstance
+		if (!currentPartInstance) {
+			throw new Error('Cannot queue part when no current partInstance')
+		}
+		this.partToQueueAfterTake = this.partAndPieceInstanceService.processPartAndPiecesToQueueOrFail(
+			rawPart,
+			rawPieces,
+			this._playoutModel.currentPartInstance.partInstance.rundownId,
+			this._playoutModel.currentPartInstance.partInstance.segmentId
+		)
+	}
+
+	async emitIngestOperation(operation: unknown): Promise<void> {
+		await emitIngestOperation(this._context, this._playoutModel, operation)
 	}
 
 	getCurrentTime(): number {
 		return getCurrentTime()
+	}
+
+	getTimer(index: RundownTTimerIndex): IPlaylistTTimer {
+		return this.#tTimersService.getTimer(index)
+	}
+	clearAllTimers(): void {
+		this.#tTimersService.clearAllTimers()
 	}
 }

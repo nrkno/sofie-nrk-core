@@ -1,6 +1,6 @@
-import { IDirectCollections } from '../db'
+import { IDirectCollections } from '../db/index.js'
 import { ReadonlyDeep } from 'type-fest'
-import { WrappedShowStyleBlueprint, WrappedStudioBlueprint } from '../blueprints/cache'
+import { WrappedShowStyleBlueprint, WrappedStudioBlueprint } from '../blueprints/cache.js'
 import {
 	RundownId,
 	RundownPlaylistId,
@@ -8,21 +8,34 @@ import {
 	ShowStyleVariantId,
 	StudioId,
 } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { ApmSpan } from '../profiler'
+import { ApmSpan } from '../profiler.js'
 import { IngestJobFunc } from '@sofie-automation/corelib/dist/worker/ingest'
 import { EventsJobFunc } from '@sofie-automation/corelib/dist/worker/events'
 import { DBStudio } from '@sofie-automation/corelib/dist/dataModel/Studio'
-import { ProcessedShowStyleConfig, ProcessedStudioConfig } from '../blueprints/config'
+import { ProcessedShowStyleConfig, ProcessedStudioConfig } from '../blueprints/config.js'
 import { StudioJobFunc } from '@sofie-automation/corelib/dist/worker/studio'
-import { PlaylistLock, RundownLock } from './lock'
-import { BaseModel } from '../modelBase'
+import { PlaylistLock, RundownLock } from './lock.js'
+import { BaseModel } from '../modelBase.js'
 import { TimelineComplete } from '@sofie-automation/corelib/dist/dataModel/Timeline'
-import { ProcessedShowStyleBase, ProcessedShowStyleVariant, ProcessedShowStyleCompound } from './showStyle'
-import { JobStudio } from './studio'
+import { ProcessedShowStyleBase, ProcessedShowStyleVariant, ProcessedShowStyleCompound } from './showStyle.js'
+import { JobStudio } from './studio.js'
 
 export { ApmSpan }
 export { ProcessedShowStyleVariant, ProcessedShowStyleBase, ProcessedShowStyleCompound }
 export { JobStudio }
+
+export interface QueueJobOptions {
+	/**
+	 * The job should be run with a low priority, allowing other operations to be run first
+	 */
+	lowPriority?: boolean
+
+	/**
+	 * Debounce execution, delaying execution for at least this wait time (in ms).
+	 * If the job is already queued, it will not be queued again
+	 */
+	debounce?: number
+}
 
 /**
  * Context for any job run in the job-worker
@@ -54,7 +67,11 @@ export interface JobContext extends StudioCacheContext {
 	 * @param data Data for the job
 	 * @returns Promise which resolves once successfully queued
 	 */
-	queueStudioJob<T extends keyof StudioJobFunc>(name: T, data: Parameters<StudioJobFunc[T]>[0]): Promise<void>
+	queueStudioJob<T extends keyof StudioJobFunc>(
+		name: T,
+		data: Parameters<StudioJobFunc[T]>[0],
+		options?: QueueJobOptions
+	): Promise<void>
 	/**
 	 * Queue an Event job to be run
 	 * It is not possible to wait for the result. This ensures the threads don't get deadlocked

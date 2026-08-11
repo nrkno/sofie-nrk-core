@@ -1,4 +1,4 @@
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import { UserError, UserErrorMessage } from '@sofie-automation/corelib/dist/error'
 import {
 	ActivateRundownPlaylistProps,
@@ -6,14 +6,15 @@ import {
 	PrepareRundownForBroadcastProps,
 	ResetRundownPlaylistProps,
 } from '@sofie-automation/corelib/dist/worker/studio'
-import { JobContext } from '../jobs'
-import { runJobWithPlayoutModel } from './lock'
-import { getActiveRundownPlaylistsInStudioFromDb } from '../studio/lib'
+import { JobContext } from '../jobs/index.js'
+import { runJobWithPlayoutModel } from './lock.js'
+import { resetRundownPlaylist } from './lib.js'
+import { getActiveRundownPlaylistsInStudioFromDb } from '../studio/lib.js'
 import {
 	activateRundownPlaylist,
 	deactivateRundownPlaylist,
 	deactivateRundownPlaylistInner,
-} from './activePlaylistActions'
+} from './activePlaylistActions.js'
 import { ReadonlyDeep } from 'type-fest'
 
 async function checkNoOtherPlaylistsActive(
@@ -106,7 +107,17 @@ export async function handleResetRundownPlaylist(context: JobContext, data: Rese
 			}
 		},
 		async (playoutModel) => {
-			await activateRundownPlaylist(context, playoutModel, data.activate !== 'active', true) // Activate rundown
+			if (playoutModel.playlist.activationId || data.activate !== undefined) {
+				const goToRehearsal =
+					data.activate === undefined
+						? (playoutModel.playlist.rehearsal ?? false)
+						: data.activate === 'rehearsal'
+
+				await activateRundownPlaylist(context, playoutModel, goToRehearsal, true) // Activate rundown
+			} else {
+				// If the Playlist is inactive, and we are not activating it, just reset it:
+				await resetRundownPlaylist(context, playoutModel)
+			}
 		}
 	)
 }

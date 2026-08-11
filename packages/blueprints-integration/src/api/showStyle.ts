@@ -1,4 +1,4 @@
-import type { ActionUserData, IBlueprintActionManifest } from '../action'
+import type { ActionUserData, IBlueprintActionManifest } from '../action.js'
 import type {
 	IActionExecutionContext,
 	ISyncIngestUpdateToPartInstanceContext,
@@ -18,10 +18,12 @@ import type {
 	IFixUpConfigContext,
 	IOnTakeContext,
 	IOnSetAsNextContext,
-} from '../context'
-import type { IngestAdlib, ExtendedIngestRundown, IngestRundown } from '../ingest'
-import type { IBlueprintExternalMessageQueueObj } from '../message'
-import type {} from '../migrations'
+	IExternalEventContext,
+	IPlaylistSnapshotCreatedContext,
+	IBlueprintPlaylistSnapshotInfo,
+} from '../context/index.js'
+import type { IngestAdlib, ExtendedIngestRundown, IngestRundown } from '../ingest.js'
+import type { IBlueprintExternalMessageQueueObj } from '../message.js'
 import type {
 	IBlueprintAdLibPiece,
 	IBlueprintResolvedPieceInstance,
@@ -35,26 +37,34 @@ import type {
 	IBlueprintSegment,
 	IBlueprintPiece,
 	IBlueprintPart,
-} from '../documents'
-import type { IBlueprintShowStyleVariant, IOutputLayer, ISourceLayer } from '../showStyle'
-import type { TSR, OnGenerateTimelineObj, TimelineObjectCoreExt } from '../timeline'
-import type { IBlueprintConfig } from '../common'
-import type { ReadonlyDeep } from 'type-fest'
+	IBlueprintRundownPiece,
+	IBlueprintRundownPieceDB,
+} from '../documents/index.js'
+import type { IBlueprintShowStyleVariant, IOutputLayer, ISourceLayer } from '../showStyle.js'
+import type { SourceLayerType } from '../content.js'
+import type { TSR, OnGenerateTimelineObj, TimelineObjectCoreExt } from '../timeline.js'
+import type { IBlueprintConfig } from '../common.js'
+import type { JsonValue, ReadonlyDeep } from 'type-fest'
 import type { JSONSchema } from '@sofie-automation/shared-lib/dist/lib/JSONSchemaTypes'
 import type { JSONBlob } from '@sofie-automation/shared-lib/dist/lib/JSONBlob'
-import type { BlueprintConfigCoreConfig, BlueprintManifestBase, BlueprintManifestType, IConfigMessage } from './base'
-import type { IBlueprintTriggeredActions } from '../triggers'
-import type { ExpectedPackage } from '../package'
-import type { ABResolverConfiguration } from '../abPlayback'
-import type { SofieIngestSegment } from '../ingest-types'
+import type { BlueprintConfigCoreConfig, BlueprintManifestBase, BlueprintManifestType, IConfigMessage } from './base.js'
+import type { IBlueprintTriggeredActions } from '../triggers.js'
+import type { ExpectedPackage } from '../package.js'
+import type { ABResolverConfiguration } from '../abPlayback.js'
+import type { SofieIngestSegment } from '../ingest-types.js'
 import { PackageStatusMessage } from '@sofie-automation/shared-lib/dist/packageStatusMessages'
+import { BlueprintPlayoutPersistentStore } from '../context/playoutStore.js'
+import type { ITranslatableMessage } from '../translations.js'
+import type { BlueprintExternalEvent, BlueprintExternalEventSubscription } from '../externalEvent.js'
 
 export { PackageStatusMessage }
 
 export type TimelinePersistentState = unknown
 
-export interface ShowStyleBlueprintManifest<TRawConfig = IBlueprintConfig, TProcessedConfig = unknown>
-	extends BlueprintManifestBase {
+export interface ShowStyleBlueprintManifest<
+	TRawConfig = IBlueprintConfig,
+	TProcessedConfig = unknown,
+> extends BlueprintManifestBase {
 	blueprintType: BlueprintManifestType.SHOWSTYLE
 
 	/** A list of config items this blueprint expects to be available on the ShowStyle */
@@ -111,8 +121,8 @@ export interface ShowStyleBlueprintManifest<TRawConfig = IBlueprintConfig, TProc
 		context: ISyncIngestUpdateToPartInstanceContext,
 		existingPartInstance: BlueprintSyncIngestPartInstance,
 		newData: BlueprintSyncIngestNewData,
-
-		playoutStatus: 'previous' | 'current' | 'next'
+		playoutStatus: 'previous' | 'current' | 'next',
+		playoutPersistentState: BlueprintPlayoutPersistentStore<TimelinePersistentState>
 	) => void
 
 	/**
@@ -127,16 +137,28 @@ export interface ShowStyleBlueprintManifest<TRawConfig = IBlueprintConfig, TProc
 		triggerMode?: string
 	) => Promise<void>
 
+	/**
+	 * Handle a batch of external events (e.g. TSR device state changes).
+	 * Called when one or more events matching the rundown's {@link BlueprintResultRundown.externalEventSubscriptions} are received.
+	 * Events are batched to avoid queuing a handler per event during bursts.
+	 */
+	onExternalEvent?: (
+		context: IExternalEventContext,
+		playoutPersistentState: BlueprintPlayoutPersistentStore<TimelinePersistentState>,
+		events: BlueprintExternalEvent[]
+	) => Promise<void>
+
 	/** Execute an action defined by an IBlueprintActionManifest */
 	executeAction?: (
 		context: IActionExecutionContext,
+		playoutPersistentState: BlueprintPlayoutPersistentStore<TimelinePersistentState>,
 		actionId: string,
 		userData: ActionUserData,
 		triggerMode: string | undefined,
-		privateData?: unknown,
-		publicData?: unknown,
-		actionOptions?: { [key: string]: any }
-	) => Promise<{ validationErrors: any } | void>
+		privateData: unknown | undefined,
+		publicData: unknown | undefined,
+		actionOptions: { [key: string]: any } | undefined
+	) => Promise<BlueprintExecuteActionResult | void>
 
 	/** Generate adlib piece from ingest data */
 	getAdlibItem?: (
@@ -195,13 +217,35 @@ export interface ShowStyleBlueprintManifest<TRawConfig = IBlueprintConfig, TProc
 	// Events
 
 	/**
-	 * Called when a RundownPlaylist has been activated
-	 * Note: Prior to this being called, onRundownReset might have been called
+	 * Called after a rundown playlist snapshot has been generated, before Meteor persists the snapshot file.
+	 *
+	 * Use this to run show-specific side effects (e.g. TSR actions) when a playlist snapshot is taken.
+	 * The callback receives {@link IPlaylistSnapshotCreatedContext} with `listPlayoutDevices` and `executeTSRAction`.
+	 *
+	 * For playlists containing multiple rundowns, only one show-style blueprint is invoked per snapshot:
+	 * current part, then next part, then first rundown by name.
+	 *
+	 * Errors are logged by Core and do not fail snapshot generation or storage.
+	 *
+	 * @param context Show-style and studio context with TSR actions for the studio worker job.
+	 * @param info Metadata about the snapshot (not the snapshot JSON).
+	 */
+	onPlaylistSnapshotCreated?: (
+		context: IPlaylistSnapshotCreatedContext,
+		info: IBlueprintPlaylistSnapshotInfo
+	) => Promise<void>
+
+	/**
+	 * Called at the final stage of RundownPlaylist activation, before the updated timeline is submitted to the Playout Gateway,
+	 * This is a good place to prepare any external systems for the rundown going live.
 	 */
 	onRundownActivate?: (context: IRundownActivationContext) => Promise<void>
 	/** Called upon the first take in a RundownPlaylist */
 	onRundownFirstTake?: (context: IPartEventContext) => Promise<void>
-	/** Called when a RundownPlaylist has been deactivated */
+	/**
+	 * Called at the final stage of RundownPlaylist deactivation, before the updated timeline is submitted to the Playout Gateway,
+	 * This is a good place to prepare any external systems for the rundown going offline.
+	 */
 	onRundownDeActivate?: (context: IRundownActivationContext) => Promise<void>
 
 	/** Called before a Take action */
@@ -210,21 +254,30 @@ export interface ShowStyleBlueprintManifest<TRawConfig = IBlueprintConfig, TProc
 	 * Called during a Take action.
 	 * Allows for part modification or aborting the take.
 	 */
-	onTake?: (context: IOnTakeContext) => Promise<void>
+	onTake?: (
+		context: IOnTakeContext,
+		playoutPersistentState: BlueprintPlayoutPersistentStore<TimelinePersistentState>
+	) => Promise<void>
 	/** Called after a Take action */
-	onPostTake?: (context: IPartEventContext) => Promise<void>
+	onPostTake?: (
+		context: IPartEventContext,
+		playoutPersistentState: BlueprintPlayoutPersistentStore<TimelinePersistentState>
+	) => Promise<void>
 
 	/**
 	 * Called when a part is set as Next, including right after a Take.
 	 * Allows for part modification.
 	 */
-	onSetAsNext?: (context: IOnSetAsNextContext) => Promise<void>
+	onSetAsNext?: (
+		context: IOnSetAsNextContext,
+		playoutPersistentState: BlueprintPlayoutPersistentStore<TimelinePersistentState>
+	) => Promise<void>
 
 	/** Called after the timeline has been generated, used to manipulate the timeline */
 	onTimelineGenerate?: (
 		context: ITimelineEventContext,
 		timeline: OnGenerateTimelineObj<TSR.TSRTimelineContent>[],
-		previousPersistentState: TimelinePersistentState | undefined,
+		playoutPersistentState: BlueprintPlayoutPersistentStore<TimelinePersistentState>,
 		previousPartEndState: PartEndState | undefined,
 		resolvedPieces: IBlueprintResolvedPieceInstance[]
 	) => Promise<BlueprintResultTimeline>
@@ -235,7 +288,7 @@ export interface ShowStyleBlueprintManifest<TRawConfig = IBlueprintConfig, TProc
 	/** Called just before taking the next part. This generates some persisted data used by onTimelineGenerate to modify the timeline based on the previous part (eg, persist audio levels) */
 	getEndStateForPart?: (
 		context: IRundownContext,
-		previousPersistentState: TimelinePersistentState | undefined,
+		playoutPersistentState: BlueprintPlayoutPersistentStore<TimelinePersistentState>,
 		partInstance: IBlueprintPartInstance,
 		resolvedPieces: IBlueprintResolvedPieceInstance[],
 		time: number
@@ -255,7 +308,6 @@ export interface ShowStyleBlueprintManifest<TRawConfig = IBlueprintConfig, TProc
 
 export interface BlueprintResultTimeline {
 	timeline: OnGenerateTimelineObj<TSR.TSRTimelineContent>[]
-	persistentState: TimelinePersistentState
 }
 export interface BlueprintResultBaseline {
 	timelineObjects: TimelineObjectCoreExt<TSR.TSRTimelineContent>[]
@@ -266,7 +318,10 @@ export interface BlueprintResultRundown {
 	rundown: IBlueprintRundown
 	globalAdLibPieces: IBlueprintAdLibPiece[]
 	globalActions: IBlueprintActionManifest[]
+	globalPieces?: IBlueprintRundownPiece[]
 	baseline: BlueprintResultBaseline
+	/** Subscriptions to external events (e.g. TSR device state changes) for this rundown */
+	externalEventSubscriptions?: BlueprintExternalEventSubscription[]
 }
 export interface BlueprintResultSegment {
 	segment: IBlueprintSegment
@@ -281,6 +336,15 @@ export interface BlueprintResultPart {
 }
 
 export interface BlueprintSyncIngestNewData {
+	/** All parts in the rundown, including the new/updated part */
+	allParts: IBlueprintPartDB[]
+	/**
+	 * An approximate index of the current part in the allParts array
+	 * Note: this will not always be an integer, such as when the part is an adlib part
+	 * `null` means the part could not be placed
+	 */
+	currentPartIndex: number | null
+
 	// source: BlueprintSyncIngestDataSource
 	/** The new part */
 	part: IBlueprintPartDB | undefined
@@ -292,6 +356,11 @@ export interface BlueprintSyncIngestNewData {
 	actions: IBlueprintActionManifest[]
 	/** A list of adlibs that have pieceInstances in the partInstance in question */
 	referencedAdlibs: IBlueprintAdLibPieceDB[]
+	/**
+	 * The list of pieces which belong to the Rundown, and may be active
+	 * Note: Some of these may have played and been stopped before the current PartInstance
+	 */
+	rundownPieces: IBlueprintRundownPieceDB[]
 }
 
 // TODO: add something like this later?
@@ -317,6 +386,19 @@ export interface BlueprintResultApplyShowStyleConfig {
 	outputLayers: IOutputLayer[]
 
 	triggeredActions: IBlueprintTriggeredActions[]
+
+	/** Configuration for displaying AB resolver channel assignments */
+	abChannelDisplay?: {
+		/** Source layer IDs that should show AB channel info */
+		sourceLayerIds: string[]
+		/** Configure by source layer type */
+		sourceLayerTypes: SourceLayerType[]
+		/** Only show for specific output layers (e.g., only PGM) */
+		outputLayerIds: string[]
+		/** Enable display on Director screen */
+		showOnDirectorScreen: boolean
+		// Future: showOnPresenterScreen, showOnCameraScreen when those views are implemented
+	}
 }
 
 export interface IShowStyleConfigPreset<TConfig = IBlueprintConfig> {
@@ -331,4 +413,21 @@ export interface IShowStyleVariantConfigPreset<TConfig = IBlueprintConfig> {
 	name: string
 
 	config: Partial<TConfig>
+}
+
+export interface BlueprintExecuteActionResult {
+	/**
+	 * User friendly error message to return to the caller if the action was rejected.
+	 */
+	message: ITranslatableMessage
+
+	/**
+	 * HTTP error code for the action. If set, must be in the range 400-499
+	 */
+	errorCode?: number
+
+	/**
+	 * Additional details payload to provide to the caller
+	 */
+	details?: JsonValue
 }

@@ -1,21 +1,29 @@
 import type { AbPlayerId, ABResolverOptions } from '@sofie-automation/blueprints-integration'
 import { clone } from '@sofie-automation/corelib/dist/lib'
-import * as _ from 'underscore'
+import _ from 'underscore'
 
 export interface SessionRequest {
 	readonly id: string
+	readonly name: string
 	readonly start: number
 	readonly end: number | undefined
 	readonly optional?: boolean
 	readonly lookaheadRank?: number
 	playerId?: AbPlayerId
+	pieceNames: string[]
+}
+
+export interface FailedSession {
+	id: string
+	name: string
+	pieceNames: string[]
 }
 
 export interface AssignmentResult {
 	/** Any non-optional sessions which were not assigned a player */
-	failedRequired: string[]
+	failedRequired: FailedSession[]
 	/** Any optional sessions which were not assigned a player */
-	failedOptional: string[]
+	failedOptional: FailedSession[]
 	/** All of the requests with their player assignments set */
 	requests: Readonly<SessionRequest[]>
 }
@@ -312,9 +320,9 @@ export function resolveAbAssignmentsFromRequests(
 			if (req.lookaheadRank !== undefined) {
 				// ignore
 			} else if (req.optional) {
-				res.failedOptional.push(req.id)
+				res.failedOptional.push({ id: req.id, name: req.name, pieceNames: req.pieceNames })
 			} else {
-				res.failedRequired.push(req.id)
+				res.failedRequired.push({ id: req.id, name: req.name, pieceNames: req.pieceNames })
 			}
 		}
 	}
@@ -353,6 +361,8 @@ function assignPlayersForLookahead(
 		Array.from(lastSessionPerSlot.entries()),
 		(session) => session[1] < safeNow
 	)
+	// We want to assign the ones that are clear soonest first, as they are more likely to be ready in time
+	playersClearSoon.sort((endA, endB) => endA[1] - endB[1])
 
 	// Assign the players which are clear right now
 	const playersClearNowIds = new Set(playersClearNow.map((p) => p[0]))

@@ -1,24 +1,24 @@
-import { IDirectCollections } from '../../db'
-import { JobContext, JobStudio } from '../../jobs'
-import { WorkerDataCache } from '../caches'
+import { IDirectCollections } from '../../db/index.js'
+import { JobContext, JobStudio, QueueJobOptions } from '../../jobs/index.js'
+import { WorkerDataCache } from '../caches.js'
 import { RundownId, RundownPlaylistId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { getIngestQueueName, IngestJobFunc } from '@sofie-automation/corelib/dist/worker/ingest'
-import { ApmSpan, ApmTransaction } from '../../profiler'
+import { ApmSpan, ApmTransaction } from '../../profiler.js'
 import { getRandomString } from '@sofie-automation/corelib/dist/lib'
 import { stringifyError } from '@sofie-automation/shared-lib/dist/lib/stringifyError'
 import { getStudioQueueName, StudioJobFunc } from '@sofie-automation/corelib/dist/worker/studio'
-import { LockBase, PlaylistLock, RundownLock } from '../../jobs/lock'
-import { logger } from '../../logging'
-import { BaseModel } from '../../modelBase'
-import { LocksManager } from '../locks'
+import { LockBase, PlaylistLock, RundownLock } from '../../jobs/lock.js'
+import { logger } from '../../logging.js'
+import { BaseModel } from '../../modelBase.js'
+import { LocksManager } from '../locks.js'
 import { unprotectString } from '@sofie-automation/corelib/dist/protectedString'
 import { EventsJobFunc, getEventsQueueName } from '@sofie-automation/corelib/dist/worker/events'
-import { FastTrackTimelineFunc } from '../../main'
+import { FastTrackTimelineFunc } from '../../main.js'
 import { TimelineComplete } from '@sofie-automation/corelib/dist/dataModel/Timeline'
-import type { QueueJobFunc } from './util'
-import { StudioCacheContextImpl } from './StudioCacheContextImpl'
-import { PlaylistLockImpl, RundownLockImpl } from './Locks'
-import { StudioRouteSetUpdater } from './StudioRouteSetUpdater'
+import type { QueueJobFunc } from './util.js'
+import { StudioCacheContextImpl } from './StudioCacheContextImpl.js'
+import { PlaylistLockImpl, RundownLockImpl } from './Locks.js'
+import { StudioRouteSetUpdater } from './StudioRouteSetUpdater.js'
 import type { DBStudio } from '@sofie-automation/corelib/dist/dataModel/Studio'
 import type { ReadonlyDeep } from 'type-fest'
 
@@ -34,6 +34,7 @@ export class JobContextImpl extends StudioCacheContextImpl implements JobContext
 		private readonly locksManager: LocksManager,
 		private readonly transaction: ApmTransaction | undefined,
 		private readonly queueJob: QueueJobFunc,
+		private readonly jobName: string,
 		private readonly fastTrackTimeline: FastTrackTimelineFunc | null
 	) {
 		super(directCollections, cacheData)
@@ -126,7 +127,7 @@ export class JobContextImpl extends StudioCacheContextImpl implements JobContext
 			try {
 				cache.assertNoChanges()
 			} catch (e) {
-				logger.warn(`${cache.displayName} has unsaved changes: ${stringifyError(e)}`)
+				logger.warn(`${cache.displayName} from "${this.jobName}" has unsaved changes: ${stringifyError(e)}`)
 			}
 		}
 	}
@@ -137,13 +138,17 @@ export class JobContextImpl extends StudioCacheContextImpl implements JobContext
 	}
 
 	async queueIngestJob<T extends keyof IngestJobFunc>(name: T, data: Parameters<IngestJobFunc[T]>[0]): Promise<void> {
-		await this.queueJob(getIngestQueueName(this.studioId), name, data)
+		await this.queueJob(getIngestQueueName(this.studioId), name, data, undefined)
 	}
-	async queueStudioJob<T extends keyof StudioJobFunc>(name: T, data: Parameters<StudioJobFunc[T]>[0]): Promise<void> {
-		await this.queueJob(getStudioQueueName(this.studioId), name, data)
+	async queueStudioJob<T extends keyof StudioJobFunc>(
+		name: T,
+		data: Parameters<StudioJobFunc[T]>[0],
+		options?: QueueJobOptions
+	): Promise<void> {
+		await this.queueJob(getStudioQueueName(this.studioId), name, data, options)
 	}
 	async queueEventJob<T extends keyof EventsJobFunc>(name: T, data: Parameters<EventsJobFunc[T]>[0]): Promise<void> {
-		await this.queueJob(getEventsQueueName(this.studioId), name, data)
+		await this.queueJob(getEventsQueueName(this.studioId), name, data, undefined)
 	}
 
 	hackPublishTimelineToFastTrack(newTimeline: TimelineComplete): void {

@@ -1,46 +1,51 @@
 import * as React from 'react'
 import { Meteor } from 'meteor/meteor'
-import * as _ from 'underscore'
+import _ from 'underscore'
 import ClassNames from 'classnames'
-import {
+import type {
 	RundownLayoutExternalFrame,
 	RundownLayoutBase,
 	DashboardLayoutExternalFrame,
 } from '@sofie-automation/meteor-lib/dist/collections/RundownLayouts'
-import { RundownLayoutsAPI } from '../../lib/rundownLayouts'
-import { dashboardElementStyle } from './DashboardPanel'
-import { assertNever, getRandomString, literal, protectString } from '../../lib/tempLib'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
-import { PartInstance } from '@sofie-automation/meteor-lib/dist/collections/PartInstances'
-import { parseMosPluginMessageXml, MosPluginMessage } from '../../lib/parsers/mos/mosXml2Js'
+import { RundownLayoutsAPI } from '../../lib/rundownLayouts.js'
+import { dashboardElementStyle } from './DashboardPanel.js'
+import { assertNever, getRandomString, literal } from '@sofie-automation/corelib/dist/lib'
+import { protectString } from '@sofie-automation/shared-lib/dist/lib/protectedString'
+import type { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
+import { parseMosPluginMessageXml, type MosPluginMessage } from '../../lib/parsers/mos/mosXml2Js.js'
 import {
 	createMosAppInfoXmlString,
-	UIMetric as MOSUIMetric,
+	type UIMetric as MOSUIMetric,
 	UIMetricMode as MOSUIMetricMode,
 	Events as MOSEvents,
-} from '../../lib/data/mos/plugin-support'
-import { doUserAction, UserAction } from '../../lib/clientUserAction'
+} from '../../lib/data/mos/plugin-support.js'
+import { doUserAction, UserAction } from '../../lib/clientUserAction.js'
 import { withTranslation } from 'react-i18next'
-import { Translated } from '../../lib/ReactMeteorData/ReactMeteorData'
+import type { Translated } from '../../lib/ReactMeteorData/ReactMeteorData.js'
 import {
-	DefaultUserOperationImportMOSItem,
+	type DefaultUserOperationImportMOSItem,
 	DefaultUserOperationsTypes,
-	IngestAdlib,
+	type IngestAdlib,
 	UserEditingType,
 } from '@sofie-automation/blueprints-integration'
-import { MeteorCall } from '../../lib/meteorApi'
-import { Rundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
-import { Buckets, Rundowns, Segments } from '../../collections'
-import { BucketId, PartInstanceId, RundownId, RundownPlaylistId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { MOS_DATA_IS_STRICT } from '@sofie-automation/meteor-lib/dist/mos'
-import { mosTypes, MOS } from '@sofie-automation/meteor-lib/dist/mos'
-import { RundownPlaylistCollectionUtil } from '../../collections/rundownPlaylistUtil'
-import { logger } from '../../lib/logging'
+import { MeteorCall } from '../../lib/meteorApi.js'
+import type { Rundown } from '@sofie-automation/corelib/dist/dataModel/Rundown.js'
+import { Buckets, Rundowns, Segments } from '../../collections/index.js'
+import type {
+	BucketId,
+	PartInstanceId,
+	RundownId,
+	RundownPlaylistId,
+} from '@sofie-automation/corelib/dist/dataModel/Ids'
+import { MOS_DATA_IS_STRICT, mosTypes, MOS } from '@sofie-automation/meteor-lib/dist/mos'
+import { RundownPlaylistCollectionUtil } from '../../collections/rundownPlaylistUtil.js'
+import { logger } from '../../lib/logging.js'
 import RundownViewEventBus, {
-	ItemDroppedEvent,
+	type ItemDroppedEvent,
 	RundownViewEvents,
 } from '@sofie-automation/meteor-lib/dist/triggers/RundownViewEventBus'
-import { UIPartInstances, UIParts } from '../Collections'
+import { UIPartInstances, UIParts } from '../Collections.js'
+import type { PartInstance } from '@sofie-automation/corelib/src/dataModel/PartInstance.js'
 
 interface IProps {
 	layout: RundownLayoutBase
@@ -100,7 +105,7 @@ interface CurrentNextPartChangedSofieExternalMessage extends SofieExternalMessag
 	}
 }
 
-export const ExternalFramePanel = withTranslation()(
+export const ExternalFramePanel: React.ComponentType<IProps> = withTranslation()(
 	class ExternalFramePanel extends React.Component<Translated<IProps>> {
 		frame: HTMLIFrameElement | null = null
 		mounted = false
@@ -113,7 +118,9 @@ export const ExternalFramePanel = withTranslation()(
 
 		awaitingReply: {
 			[key: string]: {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
 				resolve: Function
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
 				reject: Function
 			}
 		} = {}
@@ -331,8 +338,8 @@ export const ExternalFramePanel = withTranslation()(
 			const name = mosItem.Slug
 				? mosTypes.mosString128.stringify(mosItem.Slug)
 				: mosItem.ObjectSlug
-				? mosTypes.mosString128.stringify(mosItem.ObjectSlug)
-				: ''
+					? mosTypes.mosString128.stringify(mosItem.ObjectSlug)
+					: ''
 
 			doUserAction(t, e, UserAction.INGEST_BUCKET_ADLIB, (e, ts) =>
 				MeteorCall.userAction.bucketAdlibImport(
@@ -593,11 +600,10 @@ export const ExternalFramePanel = withTranslation()(
 
 		unregisterHandlers = () => {
 			document.removeEventListener('keydown', this.onKeyEvent)
-			document.removeEventListener('keydown', this.onKeyEvent)
+			document.removeEventListener('keyup', this.onKeyEvent)
 
 			document.removeEventListener('dragover', this.onDragOver)
 			document.removeEventListener('dragenter', this.onDragEnter)
-			document.removeEventListener('dragleave', this.onDragLeave)
 			document.removeEventListener('dragexit', this.onDragLeave)
 			document.removeEventListener('drop', this.onDrop)
 		}
@@ -656,8 +662,8 @@ export const ExternalFramePanel = withTranslation()(
 					const name = mosItem.Slug
 						? mosTypes.mosString128.stringify(mosItem.Slug)
 						: mosItem.ObjectSlug
-						? mosTypes.mosString128.stringify(mosItem.ObjectSlug)
-						: ''
+							? mosTypes.mosString128.stringify(mosItem.ObjectSlug)
+							: ''
 
 					return MeteorCall.userAction.bucketAdlibImport(
 						e,

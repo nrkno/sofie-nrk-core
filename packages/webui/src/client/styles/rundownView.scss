@@ -1,4 +1,7 @@
+@use 'sass:color';
+
 @import 'utils';
+@import 'checkerboard';
 
 $output-layer-group-line: 1px solid #5c5c5c;
 $output-layer-group-collapse-animation-duration: 0.3s;
@@ -36,10 +39,13 @@ $previewline-color: rgb(38, 137, 186);
 $segment-timeline-padding: $segment-header-height 0 1.5em 2px;
 
 $segment-layer-height: 1.5em;
-$segment-layer-separator-color: transparentize(#000, 0.5);
+$segment-layer-separator-color: color.scale(#000, $alpha: -50%);
 
 :root {
 	--popdown: 2rem;
+
+	--sofie-segment-layer-hover-popup-border: #838383;
+	--sofie-segment-layer-hover-popup-background: #333333;
 }
 $break-width: 35rem;
 
@@ -68,13 +74,13 @@ $break-width: 35rem;
 
 .segment-timeline-placeholder {
 	position: relative;
-	background: lighten($segment-background-color, 10%);
+	background: color.scale($segment-background-color, $lightness: 10%);
 	background-image: linear-gradient(
 		to right,
-		lighten($segment-background-color, 10%) 0%,
-		lighten($segment-background-color, 14%) 20%,
-		lighten($segment-background-color, 10%) 40%,
-		lighten($segment-background-color, 10%) 100%
+		color.scale($segment-background-color, $lightness: 10%) 0%,
+		color.scale($segment-background-color, $lightness: 14%) 20%,
+		color.scale($segment-background-color, $lightness: 10%) 40%,
+		color.scale($segment-background-color, $lightness: 10%) 100%
 	);
 	background-repeat: repeat-y;
 	background-size: 800px 1px;
@@ -92,7 +98,7 @@ $break-width: 35rem;
 		width: $segment-header-width;
 		left: 0;
 		bottom: 0;
-		background: lighten($segment-title-background-color, 70%);
+		background: color.scale($segment-title-background-color, $lightness: 70%);
 		opacity: 0.1;
 	}
 }
@@ -137,32 +143,18 @@ $break-width: 35rem;
 		}
 	}
 
-	.header.rundown .notification-pop-ups {
-		top: 65px;
-	}
-
-	> .header .rundown-overview {
-		transition: 0s padding-right 0.5s;
-	}
-
 	&.notification-center-open {
 		padding-right: $notification-center-width;
 		transition: 0s padding-right 1s;
-
-		> .header .rundown-overview {
-			padding-right: calc(#{$notification-center-width} + 1.5em);
-			transition: 0s padding-right 1s;
-		}
 	}
 
 	&.properties-panel-open {
-		padding-right: $properties-panel-width;
+		padding-right: calc(#{$properties-panel-width} - 3.5em);
 		transition: 0s padding-right 1s;
+	}
 
-		> .header .rundown-overview {
-			padding-right: calc(#{$properties-panel-width} + 1.5em);
-			transition: 0s padding-right 1s;
-		}
+	.dark {
+		background: #343434;
 	}
 }
 
@@ -178,10 +170,18 @@ body.no-overflow {
 
 @keyframes border-dance {
 	0% {
-		background-position: 0 0, 300px 100%, 0 150px, 100% 0;
+		background-position:
+			0 0,
+			300px 100%,
+			0 150px,
+			100% 0;
 	}
 	100% {
-		background-position: 300px 0, 0 100%, 0 0, 100% 150px;
+		background-position:
+			300px 0,
+			0 100%,
+			0 0,
+			100% 150px;
 	}
 }
 
@@ -191,20 +191,31 @@ body.no-overflow {
 	left: 0;
 	bottom: 0;
 	right: 0;
-
-	background: linear-gradient(
-			-45deg,
-			$color-status-fatal 33%,
-			transparent 33%,
-			transparent 66%,
-			$color-status-fatal 66%
-		),
-		linear-gradient(-45deg, $color-status-fatal 33%, transparent 33%, transparent 66%, $color-status-fatal 66%),
-		linear-gradient(-45deg, $color-status-fatal 33%, transparent 33%, transparent 66%, $color-status-fatal 66%),
-		linear-gradient(-45deg, $color-status-fatal 33%, transparent 33%, transparent 66%, $color-status-fatal 66%);
+	background:
+		linear-gradient(45deg, $color-status-fatal 33%, transparent 33%, transparent 66%, $color-status-fatal 66%),
+		// Top border
+		linear-gradient(45deg, $color-status-fatal 33%, transparent 33%, transparent 66%, $color-status-fatal 66%),
+		// Bottom border
+		linear-gradient(45deg, $color-status-fatal 33%, transparent 33%, transparent 66%, $color-status-fatal 66%),
+		// Left border
+		linear-gradient(
+				45deg,
+				$color-status-fatal 33%,
+				transparent 33%,
+				transparent 66%,
+				$color-status-fatal 66%
+			); // Right border
 	background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
-	background-size: 30px 8px, 30px 8px, 8px 30px, 8px 30px;
-	background-position: 0 0, 100% 100%, 0 100%, 100% 0;
+	background-size:
+		30px 8px,
+		30px 8px,
+		8px 30px,
+		8px 30px;
+	background-position:
+		0 0,
+		100% 100%,
+		0 100%,
+		100% 0;
 	animation: border-dance 3s infinite linear;
 
 	z-index: 10000;
@@ -220,233 +231,8 @@ body.no-overflow {
 	}
 }
 
-.header.rundown {
-	.row {
-		width: 100%;
-
-		&.margin-right {
-			padding-right: $statusbar-width;
-		}
-	}
-
-	.flex-col.col-timing {
-		flex: 1 1;
-	}
-
-	.timing {
-		margin: 0 0;
-		min-width: auto;
-		width: 100%;
-		text-align: center;
-
-		.timing-clock {
-			display: inline;
-			position: relative;
-			margin-right: 1em;
-			font-family: 'Roboto', Helvetica Neue, Arial, sans-serif;
-			font-weight: 100;
-			color: $general-clock;
-			font-size: 1.5em;
-			margin-top: 0.8em;
-			word-break: keep-all;
-			white-space: nowrap;
-
-			&.visual-last-child {
-				margin-right: 0;
-			}
-
-			&.countdown {
-				font-weight: 400;
-			}
-
-			&.playback-started {
-				display: inline-block;
-				width: 25%;
-			}
-
-			&.left {
-				text-align: left;
-			}
-
-			&.time-now {
-				position: absolute;
-				top: 0.05em;
-				left: 50%;
-				transform: translateX(-50%);
-				margin-top: 0px;
-				margin-right: 0;
-				font-size: 2.3em;
-				font-weight: 100;
-				text-align: center;
-			}
-
-			&.current-remaining {
-				position: absolute;
-				left: calc(50% + 3.5em);
-				text-align: left;
-				color: $liveline-timecode-color;
-				font-weight: 500;
-
-				.overtime {
-					color: $general-fast-color;
-					text-shadow: 0px 0px 6px $general-fast-color--shadow;
-				}
-			}
-
-			.timing-clock-label {
-				position: absolute;
-				display: inline;
-				top: -1em;
-				color: #b8b8b8;
-				text-transform: uppercase;
-				white-space: nowrap;
-				font-weight: 300;
-				font-size: 0.5em;
-
-				&.left {
-					left: 0;
-					right: auto;
-					text-align: left;
-				}
-
-				&.right {
-					right: 0;
-					left: auto;
-					text-align: right;
-				}
-
-				&.hide-overflow {
-					overflow: hidden;
-					text-overflow: ellipsis;
-					width: 100%;
-				}
-
-				&.rundown-name {
-					width: auto;
-					max-width: calc(40vw - 138px);
-					min-width: 100%;
-					margin: 0;
-
-					> strong {
-						margin-right: 0.4em;
-					}
-
-					> svg.icon.looping {
-						width: 1.4em;
-						height: 1.4em;
-					}
-				}
-			}
-
-			&.heavy-light {
-				font-weight: 600;
-
-				&.heavy {
-					// color: $general-late-color;
-					color: #ffe900;
-					background: none;
-				}
-
-				&.light {
-					color: $general-fast-color;
-					text-shadow: 0px 0px 6px $general-fast-color--shadow;
-					background: none;
-				}
-			}
-		}
-
-		.rundown__header-status {
-			position: absolute;
-			font-size: 0.7rem;
-			text-transform: uppercase;
-			background: #fff;
-			border-radius: 1rem;
-			line-height: 1em;
-			font-weight: 700;
-			color: #000;
-			top: 2.4em;
-			left: 0;
-			padding: 2px 5px 1px;
-
-			&.rundown__header-status--hold {
-				background: $hold-status-color;
-			}
-		}
-
-		.timing-clock-header-label {
-			font-weight: 100px;
-		}
-	}
-
-	.close {
-		margin: 17px 20px 14px;
-	}
-
-	/* RWD: iPad */
-	@media screen and (max-width: 1024px) {
-		.timing {
-			.timing-clock.plan-end:not(.countdown) {
-				display: none;
-			}
-
-			.timing-clock.countdown.plan-end {
-				margin-right: 0;
-			}
-		}
-	}
-
-	/* RWD: Anything below an iPad */
-	@media screen and (max-width: 1023px) {
-		.timing {
-			.timing-clock.plan-end:not(.countdown),
-			.timing-clock.plan-start:not(.countdown) {
-				display: none;
-			}
-		}
-	}
-
-	@media screen and (max-width: 800px) {
-		.timing {
-			.timing-clock.heavy-light {
-				margin-right: 0;
-			}
-
-			.timing-clock.plan-end {
-				display: none;
-			}
-		}
-	}
-
-	@media screen and (max-width: 600px) {
-		.timing {
-			.timing-clock.plan-start.countdown {
-				display: none;
-			}
-
-			.timing-clock.time-now {
-				left: 2em;
-				transform: none;
-			}
-		}
-	}
-}
-
 .first-row {
 	cursor: default;
-}
-
-.header.rundown.not-active .first-row {
-	background-color: rgb(38, 137, 186);
-}
-.header.rundown.not-active .first-row .timing-clock,
-.header.rundown.not-active .first-row .timing-clock-label {
-	color: #fff !important;
-}
-// .header.rundown.active .first-row  {
-// background-color: #600
-// }
-.header.rundown.active.rehearsal .first-row {
-	background-color: #660;
 }
 
 svg.icon {
@@ -459,6 +245,8 @@ svg.icon {
 	display: grid;
 	grid-column-gap: 0;
 	grid-row-gap: 0;
+	position: relative;
+	z-index: 3;
 
 	grid-template-columns:
 		[segment-name] calc($segment-header-width / 2) [duration-onAirIn-split] calc($segment-header-width / 2)
@@ -504,7 +292,8 @@ svg.icon {
 		padding: 0;
 		overflow: hidden;
 
-		transition: $output-layer-group-collapse-animation-duration opacity,
+		transition:
+			$output-layer-group-collapse-animation-duration opacity,
 			$output-layer-group-collapse-animation-duration visibility 0s;
 
 		background: $segment-title-background-color;
@@ -769,6 +558,9 @@ svg.icon {
 	margin-top: 0.1em;
 	margin-right: 0.1em;
 
+	display: flex;
+	justify-content: center;
+
 	grid-row: header / main-view;
 	grid-column: timeline / end;
 	@media screen and (max-width: $break-width) {
@@ -885,13 +677,16 @@ svg.icon {
 		margin: $segment-header-height 0 1.5em 1em;
 		background: $segment-next-preview-background-color;
 		opacity: 1;
-		transition: $output-layer-group-collapse-animation-duration opacity
+		transition:
+			$output-layer-group-collapse-animation-duration opacity
 				calc($output-layer-group-collapse-animation-duration * 0.5),
 			$output-layer-group-collapse-animation-duration margin calc($output-layer-group-collapse-animation-duration * 0.5);
 	}
 
 	.segment-timeline__zoom-area-container {
-		transition: 1s opacity, 0s visibility;
+		transition:
+			1s opacity,
+			0s visibility;
 
 		grid-column: timeline / end;
 		grid-row: zoom-area / end;
@@ -902,7 +697,9 @@ svg.icon {
 
 		&.hidden {
 			opacity: 0;
-			transition: 1s opacity, 0s visibility 1s;
+			transition:
+				1s opacity,
+				0s visibility 1s;
 			visibility: hidden;
 		}
 	}
@@ -915,7 +712,8 @@ svg.icon {
 		margin: 0.2em 1em 0em 0;
 		padding: 1px 0;
 
-		transition: $output-layer-group-collapse-animation-duration max-height ease-in-out,
+		transition:
+			$output-layer-group-collapse-animation-duration max-height ease-in-out,
 			$output-layer-group-collapse-animation-duration margin ease-in-out;
 
 		.segment-timeline__timeline {
@@ -981,7 +779,7 @@ svg.icon {
 						}
 					}
 
-					&.collapsable.collapsed {
+					&.collapsible.collapsed {
 						border-bottom: none;
 
 						.segment-timeline__layer {
@@ -1051,18 +849,38 @@ svg.icon {
 		}
 		.segment-timeline__part {
 			.segment-timeline__part__invalid-cover {
-				background-image: repeating-linear-gradient(
+				mix-blend-mode: color-burn;
+				background-image:
+					repeating-linear-gradient(
 						45deg,
 						var(--invalid-reason-color-transparent) 0%,
-						var(--invalid-reason-color-transparent) 4px,
-						var(--invalid-reason-color-opaque) 4px,
+						var(--invalid-reason-color-transparent) 5px,
+						var(--invalid-reason-color-opaque) 5px,
 						var(--invalid-reason-color-opaque) 8px
 					),
 					repeating-linear-gradient(
 						-45deg,
 						var(--invalid-reason-color-transparent) 0%,
-						var(--invalid-reason-color-transparent) 4px,
-						var(--invalid-reason-color-opaque) 4px,
+						var(--invalid-reason-color-transparent) 5px,
+						var(--invalid-reason-color-opaque) 5px,
+						var(--invalid-reason-color-opaque) 8px
+					) !important;
+			}
+			.segment-timeline__part__invalid-part-instance-cover {
+				mix-blend-mode: color-burn;
+				background-image:
+					repeating-linear-gradient(
+						45deg,
+						var(--invalid-reason-color-transparent) 0%,
+						var(--invalid-reason-color-transparent) 6px,
+						var(--invalid-reason-color-opaque) 6px,
+						var(--invalid-reason-color-opaque) 8px
+					),
+					repeating-linear-gradient(
+						-45deg,
+						var(--invalid-reason-color-transparent) 0%,
+						var(--invalid-reason-color-transparent) 6px,
+						var(--invalid-reason-color-opaque) 6px,
 						var(--invalid-reason-color-opaque) 8px
 					) !important;
 			}
@@ -1085,7 +903,8 @@ svg.icon {
 		overflow: hidden;
 		background: $segment-timeline-background-color;
 		opacity: 1;
-		transition: $output-layer-group-collapse-animation-duration opacity
+		transition:
+			$output-layer-group-collapse-animation-duration opacity
 				calc($output-layer-group-collapse-animation-duration * 0.5),
 			$output-layer-group-collapse-animation-duration margin-bottom
 				calc($output-layer-group-collapse-animation-duration * 0.5);
@@ -1108,7 +927,8 @@ svg.icon {
 
 		opacity: 1;
 		visibility: visible;
-		transition: $output-layer-group-collapse-animation-duration opacity
+		transition:
+			$output-layer-group-collapse-animation-duration opacity
 				calc($output-layer-group-collapse-animation-duration * 0.5),
 			$output-layer-group-collapse-animation-duration visibility 0s;
 
@@ -1158,7 +978,8 @@ svg.icon {
 		width: 2px;
 		background: $general-live-color;
 		box-shadow: -3px 0 20px rgba(0, 0, 0, 1);
-		transition: $output-layer-group-collapse-animation-duration top ease-in-out,
+		transition:
+			$output-layer-group-collapse-animation-duration top ease-in-out,
 			$output-layer-group-collapse-animation-duration bottom ease-in-out;
 
 		.segment-timeline__liveline__label {
@@ -1209,7 +1030,12 @@ svg.icon {
 			&.segment-timeline__liveline__appendage--piece-countdown {
 				color: $liveline-timecode-color;
 				font-weight: 400;
-				text-shadow: -1px -1px 4px #000, 1px -1px 4px #000, -1px 1px 4px #000, 1px 1px 4px #000, 2px 2px 5px #000;
+				text-shadow:
+					-1px -1px 4px #000,
+					1px -1px 4px #000,
+					-1px 1px 4px #000,
+					1px 1px 4px #000,
+					2px 2px 5px #000;
 				white-space: nowrap;
 
 				> .segment-timeline__liveline__appendage--piece-countdown__content {
@@ -1283,7 +1109,9 @@ svg.icon {
 				cursor: pointer;
 				cursor: zoom-in;
 				cursor: url(/images/cursor_zoom_in.png), zoom-in;
-				cursor: url(/images/cursor_zoom_in.png) 8 8, zoom-in;
+				cursor:
+					url(/images/cursor_zoom_in.png) 8 8,
+					zoom-in;
 
 				--invalid-reason-color-transparent: transparent;
 				--invalid-reason-color-opaque: black;
@@ -1323,7 +1151,8 @@ svg.icon {
 						left: 2px;
 						right: 2px;
 						z-index: 3;
-						background: repeating-linear-gradient(
+						background:
+							repeating-linear-gradient(
 								45deg,
 								var(--invalid-reason-color-opaque) 0,
 								var(--invalid-reason-color-opaque) 5px,
@@ -1505,19 +1334,47 @@ svg.icon {
 				right: 1px;
 				z-index: 10;
 				pointer-events: all;
-				background-image: repeating-linear-gradient(
+				mix-blend-mode: color-burn;
+				background-image:
+					repeating-linear-gradient(
 						45deg,
 						var(--invalid-reason-color-transparent) 0%,
 						var(--invalid-reason-color-transparent) 5px,
 						var(--invalid-reason-color-opaque) 5px,
-						var(--invalid-reason-color-opaque) 10px
+						var(--invalid-reason-color-opaque) 8px
 					),
 					repeating-linear-gradient(
 						-45deg,
 						var(--invalid-reason-color-transparent) 0%,
 						var(--invalid-reason-color-transparent) 5px,
 						var(--invalid-reason-color-opaque) 5px,
-						var(--invalid-reason-color-opaque) 10px
+						var(--invalid-reason-color-opaque) 8px
+					);
+			}
+
+			.segment-timeline__part__invalid-part-instance-cover {
+				position: absolute;
+				top: 0;
+				left: 1px;
+				bottom: 0;
+				right: 1px;
+				z-index: 10;
+				pointer-events: all;
+				mix-blend-mode: color-burn;
+				background-image:
+					repeating-linear-gradient(
+						45deg,
+						var(--invalid-reason-color-transparent) 0%,
+						var(--invalid-reason-color-transparent) 6px,
+						var(--invalid-reason-color-opaque) 6px,
+						var(--invalid-reason-color-opaque) 8px
+					),
+					repeating-linear-gradient(
+						-45deg,
+						var(--invalid-reason-color-transparent) 0%,
+						var(--invalid-reason-color-transparent) 6px,
+						var(--invalid-reason-color-opaque) 6px,
+						var(--invalid-reason-color-opaque) 8px
 					);
 			}
 
@@ -1533,8 +1390,8 @@ svg.icon {
 					-45deg,
 					transparent 0%,
 					transparent 8px,
-					darken($part-start-color, 50%) 8px,
-					darken($part-start-color, 50%) 10px
+					color.scale($part-start-color, $lightness: -50%) 8px,
+					color.scale($part-start-color, $lightness: -50%) 10px
 				);
 				backdrop-filter: saturate(0%) brightness(50%);
 			}
@@ -1890,7 +1747,8 @@ svg.icon {
 					border-bottom: 2px solid $segment-layer-separator-color;
 					overflow: hidden;
 
-					transition: $output-layer-group-collapse-animation-duration min-height ease-in-out,
+					transition:
+						$output-layer-group-collapse-animation-duration min-height ease-in-out,
 						$output-layer-group-collapse-animation-duration border ease-in-out;
 
 					.segment-timeline__piece {
@@ -1898,6 +1756,7 @@ svg.icon {
 						transition: box-shadow 0.5s ease-out;
 						box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.5);
 						cursor: default;
+						color: #fff;
 
 						.piece__status-icon {
 							> svg.type-warning {
@@ -1943,7 +1802,7 @@ svg.icon {
 									min-height: 0;
 									transform-style: preserve-3d;
 
-									@include item-type-colors();
+									@include item-type-colors;
 
 									> .segment-timeline__piece__label.right-side {
 										margin-right: 0 !important;
@@ -2091,8 +1950,8 @@ svg.icon {
 					}
 				}
 
-				// The output group is collapsable if it has more than a single source layer attached to it
-				&.collapsable {
+				// The output group is collapsible if it has more than a single source layer attached to it
+				&.collapsible {
 					&.collapsed {
 						border-bottom: 2px solid $segment-layer-separator-color;
 
@@ -2109,14 +1968,16 @@ svg.icon {
 								.segment-timeline__piece__label {
 									opacity: 0;
 									visibility: hidden;
-									transition: calc($output-layer-group-collapse-animation-duration / 3) opacity,
+									transition:
+										calc($output-layer-group-collapse-animation-duration / 3) opacity,
 										0s visibility calc($output-layer-group-collapse-animation-duration / 3);
 								}
 
 								.segment-timeline__piece--collapsed__step-chevron {
 									opacity: 1;
 									visibility: visible;
-									transition: calc($output-layer-group-collapse-animation-duration / 3) opacity
+									transition:
+										calc($output-layer-group-collapse-animation-duration / 3) opacity
 											calc($output-layer-group-collapse-animation-duration * 4 / 3),
 										0s visibility calc($output-layer-group-collapse-animation-duration * 4 / 3);
 								}
@@ -2124,7 +1985,8 @@ svg.icon {
 								.segment-timeline__piece--decoration__step-chevron {
 									opacity: 0;
 									visibility: hidden;
-									transition: calc($output-layer-group-collapse-animation-duration / 3) opacity,
+									transition:
+										calc($output-layer-group-collapse-animation-duration / 3) opacity,
 										0s visibility calc($output-layer-group-collapse-animation-duration / 3);
 								}
 							}
@@ -2142,7 +2004,8 @@ svg.icon {
 			.segment-timeline__piece--collapsed__step-chevron {
 				opacity: 0;
 				visibility: hidden;
-				transition: calc($output-layer-group-collapse-animation-duration / 3) opacity,
+				transition:
+					calc($output-layer-group-collapse-animation-duration / 3) opacity,
 					0s visibility calc($output-layer-group-collapse-animation-duration / 3);
 				position: absolute;
 				top: 0;
@@ -2158,7 +2021,8 @@ svg.icon {
 			.segment-timeline__piece--decoration__step-chevron {
 				opacity: 1;
 				visibility: visible;
-				transition: calc($output-layer-group-collapse-animation-duration / 3) opacity
+				transition:
+					calc($output-layer-group-collapse-animation-duration / 3) opacity
 						$output-layer-group-collapse-animation-duration,
 					0s visibility $output-layer-group-collapse-animation-duration;
 				position: absolute;
@@ -2252,6 +2116,21 @@ svg.icon {
 					> .label-icon.label-loop-icon {
 						margin: 0 0 0 0;
 					}
+
+					> .label-icon.label-custom-icon {
+						margin-top: -3px;
+						display: flex;
+						flex-direction: row-reverse;
+
+						> div {
+							flex: 0 0;
+
+							> svg {
+								height: 1em;
+								width: auto;
+							}
+						}
+					}
 				}
 
 				&.last-words {
@@ -2270,8 +2149,15 @@ svg.icon {
 				}
 
 				&.label-overflow-time {
-					text-shadow: 1px -1px 1px black, -1px 1px 1px black, -1px -1px 1px black, 1px 1px 1px black, 1px 1px 3px black,
-						1px 1px 8px black, 1px 1px 8px black, 1px 1px 8px black;
+					text-shadow:
+						1px -1px 1px black,
+						-1px 1px 1px black,
+						-1px -1px 1px black,
+						1px 1px 1px black,
+						1px 1px 3px black,
+						1px 1px 8px black,
+						1px 1px 8px black,
+						1px 1px 8px black;
 					top: -7px;
 					right: -4px;
 					color: white;
@@ -2296,7 +2182,9 @@ svg.icon {
 					display: inline-block;
 					padding: 0 0.3em;
 					color: $segment-piece-step-counter;
-					text-shadow: 0 0 1px #000, 0.5px 0.5px 8px rgba(0, 0, 0, 0.8);
+					text-shadow:
+						0 0 1px #000,
+						0.5px 0.5px 8px rgba(0, 0, 0, 0.8);
 					line-height: 1.2em;
 					border-radius: 3px;
 					z-index: 3;
@@ -2399,7 +2287,9 @@ svg.icon {
 					bottom: auto;
 					opacity: 1;
 					visibility: visible;
-					transition: 500ms opacity 250ms, 0s visibility 0s;
+					transition:
+						500ms opacity 250ms,
+						0s visibility 0s;
 
 					&.hidden {
 						transition: none;
@@ -2478,14 +2368,16 @@ svg.icon {
 				color: #888;
 				padding-left: 18px;
 
-				transition: $output-layer-group-collapse-animation-duration min-height ease-in-out,
+				transition:
+					$output-layer-group-collapse-animation-duration min-height ease-in-out,
 					$output-layer-group-collapse-animation-duration height ease-in-out,
 					$output-layer-group-collapse-animation-duration line-height ease-in-out,
-					$output-layer-group-collapse-animation-duration opacity, 0s visibility 0s;
+					$output-layer-group-collapse-animation-duration opacity,
+					0s visibility 0s;
 			}
 
-			// the output layer group is collapsable if it has more than one source layer assinged
-			&.collapsable {
+			// the output layer group is collapsible if it has more than one source layer assinged
+			&.collapsible {
 				// this is the "line" grouping source layers together
 				&::after {
 					content: ' ';
@@ -2515,7 +2407,8 @@ svg.icon {
 					}
 
 					.segment-timeline__output-layer-control__layer {
-						transition: $output-layer-group-collapse-animation-duration min-height ease-in-out,
+						transition:
+							$output-layer-group-collapse-animation-duration min-height ease-in-out,
 							$output-layer-group-collapse-animation-duration height ease-in-out,
 							$output-layer-group-collapse-animation-duration line-height ease-in-out,
 							$output-layer-group-collapse-animation-duration opacity,
@@ -2564,7 +2457,8 @@ svg.icon {
 			opacity: 0;
 			margin-bottom: 0;
 
-			transition: $output-layer-group-collapse-animation-duration opacity,
+			transition:
+				$output-layer-group-collapse-animation-duration opacity,
 				$output-layer-group-collapse-animation-duration margin-bottom;
 		}
 
@@ -2572,7 +2466,8 @@ svg.icon {
 			opacity: 0;
 			visibility: hidden;
 
-			transition: $output-layer-group-collapse-animation-duration opacity,
+			transition:
+				$output-layer-group-collapse-animation-duration opacity,
 				0s visibility $output-layer-group-collapse-animation-duration;
 		}
 
@@ -2584,7 +2479,8 @@ svg.icon {
 				opacity: 0;
 				visibility: hidden;
 
-				transition: $output-layer-group-collapse-animation-duration opacity,
+				transition:
+					$output-layer-group-collapse-animation-duration opacity,
 					0s visibility $output-layer-group-collapse-animation-duration;
 			}
 		}
@@ -2603,26 +2499,30 @@ svg.icon {
 		.segment-timeline__output-layers {
 			.segment-timeline__output-layer-control {
 				min-height: 0;
-				transition: $output-layer-group-collapse-animation-duration line-height ease-out,
+				transition:
+					$output-layer-group-collapse-animation-duration line-height ease-out,
 					$output-layer-group-collapse-animation-duration min-height ease-out;
 
 				.segment-timeline__output-layer-control__label {
 					opacity: 0;
 					visibility: hidden;
 
-					transition: $output-layer-group-collapse-animation-duration opacity 0s,
+					transition:
+						$output-layer-group-collapse-animation-duration opacity 0s,
 						0s visibility $output-layer-group-collapse-animation-duration;
 				}
 
 				&::after {
-					transition: calc($output-layer-group-collapse-animation-duration / 3) opacity,
+					transition:
+						calc($output-layer-group-collapse-animation-duration / 3) opacity,
 						0s visibility calc($output-layer-group-collapse-animation-duration / 3);
 					opacity: 0 !important;
 					visibility: hidden;
 				}
 
 				.segment-timeline__output-layer-control__layer {
-					transition: $output-layer-group-collapse-animation-duration min-height ease-in-out,
+					transition:
+						$output-layer-group-collapse-animation-duration min-height ease-in-out,
 						$output-layer-group-collapse-animation-duration height ease-in-out,
 						$output-layer-group-collapse-animation-duration opacity,
 						0s visibility $output-layer-group-collapse-animation-duration;
@@ -2668,13 +2568,14 @@ svg.icon {
 							.segment-timeline__piece__label {
 								opacity: 0;
 								visibility: hidden;
-								transition: calc($output-layer-group-collapse-animation-duration / 3) opacity,
+								transition:
+									calc($output-layer-group-collapse-animation-duration / 3) opacity,
 									0s visibility calc($output-layer-group-collapse-animation-duration / 3);
 							}
 						}
 					}
 
-					&.collapsable.collapsed {
+					&.collapsible.collapsed {
 						border-bottom: 0px solid $segment-layer-separator-color;
 
 						.segment-timeline__layer {
@@ -2700,8 +2601,26 @@ svg.icon {
 		> .segment-timeline__next-preview-background {
 			margin: 0.2em 0 0 1em;
 			opacity: 0;
-			transition: $output-layer-group-collapse-animation-duration opacity 0,
+			transition:
+				$output-layer-group-collapse-animation-duration opacity 0,
 				$output-layer-group-collapse-animation-duration margin 0;
+		}
+	}
+}
+.segment-timeline-wrapper--shelf {
+	div .segment-timeline {
+		margin-bottom: 0 !important;
+	}
+
+	&:has(.rundown-view-shelf) {
+		margin-bottom: -0.8em !important;
+	}
+
+	+ .segment-timeline-wrapper--hidden {
+		+ .segment-timeline-wrapper--shelf:has(.rundown-view-shelf) {
+			.segment-timeline {
+				margin-top: 0 !important;
+			}
 		}
 	}
 }
@@ -2952,8 +2871,7 @@ svg.icon {
 	&.segment-timeline__mini-inspector--sub-inspector {
 		transform: none;
 		bottom: 100%;
-		width: 100%;
-		max-width: 480px;
+		width: 26em;
 	}
 
 	&.segment-timeline__mini-inspector--sub-inspector.segment-timeline__mini-inspector--sub-inspector-flipped {
@@ -3053,7 +2971,9 @@ svg.icon {
 			background: var(--segment-piece-step-counter-background, #{$segment-piece-step-counter-background});
 			padding: 0 0.2em;
 			font-weight: 400;
-			text-shadow: 0 0 1px #000, 0.5px 0.5px 8px rgba(0, 0, 0, 0.8);
+			text-shadow:
+				0 0 1px #000,
+				0.5px 0.5px 8px rgba(0, 0, 0, 0.8);
 			color: $segment-piece-step-counter;
 			line-height: 1.4em;
 
@@ -3162,7 +3082,6 @@ svg.icon {
 		border: 1px solid #1f1f1f;
 		border-radius: 0px;
 		transform: translate(-100%, -100%);
-		width: 480px;
 
 		&::before {
 			content: none;
@@ -3173,9 +3092,9 @@ svg.icon {
 		> .video-preview,
 		> .thumbnail {
 			display: block;
-			width: 480px;
-			height: 270px; 
-			background: #000;
+			width: 414px;
+			height: 233px;
+			@include checkerboard-background;
 		}
 
 		> .segment-timeline__mini-inspector__warnings {
@@ -3238,8 +3157,18 @@ svg.icon {
 				transform: translate(-50%, -50%);
 			}
 
+			.video-preview__image {
+				position: absolute;
+				top: 0;
+				left: 0;
+				width: 100%;
+				height: 100%;
+				object-fit: cover;
+				z-index: 1;
+			}
+
 			& > * {
-				@include item-type-colors();
+				@include item-type-colors;
 			}
 
 			.video-preview__label {
@@ -3320,6 +3249,7 @@ svg.icon {
 	}
 	.mini-inspector__full-text {
 		font-weight: 300;
+		max-width: 400px;
 		display: inline-block;
 		white-space: normal;
 		width: auto;
@@ -3406,8 +3336,11 @@ svg.icon {
 		left: 0;
 		right: 0;
 		text-align: center;
-		font-size: 3em;
 		transform: translateY(-50%);
+
+		.summary {
+			font-size: 3em;
+		}
 
 		> p {
 			margin: 20px auto;
@@ -3419,7 +3352,7 @@ svg.icon {
 .rundown-view--loading {
 	margin-top: 0;
 
-	> .mod.mhl.mvl.alc {
+	> div > .origo-spinner {
 		position: absolute;
 		top: 50%;
 		left: 50%;
@@ -3455,7 +3388,9 @@ svg.icon {
 	display: inline-block;
 	padding: 0 0.2em;
 	color: $segment-piece-step-counter;
-	text-shadow: 0 0 1px #000, 0.5px 0.5px 8px rgba(0, 0, 0, 0.8);
+	text-shadow:
+		0 0 1px #000,
+		0.5px 0.5px 8px rgba(0, 0, 0, 0.8);
 }
 
 .segment-storyboard__piece__step-chevron {

@@ -1,11 +1,12 @@
-import { FilterType } from '@sofie-automation/blueprints-integration'
-import classNames from 'classnames'
+import type { FilterType } from '@sofie-automation/blueprints-integration'
+import Button from 'react-bootstrap/Button'
+import ButtonGroup from 'react-bootstrap/ButtonGroup'
 import { useTranslation } from 'react-i18next'
 
 export function SwitchFilterType({
+	className,
 	allowedTypes,
 	selectedType,
-	className,
 	onChangeType,
 }: {
 	className?: string
@@ -16,37 +17,31 @@ export function SwitchFilterType({
 	const { t } = useTranslation()
 
 	return (
-		<div className={`btn-group ${className ?? ''}`}>
+		<ButtonGroup size="sm" className={className}>
 			{allowedTypes.includes('view') ? (
-				<button
-					className={classNames('btn btn-tight btn-secondary', {
-						'btn-selected': selectedType === 'view',
-					})}
+				<Button
+					variant={selectedType === 'view' ? 'primary' : 'outline-secondary'}
 					onClick={() => onChangeType('view')}
 				>
 					{t('View')}
-				</button>
+				</Button>
 			) : null}
 			{allowedTypes.includes('rundownPlaylist') ? (
-				<button
-					className={classNames('btn btn-tight btn-secondary', {
-						'btn-selected': selectedType === 'rundownPlaylist',
-					})}
+				<Button
+					variant={selectedType === 'rundownPlaylist' ? 'primary' : 'outline-secondary'}
 					onClick={() => onChangeType('rundownPlaylist')}
 				>
 					{t('Rundown')}
-				</button>
+				</Button>
 			) : null}
 			{allowedTypes.includes('adLib') ? (
-				<button
-					className={classNames('btn btn-tight btn-secondary', {
-						'btn-selected': selectedType === 'adLib',
-					})}
+				<Button
+					variant={selectedType === 'adLib' ? 'primary' : 'outline-secondary'}
 					onClick={() => onChangeType('adLib')}
 				>
 					{t('AdLib')}
-				</button>
+				</Button>
 			) : null}
-		</div>
+		</ButtonGroup>
 	)
 }

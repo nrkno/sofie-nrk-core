@@ -1,17 +1,17 @@
 // import * as React from 'react'
 
 // import ClassNames from 'classnames'
-// import * as _ from 'underscore'
+// import _ from 'underscore'
 // import { withTranslation } from 'react-i18next'
 
 // import { RundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
 // import { Rundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
 
-// import { PartUi, IOutputLayerUi, ISourceLayerUi, PieceUi } from './SegmentTimelineContainer'
-// import { SourceLayerItemContainer } from './SourceLayerItemContainer'
-// import { Translated } from '../../lib/ReactMeteorData/ReactMeteorData'
-// import { unprotectString } from '../../../lib/lib'
-// import { Studio } from '../../../lib/collections/Studios'
+// import { PartUi, IOutputLayerUi, ISourceLayerUi, PieceUi } from './SegmentTimelineContainer.js'
+// import { SourceLayerItemContainer } from './SourceLayerItemContainer.js'
+// import { Translated } from '../../lib/ReactMeteorData/ReactMeteorData.js'
+// import { unprotectString } from '../../../lib/lib.js'
+// import { Studio } from '../../../lib/collections/Studios.js'
 
 // interface IProps {
 // 	playlist: RundownPlaylist
@@ -112,7 +112,7 @@
 						return (
 							<div
 								className={ClassNames('segment-timeline__output-group', {
-									collapsable: layer.sourceLayers && layer.sourceLayers.length > 1,
+									collapsible: layer.sourceLayers && layer.sourceLayers.length > 1,
 									collapsed: this.props.collapsedOutputs[layer._id] === true,
 								})}
 								key={id}>

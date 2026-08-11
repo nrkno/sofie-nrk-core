@@ -33,11 +33,17 @@ import { JSONBlobStringify, JSONSchema, TSR } from '@sofie-automation/blueprints
 import { DEFAULT_MINIMUM_TAKE_SPAN } from '@sofie-automation/shared-lib/dist/core/constants'
 import { PartId } from '@sofie-automation/shared-lib/dist/core/model/Ids'
 import { protectString } from '@sofie-automation/shared-lib/dist/lib/protectedString'
-import { ExpectedPackageDBType } from '@sofie-automation/corelib/dist/dataModel/ExpectedPackages'
-import { AdLibActionId, PieceId, RundownBaselineAdLibActionId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import {
+	AdLibActionId,
+	BucketAdLibActionId,
+	BucketAdLibId,
+	PieceId,
+	RundownBaselineAdLibActionId,
+} from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { Piece } from '@sofie-automation/corelib/dist/dataModel/Piece'
 import { AdLibPiece } from '@sofie-automation/corelib/dist/dataModel/AdLibPiece'
 import { AdLibAction } from '@sofie-automation/corelib/dist/dataModel/AdlibAction'
+import * as PackagesPreR53 from '@sofie-automation/corelib/dist/dataModel/Old/ExpectedPackagesR52'
 
 // Release 50
 
@@ -155,9 +161,9 @@ const oldDeviceTypeToNewMapping = {
 }
 
 const EXPECTED_PACKAGE_TYPES_ADDED_PART_ID = [
-	ExpectedPackageDBType.PIECE,
-	ExpectedPackageDBType.ADLIB_PIECE,
-	ExpectedPackageDBType.ADLIB_ACTION,
+	PackagesPreR53.ExpectedPackageDBType.PIECE,
+	PackagesPreR53.ExpectedPackageDBType.ADLIB_PIECE,
+	PackagesPreR53.ExpectedPackageDBType.ADLIB_ACTION,
 ]
 
 export const addSteps = addMigrationSteps('1.50.0', [
@@ -346,8 +352,6 @@ export const addSteps = addMigrationSteps('1.50.0', [
 					documentationUrl = 'https://github.com/SuperFlyTV/spreadsheet-gateway'
 				} else if (device.type === PeripheralDeviceType.PLAYOUT) {
 					documentationUrl = 'https://github.com/Sofie-Automation/sofie-core'
-				} else if (device.type === PeripheralDeviceType.MEDIA_MANAGER) {
-					documentationUrl = 'https://github.com/nrkno/sofie-media-management'
 				} else if (device.type === PeripheralDeviceType.INEWS) {
 					documentationUrl = 'https://github.com/olzzon/tv2-inews-ftp-gateway'
 				} else if (device.type === PeripheralDeviceType.PACKAGE_MANAGER) {
@@ -697,7 +701,7 @@ export const addSteps = addMigrationSteps('1.50.0', [
 					$set: playlist.nextPartInfo
 						? {
 								'nextPartInfo.manuallySelected': nextPartManual,
-						  }
+							}
 						: undefined,
 					$unset: {
 						nextPartManual: 1,
@@ -871,14 +875,14 @@ export const addSteps = addMigrationSteps('1.50.0', [
 			return false
 		},
 		migrate: async () => {
-			const objects = await ExpectedPackages.findFetchAsync({
+			const objects = (await ExpectedPackages.findFetchAsync({
 				fromPieceType: { $in: EXPECTED_PACKAGE_TYPES_ADDED_PART_ID as any }, // Force the types, as the query does not match due to the interfaces
 				partId: { $exists: false },
-			})
+			})) as unknown as Array<PackagesPreR53.ExpectedPackageDB>
 
-			const neededPieceIds: Array<PieceId | AdLibActionId | RundownBaselineAdLibActionId> = _.compact(
-				objects.map((obj) => obj.pieceId)
-			)
+			const neededPieceIds: Array<
+				PieceId | AdLibActionId | RundownBaselineAdLibActionId | BucketAdLibId | BucketAdLibActionId
+			> = _.compact(objects.map((obj) => obj.pieceId))
 			const [pieces, adlibPieces, adlibActions] = await Promise.all([
 				Pieces.findFetchAsync(
 					{
@@ -915,9 +919,12 @@ export const addSteps = addMigrationSteps('1.50.0', [
 				) as Promise<Pick<AdLibAction, '_id' | 'partId'>[]>,
 			])
 
-			const partIdLookup = new Map<PieceId | AdLibActionId | RundownBaselineAdLibActionId, PartId>()
+			const partIdLookup = new Map<
+				PieceId | AdLibActionId | RundownBaselineAdLibActionId | BucketAdLibId | BucketAdLibActionId,
+				PartId
+			>()
 			for (const piece of pieces) {
-				partIdLookup.set(piece._id, piece.startPartId)
+				if (piece.startPartId) partIdLookup.set(piece._id, piece.startPartId)
 			}
 			for (const adlib of adlibPieces) {
 				if (adlib.partId) partIdLookup.set(adlib._id, adlib.partId)

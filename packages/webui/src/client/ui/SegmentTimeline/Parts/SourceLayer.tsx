@@ -1,16 +1,19 @@
-import React, { useCallback, useState } from 'react'
+import { useCallback, useContext, useState, type MouseEventHandler } from 'react'
 import _ from 'underscore'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
-import { literal, protectString, unprotectString } from '../../../lib/tempLib'
-import { getElementDocumentOffset, OffsetPosition } from '../../../utils/positions'
-import { IContextMenuContext } from '../../RundownView'
-import { IOutputLayerUi, ISourceLayerUi, PartUi, PieceUi, SegmentUi } from '../SegmentTimelineContainer'
-import { SegmentTimelinePartElementId } from './SegmentTimelinePart'
+import type { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
+import { literal } from '@sofie-automation/corelib/dist/lib'
+import { protectString, unprotectString } from '@sofie-automation/shared-lib/dist/lib/protectedString'
+import { getElementDocumentOffset, type OffsetPosition } from '../../../utils/positions.js'
+import type { IContextMenuContext } from '../../RundownView.js'
+import type { IOutputLayerUi, ISourceLayerUi, PartUi, SegmentUi } from '../SegmentTimelineContainer.js'
+import { SegmentTimelinePartElementId } from './SegmentTimelinePart.js'
 import { ContextMenuTrigger } from '@jstarpl/react-contextmenu'
-import { SourceLayerItemContainer } from '../SourceLayerItemContainer'
-import { contextMenuHoldToDisplayTime } from '../../../lib/lib'
-import { UIStudio } from '@sofie-automation/meteor-lib/dist/api/studios'
-import { PieceInstanceId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import { SourceLayerItemContainer } from '../SourceLayerItemContainer.js'
+import { contextMenuHoldToDisplayTime } from '../../../lib/lib.js'
+import type { PieceInstanceId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import { dragContext } from '../../RundownView/DragContext.js'
+import type { UIStudio } from '@sofie-automation/corelib/src/dataModel/Studio.js'
+import type { PieceUi } from '@sofie-automation/corelib/src/dataModel/Piece.js'
 
 export interface ISourceLayerPropsBase {
 	key: string
@@ -90,15 +93,29 @@ export function useMouseContext(props: ISourceLayerPropsBase): {
 
 export function SourceLayer(props: Readonly<ISourceLayerProps>): JSX.Element {
 	const { getPartContext, onMouseDown } = useMouseContext(props)
+	const dragCtx = useContext(dragContext)
+
+	const pieces =
+		dragCtx?.piece && dragCtx.piece.sourceLayer?._id === props.layer._id
+			? (props.layer.pieces ?? []).filter((p) => p.instance._id !== dragCtx.piece?.instance._id).concat(dragCtx.piece)
+			: props.layer.pieces
+
+	const onMouseEnter: MouseEventHandler<HTMLElement> = (e) => {
+		if (!dragCtx) return
+
+		const pos = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
+		dragCtx.setHoveredPart(props.part.instance._id, props.segment._id, { x: pos.x, y: pos.y })
+	}
 
 	return (
 		<ContextMenuTrigger
 			id="segment-timeline-context-menu"
 			attributes={{
 				className: 'segment-timeline__layer',
-				//@ts-expect-error A Data attribue is perfectly fine
+				//@ts-expect-error A Data attribute is perfectly fine
 				'data-layer-id': props.layer._id,
 				onMouseDownCapture: (e) => onMouseDown(e),
+				onMouseEnter,
 				role: 'log',
 				'aria-live': 'assertive',
 				'aria-label': props.layer.name,
@@ -106,16 +123,16 @@ export function SourceLayer(props: Readonly<ISourceLayerProps>): JSX.Element {
 			holdToDisplay={contextMenuHoldToDisplayTime()}
 			collect={getPartContext}
 		>
-			{props.layer.pieces !== undefined
+			{pieces !== undefined
 				? _.chain(
-						props.layer.pieces.filter((piece) => {
+						pieces.filter((piece) => {
 							// filter only pieces belonging to this part
 							return piece.instance.partInstanceId === props.part.instance._id
 								? // filter only pieces, that have not been hidden from the UI
-								  piece.instance.piece.virtual !== true
+									piece.instance.piece.virtual !== true
 								: false
 						})
-				  )
+					)
 						.sortBy((it) => it.renderedInPoint)
 						.sortBy((it) => it.cropped)
 						.map((piece) => {

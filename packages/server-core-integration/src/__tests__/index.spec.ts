@@ -1,14 +1,13 @@
-import { protectString } from '@sofie-automation/shared-lib/dist/lib/protectedString'
-import { StatusCode } from '@sofie-automation/shared-lib/dist/lib/status'
+import { protectString } from '@sofie-automation/shared-lib/dist/lib/protectedString.js'
+import { StatusCode } from '@sofie-automation/shared-lib/dist/lib/status.js'
 import {
 	PeripheralDeviceCategory,
 	PeripheralDeviceType,
 	PERIPHERAL_SUBTYPE_PROCESS,
-} from '@sofie-automation/shared-lib/dist/peripheralDevice/peripheralDeviceAPI'
-import { CoreConnection, PeripheralDevicePubSub, PeripheralDevicePubSubCollectionsNames } from '../index'
-import { DDPConnectorOptions } from '../lib/ddpClient'
-jest.mock('faye-websocket')
-jest.mock('got')
+} from '@sofie-automation/shared-lib/dist/peripheralDevice/peripheralDeviceAPI.js'
+import { CoreConnection, PeripheralDevicePubSub, PeripheralDevicePubSubCollectionsNames } from '../index.js'
+import type { DDPConnectorOptions } from '../lib/ddpClient.js'
+jest.mock('ws')
 
 process.on('unhandledRejection', (reason) => {
 	console.log('Unhandled Promise rejection!', reason)
@@ -94,7 +93,7 @@ describe('coreConnection', () => {
 
 		let statusResponse = await core.setStatus({
 			statusCode: StatusCode.WARNING_MAJOR,
-			messages: ['testing testing'],
+			statusDetails: [{ message: 'testing testing' }],
 		})
 
 		expect(statusResponse).toMatchObject({
@@ -103,6 +102,7 @@ describe('coreConnection', () => {
 
 		statusResponse = await core.setStatus({
 			statusCode: StatusCode.GOOD,
+			statusDetails: [],
 		})
 
 		expect(statusResponse).toMatchObject({
@@ -154,8 +154,7 @@ describe('coreConnection', () => {
 		// Set the status now (should cause an error)
 		await expect(
 			core.setStatus({
-				statusCode: StatusCode.GOOD,
-			})
+				statusCode: StatusCode.GOOD,				statusDetails: [],			})
 		).rejects.toMatchObject({
 			error: 404,
 		})
@@ -305,7 +304,7 @@ describe('coreConnection', () => {
 
 		await core.setStatus({
 			statusCode: StatusCode.GOOD,
-			messages: ['Jest A ' + Date.now()],
+			statusDetails: [{ message: 'Jest A ' + Date.now() }],
 		})
 		await wait(300)
 		expect(observerChanged).toHaveBeenCalledTimes(1)
@@ -323,7 +322,7 @@ describe('coreConnection', () => {
 		observerChanged.mockClear()
 		await core.setStatus({
 			statusCode: StatusCode.GOOD,
-			messages: ['Jest B' + Date.now()],
+			statusDetails: [{ message: 'Jest B' + Date.now() }],
 		})
 		await wait(300)
 		expect(observerChanged).toHaveBeenCalledTimes(1)
@@ -368,7 +367,7 @@ describe('coreConnection', () => {
 
 		// temporary scramble the ddp host:
 		options.host = '127.0.0.9'
-		core.ddp.ddpClient && core.ddp.ddpClient.resetOptions(options)
+		core.ddp.ddpClient?.resetOptions(options)
 		// Force-close the socket:
 		core.ddp.ddpClient?.socket?.close()
 
@@ -379,7 +378,7 @@ describe('coreConnection', () => {
 
 		// restore ddp host:
 		options.host = '127.0.0.1'
-		core.ddp.ddpClient && core.ddp.ddpClient.resetOptions(options)
+		core.ddp.ddpClient?.resetOptions(options)
 		await wait(1000)
 		// should have reconnected by now
 
@@ -425,7 +424,7 @@ describe('coreConnection', () => {
 		// Set some statuses:
 		let statusResponse = await coreChild.setStatus({
 			statusCode: StatusCode.WARNING_MAJOR,
-			messages: ['testing testing'],
+			statusDetails: [{ message: 'testing testing' }],
 		})
 
 		expect(statusResponse).toMatchObject({
@@ -434,6 +433,7 @@ describe('coreConnection', () => {
 
 		statusResponse = await coreChild.setStatus({
 			statusCode: StatusCode.GOOD,
+			statusDetails: [],
 		})
 
 		expect(statusResponse).toMatchObject({
@@ -449,8 +449,7 @@ describe('coreConnection', () => {
 		// Set the status now (should cause an error)
 		await expect(
 			coreChild.setStatus({
-				statusCode: StatusCode.GOOD,
-			})
+				statusCode: StatusCode.GOOD,				statusDetails: [],			})
 		).rejects.toMatchObject({
 			error: 404,
 		})

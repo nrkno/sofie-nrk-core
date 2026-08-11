@@ -2,11 +2,11 @@ import { faCheck } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import classNames from 'classnames'
 import { useCallback } from 'react'
-import { OverrideOpHelperForItemContents } from '../../../ui/Settings/util/OverrideOpHelper'
-import { SchemaFormSofieEnumDefinition } from '../schemaFormUtil'
-import { SchemaFormWithOverrides } from '../SchemaFormWithOverrides'
-import { JSONSchema } from '@sofie-automation/shared-lib/dist/lib/JSONSchemaTypes'
-import { ReadonlyDeep } from 'type-fest'
+import type { OverrideOpHelperForItemContents } from '../../../ui/Settings/util/OverrideOpHelper.js'
+import type { SchemaFormSofieEnumDefinition } from '../schemaFormUtil.js'
+import { SchemaFormWithOverrides } from '../SchemaFormWithOverrides.js'
+import type { JSONSchema } from '@sofie-automation/shared-lib/dist/lib/JSONSchemaTypes'
+import type { ReadonlyDeep } from 'type-fest'
 
 interface SchemaFormTableEditRowProps {
 	sofieEnumDefinitons: Record<string, SchemaFormSofieEnumDefinition> | undefined
@@ -54,7 +54,7 @@ export function SchemaFormTableEditRow({
 						)
 					)}
 				</div>
-				<div className="mod alright">
+				<div className="m-1 me-2 text-end">
 					<button className={classNames('btn btn-primary')} onClick={finishEditItem}>
 						<FontAwesomeIcon icon={faCheck} />
 					</button>

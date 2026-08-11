@@ -1,14 +1,22 @@
 import * as React from 'react'
 
-import { ISourceLayerUi, IOutputLayerUi, PartUi, PieceUi } from '../SegmentTimelineContainer'
+import type { ISourceLayerUi, IOutputLayerUi, PartUi } from '../SegmentTimelineContainer.js'
 
-import { RundownUtils } from '../../../lib/rundown'
+import { RundownUtils } from '../../../lib/rundown.js'
 import { faCut } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { PieceLifespan, VTContent } from '@sofie-automation/blueprints-integration'
-import { OffsetPosition } from '../../../utils/positions'
-import { IFloatingInspectorPosition } from '../../FloatingInspectors/IFloatingInspectorPosition'
-import { LoopingPieceIcon } from '../../../lib/ui/icons/looping'
+import { PieceLifespan, UserEditingType, type VTContent } from '@sofie-automation/blueprints-integration'
+import type { OffsetPosition } from '../../../utils/positions.js'
+import { LoopingPieceIcon } from '../../../lib/ui/icons/looping.js'
+import type { PieceUi } from '@sofie-automation/corelib/src/dataModel/Piece.js'
+import { BlueprintAssetIcon } from '../../../lib/Components/BlueprintAssetIcon.js'
+import type { ReadonlyObjectDeep } from 'type-fest/source/readonly-deep.js'
+import type {
+	CoreUserEditingDefinitionAction,
+	CoreUserEditingDefinitionForm,
+	CoreUserEditingDefinitionSofie,
+	CoreUserEditingDefinitionState,
+} from '@sofie-automation/corelib/dist/dataModel/UserEditingDefinitions'
 
 export type SourceDurationLabelAlignment = 'left' | 'right'
 
@@ -30,7 +38,7 @@ export interface ICustomLayerItemProps {
 	followLiveLine: boolean
 	liveLineHistorySize: number
 	livePosition: number | null
-	showMiniInspector: boolean
+	showPreviewPopUp: boolean
 	itemElement: HTMLDivElement | null
 	elementPosition: OffsetPosition
 	cursorPosition: OffsetPosition
@@ -75,15 +83,6 @@ export class CustomLayerItemRenderer<IProps extends ICustomLayerItemProps, IStat
 		}
 	}
 
-	protected getFloatingInspectorStyle(): IFloatingInspectorPosition {
-		return {
-			left: this.props.elementPosition.left + this.props.cursorPosition.left,
-			top: this.props.elementPosition.top,
-			anchor: 'start',
-			position: 'top-start',
-		}
-	}
-
 	protected getItemDuration(returnInfinite?: boolean): number {
 		if (typeof this.props.getItemDuration === 'function') {
 			return this.props.getItemDuration(returnInfinite)
@@ -124,7 +123,66 @@ export class CustomLayerItemRenderer<IProps extends ICustomLayerItemProps, IStat
 
 	protected renderLoopIcon(): JSX.Element | null {
 		if (!this.props.piece.instance.piece.content?.loop) return null
-		return <LoopingPieceIcon className="segment-timeline__piece__label-icon" playing={this.props.showMiniInspector} />
+		return <LoopingPieceIcon className="segment-timeline__piece__label-icon" playing={this.props.showPreviewPopUp} />
+	}
+
+	private operationWithUsefulIcon(
+		op:
+			| ReadonlyObjectDeep<CoreUserEditingDefinitionState>
+			| ReadonlyObjectDeep<CoreUserEditingDefinitionAction>
+			| ReadonlyObjectDeep<CoreUserEditingDefinitionForm>
+			| ReadonlyObjectDeep<CoreUserEditingDefinitionSofie>
+	): op is ReadonlyObjectDeep<CoreUserEditingDefinitionState> | ReadonlyObjectDeep<CoreUserEditingDefinitionAction> {
+		return (
+			((op.type === UserEditingType.ACTION || op.type === UserEditingType.STATE) &&
+				((op.icon && op.isActive) || (op.iconInactive && !op.isActive))) ||
+			false
+		)
+	}
+
+	protected customPieceIconsChanged(prevProps: Readonly<IProps>): boolean {
+		if (this.props.piece.instance.piece.userEditOperations === prevProps.piece.instance.piece.userEditOperations) {
+			return false
+		}
+
+		if (
+			this.props.piece.instance.piece.userEditOperations?.length !==
+			prevProps.piece.instance.piece.userEditOperations?.length
+		) {
+			return true
+		}
+
+		const currentIconSignature =
+			this.props.piece.instance.piece.userEditOperations
+				?.filter(this.operationWithUsefulIcon)
+				?.map((op) => `${op.id}:${op.isActive}:${op.icon ?? ''}:${op.iconInactive ?? ''}`)
+				.join('|') ?? ''
+		const prevIconSignature =
+			prevProps.piece.instance.piece.userEditOperations
+				?.filter(this.operationWithUsefulIcon)
+				?.map((op) => `${op.id}:${op.isActive}:${op.icon ?? ''}:${op.iconInactive ?? ''}`)
+				.join('|') ?? ''
+
+		return currentIconSignature !== prevIconSignature
+	}
+
+	protected renderCustomPieceIcons(): JSX.Element | null {
+		if (
+			!this.props.piece.instance.piece.userEditOperations ||
+			this.props.piece.instance.piece.userEditOperations.length === 0
+		)
+			return null
+
+		return (
+			<>
+				{this.props.piece.instance.piece.userEditOperations.filter(this.operationWithUsefulIcon).map((op) => (
+					<div className="segment-timeline__piece__label label-icon label-custom-icon" key={op.id}>
+						{op.isActive && op.icon && <BlueprintAssetIcon src={op.icon} />}
+						{!op.isActive && op.iconInactive && <BlueprintAssetIcon src={op.iconInactive} />}
+					</div>
+				))}
+			</>
+		)
 	}
 
 	protected renderOverflowTimeLabel(): JSX.Element | null {
@@ -166,9 +224,9 @@ export class CustomLayerItemRenderer<IProps extends ICustomLayerItemProps, IStat
 							? (
 									((vtContent.sourceDuration + postrollDuration - seek) / (this.getItemDuration() || 1)) *
 									100
-							  ).toString() + '%'
+								).toString() + '%'
 							: Math.round((vtContent.sourceDuration + postrollDuration - seek) * this.props.timeScale).toString() +
-							  'px',
+								'px',
 					}}
 				></div>
 			)

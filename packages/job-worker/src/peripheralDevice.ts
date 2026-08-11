@@ -1,17 +1,12 @@
 import { IBlueprintPlayoutDevice, TSR } from '@sofie-automation/blueprints-integration'
 import { PeripheralDeviceCommandId, PeripheralDeviceId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { PeripheralDeviceType } from '@sofie-automation/corelib/dist/dataModel/PeripheralDevice'
-import {
-	clone,
-	Complete,
-	createManualPromise,
-	getRandomId,
-	normalizeArrayToMap,
-} from '@sofie-automation/corelib/dist/lib'
-import { JobContext } from './jobs'
-import { getCurrentTime } from './lib'
-import { logger } from './logging'
-import { PlayoutModel } from './playout/model/PlayoutModel'
+import { PeripheralDevice, PeripheralDeviceType } from '@sofie-automation/corelib/dist/dataModel/PeripheralDevice'
+import { ReadonlyDeep } from 'type-fest'
+import { clone, Complete, getRandomId, normalizeArrayToMap } from '@sofie-automation/corelib/dist/lib'
+import { JobContext } from './jobs/index.js'
+import { getCurrentTime } from './lib/index.js'
+import { logger } from './logging.js'
+import { PlayoutModel } from './playout/model/PlayoutModel.js'
 import { literal } from '@sofie-automation/shared-lib/dist/lib/lib'
 import { SubdeviceAction } from '@sofie-automation/corelib/dist/deviceConfig'
 import { stringifyError } from '@sofie-automation/shared-lib/dist/lib/stringifyError'
@@ -61,7 +56,7 @@ async function executePeripheralDeviceGenericFunction(
 
 	const commandId: PeripheralDeviceCommandId = getRandomId()
 
-	const result = createManualPromise<any>()
+	const result = Promise.withResolvers<any>()
 
 	// logger.debug('command created: ' + functionName)
 
@@ -117,9 +112,9 @@ async function executePeripheralDeviceGenericFunction(
 						completed = true
 						// Handle result
 						if (cmd.replyError) {
-							result.manualReject(cmd.replyError)
+							result.reject(cmd.replyError)
 						} else {
-							result.manualResolve(cmd.reply)
+							result.resolve(cmd.reply)
 						}
 					}
 				} else if (getCurrentTime() - (cmd.time || 0) >= timeoutTime) {
@@ -130,7 +125,7 @@ async function executePeripheralDeviceGenericFunction(
 
 					if (!completed) {
 						completed = true
-						result.manualReject(
+						result.reject(
 							new Error(
 								`Timeout after ${timeoutTime} ms when executing the function "${cmd.functionName}" on device "${cmd.deviceId}"`
 							)
@@ -169,7 +164,7 @@ async function executePeripheralDeviceGenericFunction(
 
 		if (!completed) {
 			completed = true
-			result.manualReject(err)
+			result.reject(err)
 		}
 	})
 
@@ -190,22 +185,44 @@ async function executePeripheralDeviceGenericFunction(
 		throw e
 	}
 
-	return result
+	return result.promise
+}
+
+/**
+ * Lists TSR subdevices for blueprint use when no {@link PlayoutModel} is loaded.
+ *
+ * Used by snapshot hooks and other studio-scoped blueprint callbacks outside active playout.
+ */
+export async function listPlayoutDevicesForStudio(context: JobContext): Promise<IBlueprintPlayoutDevice[]> {
+	const parentDevices = await context.directCollections.PeripheralDevices.findFetch({
+		'studioAndConfigId.studioId': context.studioId,
+		type: PeripheralDeviceType.PLAYOUT,
+	})
+	return listPlayoutDevicesFromParentDevices(context, parentDevices)
 }
 
 export async function listPlayoutDevices(
 	context: JobContext,
 	playoutModel: PlayoutModel
 ): Promise<IBlueprintPlayoutDevice[]> {
-	const parentDevicesMap = normalizeArrayToMap(
-		playoutModel.peripheralDevices.filter(
-			(doc) => doc.studioAndConfigId?.studioId === context.studioId && doc.type === PeripheralDeviceType.PLAYOUT
-		),
-		'_id'
+	const parentDevices = playoutModel.peripheralDevices.filter(
+		(doc) => doc.studioAndConfigId?.studioId === context.studioId && doc.type === PeripheralDeviceType.PLAYOUT
 	)
+	return listPlayoutDevicesFromParentDevices(context, parentDevices)
+}
+
+/**
+ * Resolves playout-gateway subdevices for the given parent playout peripheral devices.
+ * Returns an empty list when there are no parent devices.
+ */
+async function listPlayoutDevicesFromParentDevices(
+	context: JobContext,
+	parentDevices: ReadonlyDeep<PeripheralDevice[]>
+): Promise<IBlueprintPlayoutDevice[]> {
+	const parentDevicesMap = normalizeArrayToMap(parentDevices, '_id')
 	const parentDeviceIds = Array.from(parentDevicesMap.keys())
 	if (parentDeviceIds.length === 0) {
-		throw new Error('No parent devices are configured')
+		return []
 	}
 
 	const devices = await context.directCollections.PeripheralDevices.findFetch({

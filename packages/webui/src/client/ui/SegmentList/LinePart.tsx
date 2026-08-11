@@ -1,22 +1,25 @@
 import { ContextMenuTrigger } from '@jstarpl/react-contextmenu'
 import { literal } from '@sofie-automation/corelib/dist/lib'
 import classNames from 'classnames'
-import React, { useCallback, useState } from 'react'
-import { ISourceLayerExtended, PartExtended } from '../../lib/RundownResolver'
-import { contextMenuHoldToDisplayTime } from '../../lib/lib'
-import { RundownUtils } from '../../lib/rundown'
-import { getElementDocumentOffset } from '../../utils/positions'
-import { IContextMenuContext } from '../RundownView'
-import { CurrentPartOrSegmentRemaining } from '../RundownView/RundownTiming/CurrentPartOrSegmentRemaining'
-import { PieceUi, SegmentUi } from '../SegmentContainer/withResolvedSegment'
-import { SegmentTimelinePartElementId } from '../SegmentTimeline/Parts/SegmentTimelinePart'
-import { LinePartIdentifier } from './LinePartIdentifier'
-import { LinePartPieceIndicators } from './LinePartPieceIndicators'
-import { LinePartTimeline } from './LinePartTimeline'
-import { LinePartTitle } from './LinePartTitle'
-import { TimingDataResolution, TimingTickResolution, withTiming } from '../RundownView/RundownTiming/withTiming'
-import { RundownTimingContext, getPartInstanceTimingId } from '../../lib/rundownTiming'
-import { LoopingIcon } from '../../lib/ui/icons/looping'
+import { useCallback, useState } from 'react'
+import { contextMenuHoldToDisplayTime } from '../../lib/lib.js'
+import { RundownUtils } from '../../lib/rundown.js'
+import { getElementDocumentOffset } from '../../utils/positions.js'
+import type { IContextMenuContext } from '../RundownView.js'
+import { CurrentPartOrSegmentRemaining } from '../RundownView/RundownHeader/CurrentPartOrSegmentRemaining.js'
+import type { SegmentUi } from '../SegmentContainer/withResolvedSegment.js'
+import { SegmentTimelinePartElementId } from '../SegmentTimeline/Parts/SegmentTimelinePart.js'
+import { LinePartIdentifier } from './LinePartIdentifier.js'
+import { LinePartPieceIndicators } from './LinePartPieceIndicators.js'
+import { LinePartTimeline } from './LinePartTimeline.js'
+import { LinePartTitle } from './LinePartTitle.js'
+import { TimingDataResolution, TimingTickResolution, useTiming } from '../RundownView/RundownTiming/withTiming.js'
+import { type RundownTimingContext, getPartInstanceTimingId } from '../../lib/rundownTiming.js'
+import { LoopingIcon } from '../../lib/ui/icons/looping.js'
+import type { ISourceLayerExtended } from '@sofie-automation/corelib/src/dataModel/ShowStyleBase.js'
+import type { PieceUi } from '@sofie-automation/corelib/src/dataModel/Piece.js'
+import type { PartExtended } from '@sofie-automation/corelib/src/dataModel/Part.js'
+import { isPartInstanceInvalid } from '../../lib/partInstanceUtil.js'
 
 interface IProps {
 	segment: SegmentUi
@@ -45,18 +48,7 @@ interface IProps {
 	onPieceDoubleClick?: (item: PieceUi, e: React.MouseEvent<HTMLDivElement>) => void
 }
 
-export const LinePart = withTiming<IProps, {}>((props: IProps) => {
-	return {
-		tickResolution: TimingTickResolution.Synced,
-		dataResolution: TimingDataResolution.High,
-		filter: (durations: RundownTimingContext) => {
-			durations = durations || {}
-
-			const timingId = getPartInstanceTimingId(props.part.instance)
-			return [(durations.partsInQuickLoop || {})[timingId]]
-		},
-	}
-})(function LinePart({
+export function LinePart({
 	part,
 	segment,
 	isNextPart,
@@ -68,13 +60,23 @@ export const LinePart = withTiming<IProps, {}>((props: IProps) => {
 	adLibIndicatorColumns,
 	isPlaylistLooping,
 	isEntirePlaylistLooping,
-	timingDurations,
 	isQuickLoopStart,
 	isQuickLoopEnd,
 	onContextMenu,
 	onPieceClick,
 	onPieceDoubleClick,
-}) {
+}: IProps): JSX.Element {
+	const timingDurations = useTiming(
+		TimingTickResolution.Synced,
+		TimingDataResolution.High,
+		(durations: RundownTimingContext) => {
+			durations = durations || {}
+
+			const timingId = getPartInstanceTimingId(part.instance)
+			return [(durations.partsInQuickLoop || {})[timingId]]
+		}
+	)
+
 	const isFinished =
 		(part.instance.timings?.reportedStoppedPlayback ?? part.instance.timings?.plannedStoppedPlayback) !== undefined
 	const [highlight] = useState(false)
@@ -83,6 +85,9 @@ export const LinePart = withTiming<IProps, {}>((props: IProps) => {
 	const isInsideQuickLoop = (timingDurations.partsInQuickLoop || {})[timingId]
 	const isOutsideActiveQuickLoop =
 		isPlaylistLooping && !isInsideQuickLoop && !isEntirePlaylistLooping && !isNextPart && !hasAlreadyPlayed
+
+	// Check for both planned and runtime invalidReason
+	const isInvalid = isPartInstanceInvalid(part.instance)
 
 	const getPartContext = useCallback(() => {
 		const partElement = document.querySelector('#' + SegmentTimelinePartElementId + part.instance._id)
@@ -111,17 +116,7 @@ export const LinePart = withTiming<IProps, {}>((props: IProps) => {
 		return (
 			<>
 				{part.instance.part.expectedDuration !== undefined && part.instance.part.expectedDuration > 0 && (
-					<span role="timer">
-						{RundownUtils.formatDiffToTimecode(
-							part.instance.part.expectedDuration,
-							false,
-							false,
-							true,
-							false,
-							true,
-							'+'
-						)}
-					</span>
+					<span role="timer">{RundownUtils.formatDiffToTimecodeWithSign(part.instance.part.expectedDuration)}</span>
 				)}
 				{(part.instance.part.expectedDuration === 0 || part.instance.part.expectedDuration === undefined) && (
 					<span>––:––</span>
@@ -141,10 +136,10 @@ export const LinePart = withTiming<IProps, {}>((props: IProps) => {
 					'segment-opl__part--has-played': hasAlreadyPlayed && (!isPlaylistLooping || !isInsideQuickLoop),
 					'segment-opl__part--outside-quickloop': isOutsideActiveQuickLoop,
 					'segment-opl__part--quickloop-start': isQuickLoopStart,
-					'segment-opl__part--invalid': part.instance.part.invalid,
+					'segment-opl__part--invalid': isInvalid,
 					'segment-opl__part--timing-sibling': isPreceededByTimingGroupSibling,
 				}),
-				//@ts-expect-error A Data attribue is perfectly fine
+				//@ts-expect-error A Data attribute is perfectly fine
 				'data-part-instance-id': part.instance._id,
 				id: SegmentTimelinePartElementId + part.instance._id,
 				role: 'region',
@@ -205,4 +200,4 @@ export const LinePart = withTiming<IProps, {}>((props: IProps) => {
 			/>
 		</ContextMenuTrigger>
 	)
-})
+}

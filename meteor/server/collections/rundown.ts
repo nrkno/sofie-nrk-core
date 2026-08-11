@@ -9,8 +9,8 @@ import { DBRundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
 import { RundownBaselineAdLibAction } from '@sofie-automation/corelib/dist/dataModel/RundownBaselineAdLibAction'
 import { RundownBaselineAdLibItem } from '@sofie-automation/corelib/dist/dataModel/RundownBaselineAdLibPiece'
 import { RundownBaselineObj } from '@sofie-automation/corelib/dist/dataModel/RundownBaselineObj'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
-import { PartInstance } from '@sofie-automation/meteor-lib/dist/collections/PartInstances'
+import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
+import { PartInstance } from '@sofie-automation/corelib/dist/dataModel/PartInstance'
 import { DBPart } from '@sofie-automation/corelib/dist/dataModel/Part'
 import { DBSegment } from '@sofie-automation/corelib/dist/dataModel/Segment'
 import { createAsyncOnlyReadOnlyMongoCollection } from './collection'
@@ -68,11 +68,10 @@ registerIndex(PartInstances, {
 })
 registerIndex(PartInstances, {
 	rundownId: 1,
-	// @ts-expect-error deep property
 	'part._id': 1,
 	takeCount: 1,
 	reset: 1,
-})
+} as any)
 
 export const Parts = createAsyncOnlyReadOnlyMongoCollection<DBPart>(CollectionName.Parts)
 registerIndex(Parts, {

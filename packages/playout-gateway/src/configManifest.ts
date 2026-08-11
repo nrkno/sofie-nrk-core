@@ -6,7 +6,7 @@ import {
 	SubdeviceManifest,
 } from '@sofie-automation/server-core-integration'
 import type { TSRDevicesManifestEntry } from 'timeline-state-resolver'
-import { TSRDeviceRegistry } from './tsrDeviceRegistry'
+import { TSRDeviceRegistry } from './tsrDeviceRegistry.js'
 
 import ConfigSchema = require('./$schemas/options.json')
 

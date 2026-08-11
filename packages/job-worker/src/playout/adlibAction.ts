@@ -4,36 +4,41 @@ import { UserError, UserErrorMessage } from '@sofie-automation/corelib/dist/erro
 import { getRandomId } from '@sofie-automation/corelib/dist/lib'
 import { stringifyError } from '@sofie-automation/shared-lib/dist/lib/stringifyError'
 import { ExecuteActionProps, ExecuteActionResult } from '@sofie-automation/corelib/dist/worker/studio'
-import { WrappedShowStyleBlueprint } from '../blueprints/cache'
-import { DatastoreActionExecutionContext, ActionExecutionContext } from '../blueprints/context'
-import { WatchedPackagesHelper } from '../blueprints/context/watchedPackages'
-import { JobContext, ProcessedShowStyleCompound } from '../jobs'
-import { getCurrentTime } from '../lib'
+import { WrappedShowStyleBlueprint } from '../blueprints/cache.js'
+import { DatastoreActionExecutionContext, ActionExecutionContext } from '../blueprints/context/index.js'
+import { WatchedPackagesHelper } from '../blueprints/context/watchedPackages.js'
+import { JobContext, ProcessedShowStyleCompound } from '../jobs/index.js'
+import { getCurrentTime } from '../lib/index.js'
 import { ReadonlyDeep } from 'type-fest'
-import { PlayoutModel, PlayoutModelPreInit } from './model/PlayoutModel'
-import { runJobWithPlaylistLock } from './lock'
-import { updateTimeline } from './timeline/generate'
-import { performTakeToNextedPart } from './take'
-import { ActionUserData } from '@sofie-automation/blueprints-integration'
-import { DBRundownPlaylist, SelectedPartInstance } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
-import { logger } from '../logging'
+import { PlayoutModel, PlayoutModelPreInit } from './model/PlayoutModel.js'
+import { runJobWithPlaylistLock } from './lock.js'
+import { updateTimeline } from './timeline/generate.js'
+import { performTakeToNextedPart } from './take.js'
+import { ActionUserData, BlueprintExecuteActionResult } from '@sofie-automation/blueprints-integration'
+import {
+	DBRundownPlaylist,
+	SelectedPartInstance,
+} from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
+import { logger } from '../logging.js'
 import {
 	AdLibActionId,
 	BlueprintId,
 	BucketAdLibActionId,
 	RundownBaselineAdLibActionId,
 } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { PlayoutRundownModel } from './model/PlayoutRundownModel'
-import { createPlayoutModelfromInitModel, loadPlayoutModelPreInit } from './model/implementation/LoadPlayoutModel'
+import { PlayoutRundownModel } from './model/PlayoutRundownModel.js'
+import { createPlayoutModelfromInitModel, loadPlayoutModelPreInit } from './model/implementation/LoadPlayoutModel.js'
 import {
 	ActionPartChange,
 	PartAndPieceInstanceActionService,
 	applyActionSideEffects,
-} from '../blueprints/context/services/PartAndPieceInstanceActionService'
-import { convertNoteToNotification } from '../notifications/util'
+} from '../blueprints/context/services/PartAndPieceInstanceActionService.js'
+import { convertNoteToNotification } from '../notifications/util.js'
 import type { INoteBase } from '@sofie-automation/corelib/dist/dataModel/Notes'
-import { NotificationsModelHelper } from '../notifications/NotificationsModelHelper'
-import type { INotificationsModel } from '../notifications/NotificationsModel'
+import { NotificationsModelHelper } from '../notifications/NotificationsModelHelper.js'
+import type { INotificationsModel } from '../notifications/NotificationsModel.js'
+import { PersistentPlayoutStateStore } from '../blueprints/context/services/PersistantStateStore.js'
+import { interpollateTranslation } from '@sofie-automation/corelib/dist/TranslatableMessage'
 
 /**
  * Execute an AdLib Action
@@ -75,32 +80,28 @@ export async function executeAdlibActionAndSaveModel(
 		throw UserError.create(UserErrorMessage.ActionsNotSupported)
 	}
 
-	const watchedPackages = await WatchedPackagesHelper.create(context, {
-		pieceId: data.actionDocId,
-		fromPieceType: {
-			$in: [
-				ExpectedPackageDBType.ADLIB_ACTION,
-				ExpectedPackageDBType.BASELINE_ADLIB_ACTION,
-				ExpectedPackageDBType.BUCKET_ADLIB_ACTION,
-			],
-		},
-	})
+	const adLibActionDoc = await findActionDoc(context, data)
 
-	const [adLibAction, baselineAdLibAction, bucketAdLibAction] = await Promise.all([
-		context.directCollections.AdLibActions.findOne(data.actionDocId as AdLibActionId, {
-			projection: { _id: 1, privateData: 1 },
-		}),
-		context.directCollections.RundownBaselineAdLibActions.findOne(
-			data.actionDocId as RundownBaselineAdLibActionId,
-			{
-				projection: { _id: 1, privateData: 1 },
-			}
-		),
-		context.directCollections.BucketAdLibActions.findOne(data.actionDocId as BucketAdLibActionId, {
-			projection: { _id: 1, privateData: 1 },
-		}),
-	])
-	const adLibActionDoc = adLibAction ?? baselineAdLibAction ?? bucketAdLibAction
+	if (adLibActionDoc && adLibActionDoc.invalid)
+		throw UserError.from(
+			new Error(`Cannot take invalid AdLib Action "${adLibActionDoc._id}"!`),
+			UserErrorMessage.AdlibUnplayable
+		)
+
+	let watchedPackages = WatchedPackagesHelper.empty(context)
+	if (adLibActionDoc && 'rundownId' in adLibActionDoc) {
+		watchedPackages = await WatchedPackagesHelper.create(context, adLibActionDoc.rundownId, null, {
+			fromPieceType: {
+				$in: [ExpectedPackageDBType.ADLIB_ACTION, ExpectedPackageDBType.BASELINE_ADLIB_ACTION],
+			},
+			pieceId: data.actionDocId,
+		})
+	} else if (adLibActionDoc && 'bucketId' in adLibActionDoc) {
+		watchedPackages = await WatchedPackagesHelper.create(context, null, adLibActionDoc.bucketId, {
+			fromPieceType: ExpectedPackageDBType.BUCKET_ADLIB_ACTION,
+			pieceId: data.actionDocId,
+		})
+	}
 
 	const actionParameters: ExecuteActionParameters = {
 		actionId: data.actionId,
@@ -191,6 +192,26 @@ export interface ExecuteActionParameters {
 	triggerMode: string | undefined
 }
 
+async function findActionDoc(context: JobContext, data: ExecuteActionProps) {
+	if (data.actionDocId === null) return undefined
+
+	const [adLibAction, baselineAdLibAction, bucketAdLibAction] = await Promise.all([
+		context.directCollections.AdLibActions.findOne(data.actionDocId as AdLibActionId, {
+			projection: { _id: 1, privateData: 1, publicData: 1 },
+		}),
+		context.directCollections.RundownBaselineAdLibActions.findOne(
+			data.actionDocId as RundownBaselineAdLibActionId,
+			{
+				projection: { _id: 1, privateData: 1, publicData: 1 },
+			}
+		),
+		context.directCollections.BucketAdLibActions.findOne(data.actionDocId as BucketAdLibActionId, {
+			projection: { _id: 1, privateData: 1, publicData: 1 },
+		}),
+	])
+	return adLibAction ?? baselineAdLibAction ?? bucketAdLibAction
+}
+
 export async function executeActionInner(
 	context: JobContext,
 	playoutModel: PlayoutModel,
@@ -229,9 +250,17 @@ export async function executeActionInner(
 		)} (${actionParameters.triggerMode})`
 	)
 
+	let result: BlueprintExecuteActionResult | void
+
 	try {
-		await blueprint.blueprint.executeAction(
+		const blueprintPersistentState = new PersistentPlayoutStateStore(
+			playoutModel.playlist.privatePlayoutPersistentState,
+			playoutModel.playlist.publicPlayoutPersistentState
+		)
+
+		result = await blueprint.blueprint.executeAction(
 			actionContext,
+			blueprintPersistentState,
 			actionParameters.actionId,
 			actionParameters.userData,
 			actionParameters.triggerMode,
@@ -239,9 +268,28 @@ export async function executeActionInner(
 			actionParameters.publicData,
 			actionParameters.actionOptions ?? {}
 		)
+
+		blueprintPersistentState.saveToModel(playoutModel)
 	} catch (err) {
 		logger.error(`Error in showStyleBlueprint.executeAction: ${stringifyError(err)}`)
 		throw UserError.fromUnknown(err)
+	}
+
+	// If the blueprint returned an error, abort the action and throw the error
+	if (result && typeof result === 'object' && result.message) {
+		const messageStr = interpollateTranslation(result.message.key, result.message.args)
+		const statusCode = Number.isFinite(result.errorCode)
+			? Math.max(Math.min(Math.round(result.errorCode as number), 499), 400)
+			: 409
+		throw UserError.from(
+			new Error(messageStr),
+			UserErrorMessage.ValidationFailed,
+			{ message: messageStr, rawMessage: result.message, details: result.details },
+			statusCode
+		)
+	} else if (result !== undefined) {
+		// Unexpected return value — does not match the BlueprintExecuteActionResult shape; treat as success but warn so it can be investigated
+		logger.warn(`executeAction returned an unexpected value: ${JSON.stringify(result)}`)
 	}
 
 	// Store any notes generated by the action
@@ -261,16 +309,16 @@ export async function executeActionInner(
 	}
 }
 
-async function applyAnyExecutionSideEffects(
+export async function applyAnyExecutionSideEffects(
 	context: JobContext,
 	playoutModel: PlayoutModel,
 	actionContext: ActionExecutionContext,
 	now: number
-) {
+): Promise<void> {
 	await applyActionSideEffects(context, playoutModel, actionContext)
 
 	if (actionContext.takeAfterExecute) {
-		await performTakeToNextedPart(context, playoutModel, now)
+		await performTakeToNextedPart(context, playoutModel, now, actionContext.partToQueueAfterTake)
 	} else if (
 		actionContext.forceRegenerateTimeline ||
 		actionContext.currentPartState !== ActionPartChange.NONE ||
@@ -324,13 +372,13 @@ async function executeDataStoreAction(
 	}
 }
 
-function storeNotificationsForCategory(
+export function storeNotificationsForCategory(
 	notificationHelper: INotificationsModel,
 	notificationCategory: string,
 	blueprintId: BlueprintId,
 	notes: INoteBase[],
 	partInstanceInfo: SelectedPartInstance | null
-) {
+): void {
 	for (const note of notes) {
 		notificationHelper.setNotification(notificationCategory, {
 			...convertNoteToNotification(note, [blueprintId]),
@@ -339,10 +387,10 @@ function storeNotificationsForCategory(
 						type: 'partInstance',
 						rundownId: partInstanceInfo.rundownId,
 						partInstanceId: partInstanceInfo.partInstanceId,
-				  }
+					}
 				: {
 						type: 'playlist',
-				  },
+					},
 		})
 	}
 }

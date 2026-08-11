@@ -1,16 +1,19 @@
 import { Meteor } from 'meteor/meteor'
 import { Mongo } from 'meteor/mongo'
-import { ProtectedString, protectString } from '../lib/tempLib'
+import { type ProtectedString, protectString } from '@sofie-automation/shared-lib/dist/lib/protectedString'
 import { stringifyError } from '@sofie-automation/shared-lib/dist/lib/stringifyError'
 import type { Collection as RawCollection, Db as RawDb } from 'mongodb'
-import { CollectionName } from '@sofie-automation/corelib/dist/dataModel/Collections'
-import { MongoModifier, MongoQuery } from '@sofie-automation/corelib/dist/mongo'
-import { CustomCollectionName, MeteorPubSubCustomCollections } from '@sofie-automation/meteor-lib/dist/api/pubsub'
-import {
+import type {
+	CollectionName,
+	CustomCollectionName as CustomCorelibCollectionName,
+} from '@sofie-automation/corelib/dist/dataModel/Collections'
+import type { MongoModifier, MongoQuery } from '@sofie-automation/corelib/dist/mongo'
+import type { CustomCollectionName, MeteorPubSubCustomCollections } from '@sofie-automation/meteor-lib/dist/api/pubsub'
+import type {
 	PeripheralDevicePubSubCollections,
 	PeripheralDevicePubSubCollectionsNames,
 } from '@sofie-automation/shared-lib/dist/pubsub/peripheralDevice'
-import {
+import type {
 	MongoCollection,
 	MongoReadOnlyCollection,
 	MongoCursor,
@@ -19,8 +22,22 @@ import {
 	UpdateOptions,
 	UpsertOptions,
 } from '@sofie-automation/meteor-lib/dist/collections/lib'
+import type { CorelibPubSubCustomCollections } from '@sofie-automation/corelib/dist/pubsub'
 
-export * from '@sofie-automation/meteor-lib/dist/collections/lib'
+export type {
+	FieldNames,
+	FindOneOptions,
+	FindOptions,
+	IndexSpecifier,
+	MongoCollection,
+	MongoCursor,
+	MongoLiveQueryHandle,
+	MongoReadOnlyCollection,
+	ObserveCallbacks,
+	ObserveChangesCallbacks,
+	UpdateOptions,
+	UpsertOptions,
+} from '@sofie-automation/meteor-lib/dist/collections/lib'
 
 export const ClientCollections = new Map<CollectionName, MongoCollection<any> | WrappedMongoReadOnlyCollection<any>>()
 function registerClientCollection(
@@ -114,7 +131,7 @@ export function createSyncReadOnlyMongoCollection<DBInterface extends { _id: Pro
  * @param name Name of the custom-collection
  */
 export function createSyncCustomPublicationMongoCollection<
-	K extends CustomCollectionName & keyof MeteorPubSubCustomCollections
+	K extends CustomCollectionName & keyof MeteorPubSubCustomCollections,
 >(name: K): MongoReadOnlyCollection<MeteorPubSubCustomCollections[K]> {
 	const collection = new Mongo.Collection<MeteorPubSubCustomCollections[K]>(name)
 	const wrapped = new WrappedMongoReadOnlyCollection<MeteorPubSubCustomCollections[K]>(collection, name)
@@ -125,8 +142,20 @@ export function createSyncCustomPublicationMongoCollection<
 	return wrapped
 }
 
+export function createSyncCorelibCustomPublicationMongoCollection<
+	K extends CustomCorelibCollectionName & keyof CorelibPubSubCustomCollections,
+>(name: K): MongoReadOnlyCollection<CorelibPubSubCustomCollections[K]> {
+	const collection = new Mongo.Collection<CorelibPubSubCustomCollections[K]>(name)
+	const wrapped = new WrappedMongoReadOnlyCollection<CorelibPubSubCustomCollections[K]>(collection, name)
+
+	if (PublicationCollections.has(name)) throw new Meteor.Error(`Cannot re-register collection "${name}"`)
+	PublicationCollections.set(name, wrapped)
+
+	return wrapped
+}
+
 export function createSyncPeripheralDeviceCustomPublicationMongoCollection<
-	K extends PeripheralDevicePubSubCollectionsNames & keyof PeripheralDevicePubSubCollections
+	K extends PeripheralDevicePubSubCollectionsNames & keyof PeripheralDevicePubSubCollections,
 >(name: K): MongoReadOnlyCollection<PeripheralDevicePubSubCollections[K]> {
 	const collection = new Mongo.Collection<PeripheralDevicePubSubCollections[K]>(name)
 	const wrapped = new WrappedMongoReadOnlyCollection<PeripheralDevicePubSubCollections[K]>(collection, name)
@@ -137,9 +166,9 @@ export function createSyncPeripheralDeviceCustomPublicationMongoCollection<
 	return wrapped
 }
 
-class WrappedMongoReadOnlyCollection<DBInterface extends { _id: ProtectedString<any> }>
-	implements MongoReadOnlyCollection<DBInterface>
-{
+class WrappedMongoReadOnlyCollection<
+	DBInterface extends { _id: ProtectedString<any> },
+> implements MongoReadOnlyCollection<DBInterface> {
 	protected readonly _collection: Mongo.Collection<DBInterface>
 
 	public readonly name: string | null

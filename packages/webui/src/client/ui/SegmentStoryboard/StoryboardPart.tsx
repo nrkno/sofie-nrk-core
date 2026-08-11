@@ -1,36 +1,29 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import classNames from 'classnames'
 import { useTranslation } from 'react-i18next'
-import { PartExtended } from '../../lib/RundownResolver'
-import { IOutputLayerUi, SegmentUi } from '../SegmentContainer/withResolvedSegment'
-import { StoryboardPartSecondaryPieces } from './StoryboardPartSecondaryPieces/StoryboardPartSecondaryPieces'
-import { StoryboardPartThumbnail } from './StoryboardPartThumbnail/StoryboardPartThumbnail'
+import type { IOutputLayerUi, SegmentUi } from '../SegmentContainer/withResolvedSegment.js'
+import { StoryboardPartSecondaryPieces } from './StoryboardPartSecondaryPieces/StoryboardPartSecondaryPieces.js'
+import { StoryboardPartThumbnail } from './StoryboardPartThumbnail/StoryboardPartThumbnail.js'
 import { ContextMenuTrigger } from '@jstarpl/react-contextmenu'
-import { contextMenuHoldToDisplayTime } from '../../lib/lib'
-import { getElementDocumentOffset } from '../../utils/positions'
-import { IContextMenuContext } from '../RundownView'
-import { literal } from '../../lib/tempLib'
-import { SegmentTimelinePartElementId } from '../SegmentTimeline/Parts/SegmentTimelinePart'
-import { CurrentPartOrSegmentRemaining } from '../RundownView/RundownTiming/CurrentPartOrSegmentRemaining'
-import { getAllowSpeaking, getAllowVibrating } from '../../lib/localStorage'
-import RundownViewEventBus, {
-	HighlightEvent,
-	RundownViewEvents,
-} from '@sofie-automation/meteor-lib/dist/triggers/RundownViewEventBus'
+import { contextMenuHoldToDisplayTime, useRundownViewEventBusListener } from '../../lib/lib.js'
+import { getElementDocumentOffset } from '../../utils/positions.js'
+import type { IContextMenuContext } from '../RundownView.js'
+import { literal } from '@sofie-automation/corelib/dist/lib'
+import { SegmentTimelinePartElementId } from '../SegmentTimeline/Parts/SegmentTimelinePart.js'
+import { CurrentPartOrSegmentRemaining } from '../RundownView/RundownHeader/CurrentPartOrSegmentRemaining.js'
+import { getAllowSpeaking, getAllowVibrating } from '../../lib/localStorage.js'
+import { type HighlightEvent, RundownViewEvents } from '@sofie-automation/meteor-lib/dist/triggers/RundownViewEventBus'
 import { Meteor } from 'meteor/meteor'
-import { StoryboardPartTransitions } from './StoryboardPartTransitions'
-import { PartDisplayDuration } from '../RundownView/RundownTiming/PartDuration'
-import { InvalidPartCover } from '../SegmentTimeline/Parts/InvalidPartCover'
-import { SegmentEnd } from '../../lib/ui/icons/segment'
-import { AutoNextStatus } from '../RundownView/RundownTiming/AutoNextStatus'
-import { RundownTimingContext, getPartInstanceTimingId } from '../../lib/rundownTiming'
-import {
-	TimingDataResolution,
-	TimingTickResolution,
-	WithTiming,
-	withTiming,
-} from '../RundownView/RundownTiming/withTiming'
-import { LoopingIcon } from '../../lib/ui/icons/looping'
+import { StoryboardPartTransitions } from './StoryboardPartTransitions.js'
+import { PartDisplayDuration } from '../RundownView/RundownTiming/PartDuration.js'
+import { InvalidPartCover } from '../SegmentTimeline/Parts/InvalidPartCover.js'
+import { SegmentEnd } from '../../lib/ui/icons/segment.js'
+import { AutoNextStatus } from '../RundownView/RundownTiming/AutoNextStatus.js'
+import { type RundownTimingContext, getPartInstanceTimingId } from '../../lib/rundownTiming.js'
+import { TimingDataResolution, TimingTickResolution, useTiming } from '../RundownView/RundownTiming/withTiming.js'
+import { LoopingIcon } from '../../lib/ui/icons/looping.js'
+import type { PartExtended } from '@sofie-automation/corelib/src/dataModel/Part.js'
+import { getEffectiveInvalidReason, isPartInstanceInvalid } from '../../lib/partInstanceUtil.js'
 
 interface IProps {
 	className?: string
@@ -56,18 +49,7 @@ interface IProps {
 	onHoverOver?: () => void
 	onHoverOut?: () => void
 }
-export const StoryboardPart = withTiming<IProps, {}>((props: IProps) => {
-	return {
-		tickResolution: TimingTickResolution.Synced,
-		dataResolution: TimingDataResolution.High,
-		filter: (durations: RundownTimingContext) => {
-			durations = durations || {}
-
-			const timingId = getPartInstanceTimingId(props.part.instance)
-			return [(durations.partsInQuickLoop || {})[timingId]]
-		},
-	}
-})(function StoryboardPart({
+export function StoryboardPart({
 	className,
 	segment,
 	part,
@@ -86,14 +68,24 @@ export const StoryboardPart = withTiming<IProps, {}>((props: IProps) => {
 	subscriptionsReady,
 	displayLiveLineCounter,
 	style,
-	timingDurations,
 	onContextMenu,
 	onHoverOver,
 	onHoverOut,
-}: Readonly<WithTiming<IProps>>): JSX.Element {
+}: Readonly<IProps>): JSX.Element {
 	const { t } = useTranslation()
 	const [highlight, setHighlight] = useState(false)
 	const willBeAutoNextedInto = isNextPart ? currentPartWillAutonext : part.willProbablyAutoNext
+
+	const timingDurations = useTiming(
+		TimingTickResolution.Synced,
+		TimingDataResolution.High,
+		(durations: RundownTimingContext) => {
+			durations = durations || {}
+
+			const timingId = getPartInstanceTimingId(part.instance)
+			return [(durations.partsInQuickLoop || {})[timingId]]
+		}
+	)
 
 	const getPartContext = useCallback(() => {
 		const partElement = document.querySelector('#' + SegmentTimelinePartElementId + part.instance._id)
@@ -132,15 +124,12 @@ export const StoryboardPart = withTiming<IProps, {}>((props: IProps) => {
 			if (highlightTimeout.current) Meteor.clearTimeout(highlightTimeout.current)
 		}
 	}, [])
-	useEffect(() => {
-		RundownViewEventBus.on(RundownViewEvents.HIGHLIGHT, onHighlight)
 
-		return () => {
-			RundownViewEventBus.off(RundownViewEvents.HIGHLIGHT, onHighlight)
-		}
-	}, [onHighlight])
+	useRundownViewEventBusListener(RundownViewEvents.HIGHLIGHT, onHighlight)
 
-	const isInvalid = part.instance.part.invalid
+	// Get effective invalidReason: planned (Part) takes precedence over runtime (PartInstance)
+	const effectiveInvalidReason = getEffectiveInvalidReason(part.instance)
+	const isInvalid = isPartInstanceInvalid(part.instance)
 	const isFloated = part.instance.part.floated
 	const isInsideQuickLoop = timingDurations.partsInQuickLoop?.[getPartInstanceTimingId(part.instance)] ?? false
 	const isOutsideActiveQuickLoop = !isInsideQuickLoop && isPlaylistLooping && !isEntirePlaylistLooping && !isNextPart
@@ -156,14 +145,14 @@ export const StoryboardPart = withTiming<IProps, {}>((props: IProps) => {
 						'invert-flash': highlight,
 						'segment-storyboard__part--next': isNextPart,
 						'segment-storyboard__part--live': isLivePart,
-						'segment-storyboard__part--invalid': part.instance.part.invalid,
+						'segment-storyboard__part--invalid': isInvalid,
 						'segment-storyboard__part--outside-quickloop': isOutsideActiveQuickLoop,
 						'segment-storyboard__part--quickloop-start': isQuickLoopStart,
 						'segment-storyboard__part--quickloop-end': isQuickLoopEnd,
 					},
 					className
 				),
-				//@ts-expect-error A Data attribue is perfectly fine
+				//@ts-expect-error A Data attribute is perfectly fine
 				'data-layer-id': part.instance._id,
 				id: SegmentTimelinePartElementId + part.instance._id,
 				style: style,
@@ -193,7 +182,14 @@ export const StoryboardPart = withTiming<IProps, {}>((props: IProps) => {
 				</>
 			)}
 			{isInvalid ? (
-				<InvalidPartCover className="segment-storyboard__part__invalid-cover" part={part.instance.part} />
+				<InvalidPartCover
+					className={
+						effectiveInvalidReason?.isInstanceInvalid
+							? 'segment-storyboard__part__invalid-part-instance-cover'
+							: 'segment-storyboard__part__invalid-cover'
+					}
+					invalidReason={effectiveInvalidReason}
+				/>
 			) : null}
 			{isFloated ? <div className="segment-storyboard__part__floated-cover"></div> : null}
 			<div className="segment-storyboard__part__title">{part.instance.part.title}</div>
@@ -201,7 +197,7 @@ export const StoryboardPart = withTiming<IProps, {}>((props: IProps) => {
 			<div
 				className={classNames('segment-storyboard__part__next-line', {
 					'segment-storyboard__part__next-line--autonext': willBeAutoNextedInto,
-					'segment-storyboard__part__next-line--invalid': part.instance.part.invalid,
+					'segment-storyboard__part__next-line--invalid': isInvalid,
 					'segment-storyboard__part__next-line--next': isNextPart,
 					'segment-storyboard__part__next-line--live': isLivePart,
 					'segment-storyboard__part__next-line--quickloop-start': isQuickLoopStart,
@@ -245,12 +241,12 @@ export const StoryboardPart = withTiming<IProps, {}>((props: IProps) => {
 						{part.instance.part.autoNext
 							? t('Auto')
 							: isLivePart && (!isLastSegment || doesPlaylistHaveNextPart)
-							? t('Next')
-							: null}
+								? t('Next')
+								: null}
 					</div>
 				</>
 			)}
-			{!isLastSegment && isLastPartInSegment && !isEndOfLoopingShow && !part.instance.part.invalid && (
+			{!isLastSegment && isLastPartInSegment && !isEndOfLoopingShow && !isInvalid && (
 				<div
 					className={classNames('segment-storyboard__part__segment-end', {
 						'segment-storyboard__part__segment-end--next': isLivePart && (!isLastSegment || doesPlaylistHaveNextPart),
@@ -310,4 +306,4 @@ export const StoryboardPart = withTiming<IProps, {}>((props: IProps) => {
 			{isQuickLoopEnd && <div className="segment-storyboard__part__quickloop-end" />}
 		</ContextMenuTrigger>
 	)
-})
+}

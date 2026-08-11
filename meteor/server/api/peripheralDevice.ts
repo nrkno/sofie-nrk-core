@@ -1,9 +1,17 @@
 import { Meteor } from 'meteor/meteor'
 import { check, Match } from '../lib/check'
-import * as _ from 'underscore'
+import _ from 'underscore'
 import { PeripheralDeviceType, PeripheralDevice } from '@sofie-automation/corelib/dist/dataModel/PeripheralDevice'
-import { PeripheralDeviceCommands, PeripheralDevices, Rundowns, Studios, UserActionsLog } from '../collections'
-import { protectString, stringifyObjects, literal, unprotectString } from '../lib/tempLib'
+import {
+	PeripheralDeviceCommands,
+	PeripheralDevices,
+	Rundowns,
+	Studios,
+	UserActionsLog,
+	Blueprints,
+} from '../collections'
+import { stringifyObjects, literal } from '@sofie-automation/corelib/dist/lib'
+import { protectString, unprotectString } from '@sofie-automation/corelib/dist/protectedString'
 import { getCurrentTime } from '../lib/lib'
 import { logger } from '../logging'
 import { TimelineHash } from '@sofie-automation/corelib/dist/dataModel/Timeline'
@@ -20,9 +28,6 @@ import {
 import { MosIntegration } from './ingest/mosDevice/mosIntegration'
 import { MediaScannerIntegration } from './integration/media-scanner'
 import { MediaObject } from '@sofie-automation/shared-lib/dist/core/model/MediaObjects'
-import { MediaManagerIntegration } from './integration/mediaWorkFlows'
-import { MediaWorkFlow } from '@sofie-automation/shared-lib/dist/core/model/MediaWorkFlows'
-import { MediaWorkFlowStep } from '@sofie-automation/shared-lib/dist/core/model/MediaWorkFlowSteps'
 import { MOS } from '@sofie-automation/corelib'
 import { determineDiffTime } from './systemTime/systemTime'
 import { getTimeDiff } from './systemTime/api'
@@ -32,21 +37,20 @@ import { checkAccessAndGetPeripheralDevice } from '../security/check'
 import { UserActionsLogItem } from '@sofie-automation/meteor-lib/dist/collections/UserActionsLog'
 import { PackageManagerIntegration } from './integration/expectedPackages'
 import { profiler } from './profiler'
-import { QueueStudioJob } from '../worker/worker'
+import { QueueStudioJob, QueueOrUpdateStudioJob } from '../worker/worker'
 import { StudioJobs } from '@sofie-automation/corelib/dist/worker/studio'
-import { DeviceConfigManifest } from '@sofie-automation/corelib/dist/deviceConfig'
 import {
 	PlayoutChangedResults,
 	PeripheralDeviceInitOptions,
 	PeripheralDeviceStatusObject,
 	TimelineTriggerTimeResult,
+	DeviceStatusDetail,
 } from '@sofie-automation/shared-lib/dist/peripheralDevice/peripheralDeviceAPI'
+import type { PeripheralDeviceExternalEvent } from '@sofie-automation/shared-lib/dist/peripheralDevice/externalEvents'
 import { checkStudioExists } from '../optimizations'
 import {
 	ExpectedPackageId,
 	ExpectedPackageWorkStatusId,
-	MediaWorkFlowId,
-	MediaWorkFlowStepId,
 	PeripheralDeviceCommandId,
 	PeripheralDeviceId,
 } from '@sofie-automation/corelib/dist/dataModel/Ids'
@@ -58,7 +62,7 @@ import { insertInputDeviceTriggerIntoPreview } from '../publications/deviceTrigg
 import { receiveInputDeviceTrigger } from './deviceTriggers/observer'
 import { upsertBundles, generateTranslationBundleOriginId } from './translationsBundles'
 import { isTranslatableMessage } from '@sofie-automation/corelib/dist/TranslatableMessage'
-import { JSONBlobParse, JSONBlobStringify } from '@sofie-automation/shared-lib/dist/lib/JSONBlob'
+import { JSONBlobParse } from '@sofie-automation/shared-lib/dist/lib/JSONBlob'
 import {
 	applyAndValidateOverrides,
 	SomeObjectOverrideOp,
@@ -69,8 +73,216 @@ import KoaRouter from '@koa/router'
 import bodyParser from 'koa-bodyparser'
 import { assertConnectionHasOneOfPermissions } from '../security/auth'
 import { DBStudio } from '@sofie-automation/corelib/dist/dataModel/Studio'
+import { getRootSubpath } from '../lib'
+import { evalBlueprint } from './blueprints/cache'
+import { StudioBlueprintManifest, TSR } from '@sofie-automation/blueprints-integration'
+import { StatusMessageResolver } from '@sofie-automation/corelib'
+import { interpollateTranslation } from '@sofie-automation/corelib/dist/TranslatableMessage'
+import { Blueprint } from '@sofie-automation/corelib/dist/dataModel/Blueprint'
+import { StudioId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 
 const apmNamespace = 'peripheralDevice'
+
+type StudioBlueprintLookup = {
+	blueprint: Pick<Blueprint, '_id' | 'name' | 'code'>
+	manifest: StudioBlueprintManifest
+}
+
+/**
+ * Load and evaluate the Studio blueprint manifest for a studio.
+ * Returns undefined when the studio has no blueprint or lookup fails.
+ */
+async function getStudioBlueprintManifest(studioId: StudioId): Promise<StudioBlueprintLookup | undefined> {
+	const studio = (await Studios.findOneAsync(studioId, {
+		projection: { blueprintId: 1 },
+	})) as Pick<DBStudio, 'blueprintId'> | undefined
+
+	if (!studio?.blueprintId) return undefined
+
+	const blueprint = (await Blueprints.findOneAsync(studio.blueprintId, {
+		projection: { _id: 1, name: 1, code: 1 },
+	})) as Pick<Blueprint, '_id' | 'name' | 'code'> | undefined
+
+	if (!blueprint) return undefined
+
+	const manifest = evalBlueprint(blueprint) as StudioBlueprintManifest
+	return { blueprint, manifest }
+}
+
+/**
+ * Resolve device status details using the Studio blueprint's deviceStatusMessages.
+ * This allows blueprints to customize status messages shown to operators.
+ *
+ * @param studioId - The studio ID to look up the blueprint
+ * @param deviceName - The peripheral device name (shorter than TSR's internal name)
+ * @param deviceId - The peripheral device ID
+ * @param statusDetails - Structured status details from TSR
+ * @param defaultMessages - The original messages from TSR (used as fallback)
+ */
+async function resolveDeviceStatusDetails(
+	studioId: StudioId,
+	deviceName: string,
+	deviceId: PeripheralDeviceId,
+	statusDetails: DeviceStatusDetail[],
+	defaultMessages: string[]
+): Promise<string[]> {
+	try {
+		const studioBlueprint = await getStudioBlueprintManifest(studioId)
+		if (!studioBlueprint) {
+			// No blueprint, return empty (caller will use original messages)
+			return []
+		}
+
+		const { blueprint, manifest: blueprintManifest } = studioBlueprint
+
+		logger.debug(
+			`Blueprint ${blueprint._id} deviceStatusMessages keys: ${Object.keys(blueprintManifest.deviceStatusMessages ?? {}).join(', ')}`
+		)
+
+		if (!blueprintManifest.deviceStatusMessages) {
+			// Blueprint doesn't define any custom status messages
+			logger.debug(`Blueprint ${blueprint._id} has no deviceStatusMessages`)
+			return []
+		}
+
+		// Create resolver with the blueprint's status messages
+		const resolver = new StatusMessageResolver(
+			blueprint._id,
+			blueprintManifest.deviceStatusMessages,
+			undefined // No system error messages
+		)
+
+		// Resolve each status detail
+		const resolvedMessages: string[] = []
+		for (let i = 0; i < statusDetails.length; i++) {
+			const statusDetail = statusDetails[i]
+			// statusDetail.message is always pre-rendered by TSR; use it as fallback if no defaultMessages entry
+			const defaultMessage = defaultMessages[i] ?? statusDetail.message
+
+			if (!statusDetail.code) {
+				// No structured code - use the pre-rendered TSR message directly
+				resolvedMessages.push(defaultMessage)
+				continue
+			}
+
+			logger.debug(
+				`Resolving status code: ${statusDetail.code}, context: ${JSON.stringify(statusDetail.context)}`
+			)
+			const message = resolver.getDeviceStatusMessage(
+				statusDetail.code,
+				{
+					...statusDetail.context,
+					// Override with peripheral device info (TSR might have longer names)
+					deviceName,
+					deviceId: unprotectString(deviceId),
+				},
+				defaultMessage
+			)
+
+			if (message) {
+				// Interpolate the message template with context values
+				const interpolated = interpollateTranslation(message.key, message.args)
+				logger.debug(`Resolved message for ${statusDetail.code}: ${interpolated}`)
+				resolvedMessages.push(interpolated)
+				// Also mutate statusDetail.message so the UI can read from statusDetails[].message directly
+				statusDetail.message = interpolated
+			} else {
+				// Message suppressed by blueprint - clear the message so the UI doesn't show the raw TSR message
+				statusDetail.message = ''
+				logger.debug(`Message suppressed for ${statusDetail.code}`)
+			}
+		}
+
+		return resolvedMessages
+	} catch (e) {
+		// Log error but don't fail - fall back to original messages
+		logger.error(`Error resolving device status messages: ${e}`)
+		return []
+	}
+}
+
+/**
+ * Resolve a TSR ActionExecutionResult using the Studio blueprint's deviceActionMessages.
+ * If the result has a structured `code` and `context`, and the blueprint defines a custom
+ * message template for that code, the `response` field is replaced with the resolved message.
+ * When the blueprint suppresses the message (empty string template), `response` is cleared.
+ *
+ * @param deviceId - The peripheral device ID (used to look up the studio and blueprint)
+ * @param result - The action execution result from TSR
+ * @returns The result with `response` resolved, cleared on suppression, or unchanged when no custom message applies
+ */
+export async function resolveActionResult(
+	deviceId: PeripheralDeviceId,
+	result: TSR.ActionExecutionResult
+): Promise<TSR.ActionExecutionResult> {
+	if (result.result === TSR.ActionExecutionResultCode.Ok) return result
+	if (!result.code) return result
+
+	try {
+		const device = (await PeripheralDevices.findOneAsync(deviceId, {
+			projection: { name: 1, studioAndConfigId: 1, parentDeviceId: 1 },
+		})) as Pick<PeripheralDevice, 'name' | 'studioAndConfigId' | 'parentDeviceId'> | undefined
+
+		if (!device) return result
+
+		// Child devices (like casparcg0) don't have studioAndConfigId directly - get it from parent
+		let studioId = device.studioAndConfigId?.studioId
+		if (!studioId && device.parentDeviceId) {
+			const parentDevice = await PeripheralDevices.findOneAsync(device.parentDeviceId, {
+				projection: { studioAndConfigId: 1 },
+			})
+			studioId = parentDevice?.studioAndConfigId?.studioId
+		}
+
+		if (!studioId) return result
+
+		const studioBlueprint = await getStudioBlueprintManifest(studioId)
+		if (!studioBlueprint) return result
+
+		const { blueprint, manifest: blueprintManifest } = studioBlueprint
+
+		if (!blueprintManifest.deviceActionMessages) return result
+
+		const resolver = new StatusMessageResolver(blueprint._id, blueprintManifest.deviceActionMessages, undefined)
+
+		// Use the existing TSR response as the fallback default message
+		const defaultMessage = result.response?.key ?? ''
+
+		const resolved = resolver.getDeviceStatusMessage(
+			result.code,
+			{
+				...(result.context ?? {}),
+				deviceName: device.name,
+				deviceId: unprotectString(deviceId),
+			},
+			defaultMessage
+		)
+
+		if (resolved === null) {
+			// Message suppressed by blueprint - clear response so the UI doesn't show the raw TSR message
+			return {
+				...result,
+				response: { key: '' },
+			}
+		}
+
+		// resolved.key is either the custom blueprint message or the defaultMessage
+		if (resolved.key === defaultMessage) {
+			// No custom message found - keep original response unchanged
+			return result
+		}
+
+		const interpolated = interpollateTranslation(resolved.key, resolved.args)
+		return {
+			...result,
+			response: { key: interpolated },
+		}
+	} catch (e) {
+		logger.error(`Error resolving device action messages: ${e}`)
+		return result
+	}
+}
+
 export namespace ServerPeripheralDeviceAPI {
 	export async function initialize(
 		context: MethodContext,
@@ -127,25 +339,25 @@ export namespace ServerPeripheralDeviceAPI {
 						? {
 								...options.configManifest,
 								translations: undefined, // unset the translations
-						  }
+							}
 						: undefined,
 
 					documentationUrl: options.documentationUrl,
-				},
+				} satisfies Partial<PeripheralDevice>,
 				$unset:
 					newVersionsStr !== oldVersionsStr
 						? {
 								disableVersionChecks: 1,
-						  }
+							}
 						: undefined,
 			})
 		} else {
 			await PeripheralDevices.insertAsync({
 				_id: deviceId,
-				organizationId: null,
 				created: getCurrentTime(),
 				status: {
 					statusCode: StatusCode.UNKNOWN,
+					statusDetails: [],
 				},
 				connected: true,
 				connectionId: options.connectionId,
@@ -166,11 +378,8 @@ export namespace ServerPeripheralDeviceAPI {
 					? {
 							...options.configManifest,
 							translations: undefined,
-					  }
-					: literal<DeviceConfigManifest>({
-							deviceConfigSchema: JSONBlobStringify({}),
-							subdeviceManifest: {},
-					  }),
+						}
+					: undefined,
 
 				documentationUrl: options.documentationUrl,
 			})
@@ -209,6 +418,37 @@ export namespace ServerPeripheralDeviceAPI {
 		check(status.statusCode, Number)
 		if (status.statusCode < StatusCode.UNKNOWN || status.statusCode > StatusCode.FATAL) {
 			throw new Meteor.Error(400, 'device status code is not known')
+		}
+
+		// Resolve status messages using Studio blueprint if structured status details are present
+		// Child devices (like casparcg0) don't have studioAndConfigId directly - get it from parent
+		let studioId = peripheralDevice.studioAndConfigId?.studioId
+		if (!studioId && peripheralDevice.parentDeviceId) {
+			const parentDevice = await PeripheralDevices.findOneAsync(peripheralDevice.parentDeviceId, {
+				projection: { studioAndConfigId: 1 },
+			})
+			studioId = parentDevice?.studioAndConfigId?.studioId
+		}
+
+		logger.info(
+			`Device ${deviceId} setStatus: statusDetails=${status.statusDetails?.length ?? 'undefined'}, messages=${status.messages?.length ?? 'undefined'}, studioId=${studioId ?? 'none'}`
+		)
+		if (status.statusDetails && status.statusDetails.length > 0) {
+			if (studioId) {
+				const resolvedMessages = await resolveDeviceStatusDetails(
+					studioId,
+					peripheralDevice.name,
+					peripheralDevice._id,
+					status.statusDetails,
+					status.messages ?? []
+				)
+				// Use blueprint-resolved messages if available, otherwise fall back to statusDetails messages
+				status.messages =
+					resolvedMessages.length > 0 ? resolvedMessages : status.statusDetails.map((d) => d.message)
+			} else {
+				// No studio context, derive messages directly from statusDetails
+				status.messages = status.statusDetails.map((d) => d.message)
+			}
 		}
 
 		// check if we have to update something:
@@ -320,6 +560,32 @@ export namespace ServerPeripheralDeviceAPI {
 
 		transaction?.end()
 	}
+	export async function reportExternalEvents(
+		context: MethodContext,
+		deviceId: PeripheralDeviceId,
+		token: string,
+		events: PeripheralDeviceExternalEvent[]
+	): Promise<void> {
+		check(events, Array)
+
+		const peripheralDevice = await checkAccessAndGetPeripheralDevice(deviceId, token, context)
+
+		if (!peripheralDevice.studioAndConfigId)
+			throw new Error(`PeripheralDevice "${peripheralDevice._id}" sent reportExternalEvents, but has no studioId`)
+
+		if (!events.length) return
+
+		const studioId = peripheralDevice.studioAndConfigId.studioId
+		// An arbitrary cap, to avoid unbound memory growth
+		const MAX_PENDING_EXTERNAL_EVENTS = 1000
+
+		// Merge events into the last pending OnExternalEvents job in the queue, or enqueue a new one.
+		// This prevents queue flooding when many events arrive in a burst, or when multiple gateways
+		// report events for the same studio simultaneously.
+		QueueOrUpdateStudioJob(StudioJobs.OnExternalEvents, studioId, (existing) => ({
+			events: [...(existing?.events ?? []), ...events].slice(-MAX_PENDING_EXTERNAL_EVENTS),
+		}))
+	}
 	export async function pingWithCommand(
 		context: MethodContext,
 		deviceId: PeripheralDeviceId,
@@ -357,7 +623,7 @@ export namespace ServerPeripheralDeviceAPI {
 		if (really) {
 			logger.info('KillProcess command received from ' + peripheralDevice._id + ', shutting down in 1000ms!')
 			setTimeout(() => {
-				// eslint-disable-next-line no-process-exit
+				// eslint-disable-next-line n/no-process-exit
 				process.exit(0)
 			}, 1000)
 			return true
@@ -455,7 +721,7 @@ export namespace ServerPeripheralDeviceAPI {
 
 		// Fetch the relevant studio
 		const studioForDevice = (await Studios.findOneAsync(peripheralDevice.studioAndConfigId.studioId, {
-			fields: {
+			projection: {
 				peripheralDeviceSettings: 1,
 			},
 		})) as Pick<DBStudio, 'peripheralDeviceSettings'> | undefined
@@ -579,7 +845,7 @@ export namespace ServerPeripheralDeviceAPI {
 				timelineHash: timelineHash,
 			},
 			{
-				fields: {
+				projection: {
 					timelineGenerated: 1,
 				},
 			}
@@ -680,7 +946,7 @@ peripheralDeviceRouter.get('/:deviceId/oauthResponse', async (ctx) => {
 				.catch(logger.error)
 		}
 
-		ctx.redirect(`/settings/peripheralDevice/${deviceId}`)
+		ctx.redirect(`${getRootSubpath()}/settings/peripheralDevice/${deviceId}`)
 	} catch (e) {
 		ctx.response.type = 'text/plain'
 		ctx.response.status = 500
@@ -890,6 +1156,13 @@ class ServerPeripheralDeviceAPIClass extends MethodContextAPI implements NewPeri
 		changedResults: PlayoutChangedResults
 	) {
 		return ServerPeripheralDeviceAPI.playoutPlaybackChanged(this, deviceId, deviceToken, changedResults)
+	}
+	async reportExternalEvents(
+		deviceId: PeripheralDeviceId,
+		deviceToken: string,
+		events: PeripheralDeviceExternalEvent[]
+	) {
+		return ServerPeripheralDeviceAPI.reportExternalEvents(this, deviceId, deviceToken, events)
 	}
 	async reportResolveDone(
 		deviceId: PeripheralDeviceId,
@@ -1133,7 +1406,7 @@ class ServerPeripheralDeviceAPIClass extends MethodContextAPI implements NewPeri
 	async mosRoFullStory(deviceId: PeripheralDeviceId, deviceToken: string, story: MOS.IMOSROFullStory) {
 		return MosIntegration.mosRoFullStory(this, deviceId, deviceToken, story)
 	}
-	// ------- Media Manager (Media Scanner)
+	// ------- Expected Playout Items (Previously: Media Manager (Media Scanner))
 	async getMediaObjectRevisions(deviceId: PeripheralDeviceId, deviceToken: string, collectionId: string) {
 		return MediaScannerIntegration.getMediaObjectRevisions(this, deviceId, deviceToken, collectionId)
 	}
@@ -1149,29 +1422,7 @@ class ServerPeripheralDeviceAPIClass extends MethodContextAPI implements NewPeri
 	async clearMediaObjectCollection(deviceId: PeripheralDeviceId, deviceToken: string, collectionId: string) {
 		return MediaScannerIntegration.clearMediaObjectCollection(this, deviceId, deviceToken, collectionId)
 	}
-	// ------- Media Manager --------------
-	async getMediaWorkFlowRevisions(deviceId: PeripheralDeviceId, deviceToken: string) {
-		return MediaManagerIntegration.getMediaWorkFlowRevisions(this, deviceId, deviceToken)
-	}
-	async getMediaWorkFlowStepRevisions(deviceId: PeripheralDeviceId, deviceToken: string) {
-		return MediaManagerIntegration.getMediaWorkFlowStepRevisions(this, deviceId, deviceToken)
-	}
-	async updateMediaWorkFlow(
-		deviceId: PeripheralDeviceId,
-		deviceToken: string,
-		workFlowId: MediaWorkFlowId,
-		obj: MediaWorkFlow | null
-	) {
-		return MediaManagerIntegration.updateMediaWorkFlow(this, deviceId, deviceToken, workFlowId, obj)
-	}
-	async updateMediaWorkFlowStep(
-		deviceId: PeripheralDeviceId,
-		deviceToken: string,
-		docId: MediaWorkFlowStepId,
-		obj: MediaWorkFlowStep | null
-	) {
-		return MediaManagerIntegration.updateMediaWorkFlowStep(this, deviceId, deviceToken, docId, obj)
-	}
+	// ------- Package Manager --------------
 	async updateExpectedPackageWorkStatuses(
 		deviceId: PeripheralDeviceId,
 		deviceToken: string,

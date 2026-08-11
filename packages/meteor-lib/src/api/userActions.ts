@@ -1,16 +1,21 @@
-import { ClientAPI } from './client'
-import { EvaluationBase } from '../collections/Evaluations'
-import { Bucket } from '../collections/Buckets'
+import { ClientAPI } from './client.js'
+import { EvaluationBase } from '../collections/Evaluations.js'
+import { Bucket } from '@sofie-automation/corelib/dist/dataModel/Bucket'
 import { IngestAdlib, ActionUserData, UserOperationTarget } from '@sofie-automation/blueprints-integration'
 import { BucketAdLib } from '@sofie-automation/corelib/dist/dataModel/BucketAdLibPiece'
 import { AdLibActionCommon } from '@sofie-automation/corelib/dist/dataModel/AdlibAction'
 import { BucketAdLibAction } from '@sofie-automation/corelib/dist/dataModel/BucketAdLibAction'
 import { Time } from '@sofie-automation/blueprints-integration'
-import { ExecuteActionResult, QueueNextSegmentResult } from '@sofie-automation/corelib/dist/worker/studio'
+import {
+	ExecuteActionResult,
+	QueueNextSegmentResult,
+	TakeNextPartResult,
+} from '@sofie-automation/corelib/dist/worker/studio'
 import {
 	AdLibActionId,
+	BucketAdLibActionId,
+	BucketAdLibId,
 	BucketId,
-	MediaWorkFlowId,
 	PartId,
 	PartInstanceId,
 	PeripheralDeviceId,
@@ -25,7 +30,7 @@ import {
 	SnapshotId,
 	StudioId,
 } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { QuickLoopMarker } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import { QuickLoopMarker } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 
 export interface NewUserActionAPI {
 	take(
@@ -33,13 +38,14 @@ export interface NewUserActionAPI {
 		eventTime: Time,
 		rundownPlaylistId: RundownPlaylistId,
 		fromPartInstanceId: PartInstanceId | null
-	): Promise<ClientAPI.ClientResponse<void>>
+	): Promise<ClientAPI.ClientResponse<TakeNextPartResult>>
 	setNext(
 		userEvent: string,
 		eventTime: Time,
 		rundownPlaylistId: RundownPlaylistId,
-		partId: PartId,
-		timeOffset?: number
+		partOrInstanceId: PartId | PartInstanceId,
+		timeOffset?: number,
+		isInstance?: boolean
 	): Promise<ClientAPI.ClientResponse<void>>
 	setNextSegment(
 		userEvent: string,
@@ -120,9 +126,9 @@ export interface NewUserActionAPI {
 		userEvent: string,
 		eventTime: Time,
 		rundownPlaylistId: RundownPlaylistId,
-		actionDocId: AdLibActionId | RundownBaselineAdLibActionId,
+		actionDocId: AdLibActionId | RundownBaselineAdLibActionId | BucketAdLibActionId | null,
 		actionId: string,
-		userData: ActionUserData,
+		userData: ActionUserData | null,
 		triggerMode?: string
 	): Promise<ClientAPI.ClientResponse<ExecuteActionResult>>
 	segmentAdLibPieceStart(
@@ -166,7 +172,7 @@ export interface NewUserActionAPI {
 		eventTime: Time,
 		rundownPlaylistId: RundownPlaylistId,
 		partInstanceId: PartInstanceId,
-		bucketAdlibId: PieceId,
+		bucketAdlibId: BucketAdLibId,
 		queue?: boolean
 	): Promise<ClientAPI.ClientResponse<void>>
 	activateHold(
@@ -210,26 +216,6 @@ export interface NewUserActionAPI {
 		rundownId: RundownId
 	): Promise<ClientAPI.ClientResponse<TriggerReloadDataResponse>>
 	unsyncRundown(userEvent: string, eventTime: Time, rundownId: RundownId): Promise<ClientAPI.ClientResponse<void>> //
-	mediaRestartWorkflow(
-		userEvent: string,
-		eventTime: Time,
-		deviceId: PeripheralDeviceId,
-		workflowId: MediaWorkFlowId
-	): Promise<ClientAPI.ClientResponse<void>>
-	mediaAbortWorkflow(
-		userEvent: string,
-		eventTime: Time,
-		deviceId: PeripheralDeviceId,
-		workflowId: MediaWorkFlowId
-	): Promise<ClientAPI.ClientResponse<void>>
-	mediaPrioritizeWorkflow(
-		userEvent: string,
-		eventTime: Time,
-		deviceId: PeripheralDeviceId,
-		workflowId: MediaWorkFlowId
-	): Promise<ClientAPI.ClientResponse<void>>
-	mediaRestartAllWorkflows(userEvent: string, eventTime: Time): Promise<ClientAPI.ClientResponse<void>>
-	mediaAbortAllWorkflows(userEvent: string, eventTime: Time): Promise<ClientAPI.ClientResponse<void>>
 	packageManagerRestartExpectation(
 		userEvent: string,
 		eventTime: Time,
@@ -275,22 +261,26 @@ export interface NewUserActionAPI {
 		studioId: StudioId,
 		name: string
 	): Promise<ClientAPI.ClientResponse<Bucket>>
-	bucketsRemoveBucketAdLib(userEvent: string, eventTime: Time, id: PieceId): Promise<ClientAPI.ClientResponse<void>>
+	bucketsRemoveBucketAdLib(
+		userEvent: string,
+		eventTime: Time,
+		id: BucketAdLibId
+	): Promise<ClientAPI.ClientResponse<void>>
 	bucketsRemoveBucketAdLibAction(
 		userEvent: string,
 		eventTime: Time,
-		id: AdLibActionId
+		id: BucketAdLibActionId
 	): Promise<ClientAPI.ClientResponse<void>>
 	bucketsModifyBucketAdLib(
 		userEvent: string,
 		eventTime: Time,
-		id: PieceId,
+		id: BucketAdLibId,
 		bucket: Partial<Omit<BucketAdLib, '_id'>>
 	): Promise<ClientAPI.ClientResponse<void>>
 	bucketsModifyBucketAdLibAction(
 		userEvent: string,
 		eventTime: Time,
-		id: AdLibActionId,
+		id: BucketAdLibActionId,
 		action: Partial<Omit<BucketAdLibAction, '_id'>>
 	): Promise<ClientAPI.ClientResponse<void>>
 	bucketsSaveActionIntoBucket(
@@ -421,12 +411,6 @@ export enum UserActionAPIMethods {
 
 	'moveRundown' = 'userAction.moveRundown',
 	'restoreRundownOrder' = 'userAction.restoreRundownOrder',
-
-	'mediaRestartWorkflow' = 'userAction.mediamanager.restartWorkflow',
-	'mediaAbortWorkflow' = 'userAction.mediamanager.abortWorkflow',
-	'mediaRestartAllWorkflows' = 'userAction.mediamanager.restartAllWorkflows',
-	'mediaAbortAllWorkflows' = 'userAction.mediamanager.abortAllWorkflows',
-	'mediaPrioritizeWorkflow' = 'userAction.mediamanager.mediaPrioritizeWorkflow',
 
 	'packageManagerRestartExpectation' = 'userAction.packagemanager.restartExpectation',
 	'packageManagerRestartAllExpectations' = 'userAction.packagemanager.restartAllExpectations',

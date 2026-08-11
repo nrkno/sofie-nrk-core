@@ -1,13 +1,13 @@
 import * as React from 'react'
-import { getElementWidth } from '../../../utils/dimensions'
+import { getElementWidth } from '../../../utils/dimensions.js'
 
 import ClassNames from 'classnames'
-import { CustomLayerItemRenderer, ICustomLayerItemProps } from './CustomLayerItemRenderer'
+import { CustomLayerItemRenderer, type ICustomLayerItemProps } from './CustomLayerItemRenderer.js'
 
-import { SplitsContent } from '@sofie-automation/blueprints-integration'
-import { RundownUtils } from '../../../lib/rundown'
-import { SplitsFloatingInspector } from '../../FloatingInspectors/SplitsFloatingInspector'
-import { getSplitPreview, SplitRole, SplitSubItem } from '../../../lib/ui/splitPreview'
+import type { SplitsContent } from '@sofie-automation/blueprints-integration'
+import { getSplitPreview, SplitRole, type SplitSubItem } from '../../../lib/ui/splitPreview.js'
+import { RundownUtils } from '../../../lib/rundown.js'
+import { getPieceInOutWords } from '../../../lib/pieceInOutWords.js'
 
 type IProps = ICustomLayerItemProps
 
@@ -62,7 +62,11 @@ export class SplitsSourceRenderer extends CustomLayerItemRenderer<IProps, IState
 			super.componentDidUpdate(prevProps, prevState)
 		}
 
-		if (this.props.piece.instance.piece.name !== prevProps.piece.instance.piece.name) {
+		const prevInOutWords = getPieceInOutWords(prevProps.piece.instance.piece)
+		const inOutWords = getPieceInOutWords(this.props.piece.instance.piece)
+		const inOutWordsChanged = inOutWords.begin !== prevInOutWords.begin || inOutWords.end !== prevInOutWords.end
+
+		if (this.props.piece.instance.piece.name !== prevProps.piece.instance.piece.name || inOutWordsChanged) {
 			this.updateAnchoredElsWidths()
 		}
 	}
@@ -90,9 +94,7 @@ export class SplitsSourceRenderer extends CustomLayerItemRenderer<IProps, IState
 	}
 
 	render(): JSX.Element {
-		const labelItems = this.props.piece.instance.piece.name.split('||')
-		const begin = labelItems[0] || ''
-		const end = labelItems[1] || ''
+		const { begin, end } = getPieceInOutWords(this.props.piece.instance.piece)
 
 		return (
 			<React.Fragment>
@@ -116,20 +118,12 @@ export class SplitsSourceRenderer extends CustomLayerItemRenderer<IProps, IState
 							style={this.getItemLabelOffsetRight()}
 						>
 							{end && <span className="segment-timeline__piece__label last-words">{end}</span>}
+							{this.renderCustomPieceIcons()}
 							{this.renderInfiniteIcon()}
 							{this.renderOverflowTimeLabel()}
 						</span>
 					</>
 				)}
-				{this.props.piece.instance.piece.content ? (
-					<SplitsFloatingInspector
-						position={this.getFloatingInspectorStyle()}
-						content={this.props.piece.instance.piece.content as Partial<SplitsContent>}
-						itemElement={this.props.itemElement}
-						showMiniInspector={this.props.showMiniInspector}
-						typeClass={this.props.typeClass}
-					/>
-				) : null}
 			</React.Fragment>
 		)
 	}

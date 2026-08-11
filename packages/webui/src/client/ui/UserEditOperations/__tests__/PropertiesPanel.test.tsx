@@ -1,28 +1,26 @@
-import React from 'react'
-// eslint-disable-next-line node/no-unpublished-import
-import { renderHook, act, render, screen, waitFor, RenderOptions } from '@testing-library/react'
-// eslint-disable-next-line node/no-unpublished-import
+import { renderHook, act, render, screen, waitFor, type RenderOptions } from '@testing-library/react'
 import '@testing-library/jest-dom'
-import { MeteorCall } from '../../../lib/meteorApi'
-import { TFunction } from 'i18next'
+import { MeteorCall } from '../../../lib/meteorApi.js'
+import type { TFunction } from 'i18next'
 
 import userEvent from '@testing-library/user-event'
 import { protectString } from '@sofie-automation/corelib/dist/protectedString'
-import { UIParts } from '../../Collections'
-import { Segments } from '../../../../client/collections'
-import { DBSegment } from '@sofie-automation/corelib/dist/dataModel/Segment'
-import { DBPart } from '@sofie-automation/corelib/dist/dataModel/Part'
+import { UIParts } from '../../Collections.js'
+import { Segments } from '../../../../client/collections/index.js'
+import type { DBSegment } from '@sofie-automation/corelib/dist/dataModel/Segment'
+import type { DBPart } from '@sofie-automation/corelib/dist/dataModel/Part'
 import { UserEditingType } from '@sofie-automation/blueprints-integration'
 import {
 	SelectedElementProvider,
 	SelectedElementsContext,
-	SelectionContextType,
+	type SelectionContextType,
 	useSelectedElementsContext,
-} from '../../RundownView/SelectedElementsContext'
-import { MongoMock } from '../../../../__mocks__/mongo'
-import { PropertiesPanel } from '../PropertiesPanel'
-import { UserAction } from '../../../lib/clientUserAction'
+} from '../../RundownView/SelectedElementsContext.js'
+import { MongoMock } from '../../../../__mocks__/mongo.js'
+import { PropertiesPanel } from '../PropertiesPanel.js'
+import type { UserAction } from '../../../lib/clientUserAction.js'
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 jest.mock('meteor/tracker', (...args) => require('../../../../__mocks__/tracker').setup(args), { virtual: true })
 
 jest.mock('react-i18next', () => ({
@@ -156,6 +154,7 @@ const mockPartsCollection = MongoMock.getInnerMockCollection(UIParts)
 
 // Mock Client User Action:
 jest.mock('../../../lib/clientUserAction', () => ({
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
 	doUserAction: jest.fn((_t: TFunction, e: unknown, _action: UserAction, callback: Function) =>
 		callback(e, Date.now())
 	),

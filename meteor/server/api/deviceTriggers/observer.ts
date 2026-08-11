@@ -1,5 +1,6 @@
 import { PeripheralDeviceId, StudioId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { ITranslatableMessage } from '@sofie-automation/corelib/dist/TranslatableMessage'
+import { TFunction } from 'i18next'
 import { check } from 'meteor/check'
 import { Meteor } from 'meteor/meteor'
 import _ from 'underscore'
@@ -18,6 +19,7 @@ import { StudioObserver } from './StudioObserver'
 import { Studios } from '../../collections'
 import { ReactiveCacheCollection } from '../../publications/lib/ReactiveCacheCollection'
 import { stringifyError } from '@sofie-automation/shared-lib/dist/lib/stringifyError'
+import { TagsService } from './TagsService'
 
 type ObserverAndManager = {
 	observer: StudioObserver
@@ -43,15 +45,25 @@ Meteor.startup(async () => {
 
 	function createObserverAndManager(studioId: StudioId) {
 		logger.debug(`Creating observer for studio "${studioId}"`)
-		const manager = new StudioDeviceTriggerManager(studioId)
-		const observer = new StudioObserver(studioId, (showStyleBaseId, cache) => {
-			logger.silly(`Studio observer updating triggers for "${studioId}":"${showStyleBaseId}"`)
-			workInQueue(async () => manager.updateTriggers(cache, showStyleBaseId))
+		const manager = new StudioDeviceTriggerManager(studioId, new TagsService())
+		const observer = new StudioObserver(
+			studioId,
+			(showStyleBaseId, cache) => {
+				logger.silly(`Studio observer updating triggers for "${studioId}":"${showStyleBaseId}"`)
+				workInQueue(async () => manager.updateTriggers(cache, showStyleBaseId))
 
-			return () => {
-				workInQueue(async () => manager.clearTriggers())
+				return () => {
+					workInQueue(async () => manager.clearTriggers())
+				}
+			},
+			(showStyleBaseId, cache) => {
+				workInQueue(async () => manager.updatePieceInstances(cache, showStyleBaseId))
+
+				return () => {
+					return
+				}
 			}
-		})
+		)
 
 		studioObserversAndManagers.set(studioId, { manager, observer })
 	}
@@ -134,6 +146,10 @@ export async function receiveInputDeviceTrigger(
 		const context = actionManager.getContext()
 		if (!context) throw new Meteor.Error(500, `Undefined Device Trigger context for studio "${studioId}"`)
 
-		await executableAction.execute((t: ITranslatableMessage) => t.key ?? t, `${deviceId}: ${triggerId}`, context)
+		await executableAction.execute(
+			((t: ITranslatableMessage) => t.key ?? t) as unknown as TFunction, // TFunction has some odd generic constraints on the return type now
+			`${deviceId}: ${triggerId}`,
+			context
+		)
 	}
 }

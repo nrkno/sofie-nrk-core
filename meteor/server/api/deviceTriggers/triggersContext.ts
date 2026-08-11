@@ -4,7 +4,9 @@ import {
 	TriggerTrackerComputation,
 } from '@sofie-automation/meteor-lib/dist/triggers/triggersContext'
 import { SINGLE_USE_TOKEN_SALT } from '@sofie-automation/meteor-lib/dist/api/userActions'
-import { assertNever, getHash, ProtectedString, protectString, Time } from '../../lib/tempLib'
+import { assertNever, getHash } from '@sofie-automation/corelib/dist/lib'
+import type { Time } from '@sofie-automation/shared-lib/dist/lib/lib'
+import { ProtectedString, protectString } from '@sofie-automation/corelib/dist/protectedString'
 import { getCurrentTime } from '../../lib/lib'
 import { MeteorCall } from '../methods'
 import { ClientAPI } from '@sofie-automation/meteor-lib/dist/api/client'
@@ -16,7 +18,10 @@ import { PartId, StudioId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { DummyReactiveVar } from '@sofie-automation/meteor-lib/dist/triggers/reactive-var'
 import { ReactivePlaylistActionContext } from '@sofie-automation/meteor-lib/dist/triggers/actionFactory'
 import { FindOneOptions, FindOptions, MongoQuery } from '@sofie-automation/corelib/dist/mongo'
-import { DBRundownPlaylist, SelectedPartInstance } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import {
+	DBRundownPlaylist,
+	SelectedPartInstance,
+} from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import {
 	AdLibActions,
 	AdLibPieces,
@@ -36,9 +41,9 @@ export function hashSingleUseToken(token: string): string {
 	return getHash(SINGLE_USE_TOKEN_SALT + token)
 }
 
-class MeteorTriggersCollectionWrapper<DBInterface extends { _id: ProtectedString<any> }>
-	implements TriggersAsyncCollection<DBInterface>
-{
+class MeteorTriggersCollectionWrapper<
+	DBInterface extends { _id: ProtectedString<any> },
+> implements TriggersAsyncCollection<DBInterface> {
 	readonly #collection: AsyncOnlyReadOnlyMongoCollection<DBInterface>
 
 	constructor(collection: AsyncOnlyReadOnlyMongoCollection<DBInterface>) {
@@ -154,10 +159,9 @@ async function fetchInfoForSelectedPart(partInfo: SelectedPartInstance | null): 
 
 	const partInstance = (await PartInstances.findOneAsync(partInfo.partInstanceId, {
 		projection: {
-			// @ts-expect-error deep property
 			'part._id': 1,
 			segmentId: 1,
-		},
+		} as any,
 	})) as (Pick<DBPartInstance, 'segmentId'> & { part: Pick<DBPart, '_id'> }) | null
 
 	if (!partInstance) return null

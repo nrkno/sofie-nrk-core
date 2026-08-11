@@ -1,16 +1,21 @@
-import * as _ from 'underscore'
+import _ from 'underscore'
+import path from 'path'
+import os from 'os'
+import { promises as fsp } from 'fs'
 import { setupDefaultStudioEnvironment, packageBlueprint } from '../../../../__mocks__/helpers/database'
-import { literal, getRandomId, protectString } from '../../../lib/tempLib'
+import { literal, getRandomId } from '@sofie-automation/corelib/dist/lib'
+import { protectString } from '@sofie-automation/corelib/dist/protectedString'
 import { Blueprint } from '@sofie-automation/corelib/dist/dataModel/Blueprint'
 import { BlueprintManifestType } from '@sofie-automation/blueprints-integration'
 import { SYSTEM_ID, ICoreSystem } from '@sofie-automation/meteor-lib/dist/collections/CoreSystem'
-import { insertBlueprint, uploadBlueprint } from '../api'
+import { insertBlueprint, uploadBlueprint, uploadBlueprintAsset } from '../api'
 import { MeteorCall } from '../../methods'
 import '../../../../__mocks__/_extendJest'
 import { Blueprints, CoreSystem } from '../../../collections'
 import { SupressLogMessages } from '../../../../__mocks__/suppressLogging'
 import { JSONBlobStringify } from '@sofie-automation/shared-lib/dist/lib/JSONBlob'
 import { Meteor } from 'meteor/meteor'
+import * as CoreSystemAPI from '../../../coreSystem'
 
 // we don't want the deviceTriggers observer to start up at this time
 jest.mock('../../deviceTriggers/observer')
@@ -41,7 +46,6 @@ describe('Test blueprint management api', () => {
 			const blueprint: Blueprint = {
 				_id: getRandomId(),
 				name: 'Fake blueprint',
-				organizationId: null,
 				hasCode: true,
 				code: `({default: (() => 5)()})`,
 				created: 0,
@@ -217,9 +221,8 @@ describe('Test blueprint management api', () => {
 			)
 		})
 		test('empty body', async () => {
-			await expect(uploadBlueprint(DEFAULT_CONNECTION, protectString('blueprint99'), '')).rejects.toThrowMeteor(
-				400,
-				'Blueprint blueprint99 failed to parse'
+			await expect(uploadBlueprint(DEFAULT_CONNECTION, protectString('blueprint99'), '')).rejects.toMatchToString(
+				/Error evaluating Blueprint "blueprint99"(.+)/
 			)
 		})
 		test('body not a manifest', async () => {
@@ -304,7 +307,6 @@ describe('Test blueprint management api', () => {
 				literal<Omit<Blueprint, 'created' | 'modified' | 'databaseVersion' | 'blueprintHash'>>({
 					_id: protectString('tmp_showstyle'),
 					name: 'tmp_showstyle',
-					organizationId: null,
 					blueprintType: BLUEPRINT_TYPE,
 					blueprintId: 'ss1',
 					blueprintVersion: '0.1.0',
@@ -336,18 +338,14 @@ describe('Test blueprint management api', () => {
 				}
 			)
 
-			const blueprint = await uploadBlueprint(
-				DEFAULT_CONNECTION,
-				protectString('tmp_studio'),
-				blueprintStr,
-				'tmp name'
-			)
+			const blueprint = await uploadBlueprint(DEFAULT_CONNECTION, protectString('tmp_studio'), blueprintStr, {
+				blueprintName: 'tmp name',
+			})
 			expect(blueprint).toBeTruthy()
 			expect(blueprint).toMatchObject(
 				literal<Omit<Blueprint, 'created' | 'modified' | 'databaseVersion' | 'blueprintHash'>>({
 					_id: protectString('tmp_studio'),
 					name: 'tmp name',
-					organizationId: null,
 					blueprintId: '',
 					blueprintType: BLUEPRINT_TYPE,
 					blueprintVersion: '0.1.0',
@@ -380,18 +378,14 @@ describe('Test blueprint management api', () => {
 				}
 			)
 
-			const blueprint = await uploadBlueprint(
-				DEFAULT_CONNECTION,
-				protectString('tmp_system'),
-				blueprintStr,
-				'tmp name'
-			)
+			const blueprint = await uploadBlueprint(DEFAULT_CONNECTION, protectString('tmp_system'), blueprintStr, {
+				blueprintName: 'tmp name',
+			})
 			expect(blueprint).toBeTruthy()
 			expect(blueprint).toMatchObject(
 				literal<Omit<Blueprint, 'created' | 'modified' | 'databaseVersion' | 'blueprintHash'>>({
 					_id: protectString('tmp_system'),
 					name: 'tmp name',
-					organizationId: null,
 					blueprintId: 'sys',
 					blueprintType: BLUEPRINT_TYPE,
 					blueprintVersion: '0.1.0',
@@ -435,7 +429,6 @@ describe('Test blueprint management api', () => {
 				literal<Omit<Blueprint, 'created' | 'modified' | 'databaseVersion' | 'blueprintHash'>>({
 					_id: existingBlueprint._id,
 					name: existingBlueprint.name,
-					organizationId: null,
 					blueprintId: '',
 					blueprintType: BLUEPRINT_TYPE,
 					blueprintVersion: '0.1.0',
@@ -481,7 +474,6 @@ describe('Test blueprint management api', () => {
 				literal<Omit<Blueprint, 'created' | 'modified' | 'databaseVersion' | 'blueprintHash'>>({
 					_id: existingBlueprint._id,
 					name: existingBlueprint.name,
-					organizationId: null,
 					blueprintId: 'ss1',
 					blueprintType: BLUEPRINT_TYPE,
 					blueprintVersion: '0.1.0',
@@ -559,6 +551,36 @@ describe('Test blueprint management api', () => {
 				422,
 				`Cannot replace old blueprint "${existingBlueprint._id}" ("ss1") with new blueprint ""`
 			)
+		})
+	})
+	describe('uploadBlueprintAsset', () => {
+		let storePath: string
+
+		beforeEach(async () => {
+			storePath = await fsp.mkdtemp(path.join(os.tmpdir(), 'sofie-blueprint-assets-'))
+			jest.spyOn(CoreSystemAPI, 'getSystemStorePath').mockReturnValue(storePath)
+		})
+
+		afterEach(async () => {
+			jest.restoreAllMocks()
+			await fsp.rm(storePath, { recursive: true, force: true })
+		})
+
+		test('writes decoded base64 payload to file', async () => {
+			const payload = Buffer.from('some fake binary data \u0000\u0001', 'utf8')
+			const fileId = 'myBlueprint/logo.bin'
+
+			await uploadBlueprintAsset(DEFAULT_CONNECTION, fileId, payload.toString('base64'))
+
+			const expectedFilePath = path.join(storePath, 'assets', fileId)
+			const writtenBuffer = await fsp.readFile(expectedFilePath)
+			expect(writtenBuffer.equals(payload)).toBeTruthy()
+		})
+
+		test('rejects path traversal attempts', async () => {
+			await expect(
+				uploadBlueprintAsset(DEFAULT_CONNECTION, '../outside.bin', Buffer.from('x').toString('base64'))
+			).rejects.toThrow('Asset name outside of asset storage path')
 		})
 	})
 })

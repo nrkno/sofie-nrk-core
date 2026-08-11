@@ -1,21 +1,21 @@
 import { PlaylistTimingType } from '@sofie-automation/blueprints-integration'
 import { RundownPlaylistId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { Rundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import { protectString, protectStringArray } from '@sofie-automation/corelib/dist/protectedString'
-import { ProcessedShowStyleCompound } from '../jobs'
+import { ProcessedShowStyleCompound } from '../jobs/index.js'
 import { ReadonlyDeep } from 'type-fest'
 import {
 	handleMoveRundownIntoPlaylist,
 	produceRundownPlaylistInfoFromRundown,
 	handleRestoreRundownsInPlaylistToDefaultOrder,
-} from '../rundownPlaylists'
-import { MockJobContext, setupDefaultJobEnvironment } from '../__mocks__/context'
+} from '../rundownPlaylists.js'
+import { MockJobContext, setupDefaultJobEnvironment } from '../__mocks__/context.js'
 import {
 	setupDefaultRundownPlaylist,
 	setupDefaultRundown,
 	setupMockShowStyleCompound,
-} from '../__mocks__/presetCollections'
+} from '../__mocks__/presetCollections.js'
 
 describe('Rundown', () => {
 	let context: MockJobContext

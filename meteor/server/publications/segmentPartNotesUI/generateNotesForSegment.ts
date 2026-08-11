@@ -8,7 +8,7 @@ import { protectString } from '@sofie-automation/corelib/dist/protectedString'
 import { assertNever } from '@sofie-automation/shared-lib/dist/lib/lib'
 import { UISegmentPartNote } from '@sofie-automation/meteor-lib/dist/api/rundownNotifications'
 import { DBSegment } from '@sofie-automation/corelib/dist/dataModel/Segment'
-import { generateTranslation } from '../../lib/tempLib'
+import { generateTranslation } from '@sofie-automation/corelib/dist/lib'
 import { SegmentFields, PartFields, PartInstanceFields } from './reactiveContentCache'
 
 export function generateNotesForSegment(
@@ -153,6 +153,32 @@ export function generateNotesForSegment(
 				)
 			)
 		}
+	}
+
+	// Generate notes for runtime invalidReason on PartInstances
+	// This is distinct from planned invalidReason on Parts - these are runtime validation issues
+	for (const partInstance of partInstances) {
+		// Skip if the PartInstance has been reset (no longer relevant) or has no runtime invalidReason
+		if (partInstance.reset || !partInstance.invalidReason) continue
+
+		notes.push({
+			_id: protectString(`${segment._id}_partinstance_${partInstance._id}_invalid_runtime`),
+			playlistId,
+			rundownId: partInstance.rundownId,
+			segmentId: segment._id,
+			note: {
+				type: partInstance.invalidReason.severity ?? NoteSeverity.ERROR,
+				message: partInstance.invalidReason.message,
+				rank: segment._rank,
+				origin: {
+					segmentId: partInstance.segmentId,
+					partId: partInstance.part._id,
+					rundownId: partInstance.rundownId,
+					segmentName: segment.name,
+					name: partInstance.part.title,
+				},
+			},
+		})
 	}
 
 	return notes

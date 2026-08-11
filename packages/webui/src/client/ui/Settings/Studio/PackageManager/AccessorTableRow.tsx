@@ -1,8 +1,8 @@
 import ClassNames from 'classnames'
 import * as React from 'react'
 import { Meteor } from 'meteor/meteor'
-import { StudioPackageContainer } from '@sofie-automation/corelib/dist/dataModel/Studio'
-import { doModalDialog } from '../../../../lib/ModalDialog'
+import type { StudioPackageContainer } from '@sofie-automation/corelib/dist/dataModel/Studio'
+import { doModalDialog } from '../../../../lib/ModalDialog.js'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faTrash, faPencilAlt, faCheck } from '@fortawesome/free-solid-svg-icons'
 import { useTranslation } from 'react-i18next'
@@ -12,13 +12,14 @@ import {
 	LabelAndOverrides,
 	LabelAndOverridesForCheckbox,
 	LabelAndOverridesForDropdown,
-} from '../../../../lib/Components/LabelAndOverrides'
-import { TextInputControl } from '../../../../lib/Components/TextInput'
-import { DropdownInputControl, getDropdownInputOptions } from '../../../../lib/Components/DropdownInput'
-import { OverrideOpHelper, WrappedOverridableItemNormal } from '../../util/OverrideOpHelper'
-import { CheckboxControl } from '../../../../lib/Components/Checkbox'
+} from '../../../../lib/Components/LabelAndOverrides.js'
+import { TextInputControl } from '../../../../lib/Components/TextInput.js'
+import { DropdownInputControl, getDropdownInputOptions } from '../../../../lib/Components/DropdownInput.js'
+import type { OverrideOpHelper, WrappedOverridableItemNormal } from '../../util/OverrideOpHelper.js'
+import { CheckboxControl } from '../../../../lib/Components/Checkbox.js'
 import { IntInputControl } from '../../../../lib/Components/IntInput'
 import { assertNever } from '@sofie-automation/corelib/dist/lib'
+import Button from 'react-bootstrap/Button'
 
 interface AccessorTableRowProps {
 	packageContainer: WrappedOverridableItemNormal<StudioPackageContainer>
@@ -89,7 +90,7 @@ export function AccessorTableRow({
 	if (Object.keys(packageContainer.computed?.container || {}).length === 0) {
 		return (
 			<tr>
-				<td className="mhn dimmed">{t('There are no Accessors set up.')}</td>
+				<td className="dimmed">{t('There are no Accessors set up.')}</td>
 			</tr>
 		)
 	}
@@ -122,8 +123,6 @@ export function AccessorTableRow({
 							<label className="field">
 								<LabelActual label={t('Accessor ID')} />
 								<TextInputControl
-									modifiedClassName="bghl"
-									classNames="input text-input input-l"
 									value={accessorId}
 									handleUpdate={updateAccessorId}
 									disabled={!!packageContainer.defaults}
@@ -137,14 +136,7 @@ export function AccessorTableRow({
 								itemKey={`container.accessors.${accessorId}.label`}
 								overrideHelper={overrideHelper}
 							>
-								{(value, handleUpdate) => (
-									<TextInputControl
-										modifiedClassName="bghl"
-										classNames="input text-input input-l"
-										value={value}
-										handleUpdate={handleUpdate}
-									/>
-								)}
+								{(value, handleUpdate) => <TextInputControl value={value} handleUpdate={handleUpdate} />}
 							</LabelAndOverrides>
 							<LabelAndOverridesForDropdown
 								label={t('Accessor Type')}
@@ -155,14 +147,7 @@ export function AccessorTableRow({
 								options={getDropdownInputOptions(Accessor.AccessType)}
 							>
 								{(value, handleUpdate, options) => {
-									return (
-										<DropdownInputControl
-											classNames="input text-input input-l"
-											options={options}
-											value={value}
-											handleUpdate={handleUpdate}
-										/>
-									)
+									return <DropdownInputControl options={options} value={value} handleUpdate={handleUpdate} />
 								}}
 							</LabelAndOverridesForDropdown>
 							{accessor.type === Accessor.AccessType.LOCAL_FOLDER ? (
@@ -175,14 +160,7 @@ export function AccessorTableRow({
 										itemKey={`container.accessors.${accessorId}.folderPath`}
 										overrideHelper={overrideHelper}
 									>
-										{(value, handleUpdate) => (
-											<TextInputControl
-												modifiedClassName="bghl"
-												classNames="input text-input input-l"
-												value={value}
-												handleUpdate={handleUpdate}
-											/>
-										)}
+										{(value, handleUpdate) => <TextInputControl value={value} handleUpdate={handleUpdate} />}
 									</LabelAndOverrides>
 									<LabelAndOverrides
 										label={t('Resource Id')}
@@ -192,14 +170,7 @@ export function AccessorTableRow({
 										itemKey={`container.accessors.${accessorId}.resourceId`}
 										overrideHelper={overrideHelper}
 									>
-										{(value, handleUpdate) => (
-											<TextInputControl
-												modifiedClassName="bghl"
-												classNames="input text-input input-l"
-												value={value}
-												handleUpdate={handleUpdate}
-											/>
-										)}
+										{(value, handleUpdate) => <TextInputControl value={value} handleUpdate={handleUpdate} />}
 									</LabelAndOverrides>
 								</>
 							) : accessor.type === Accessor.AccessType.HTTP ? (
@@ -212,14 +183,7 @@ export function AccessorTableRow({
 										itemKey={`container.accessors.${accessorId}.baseUrl`}
 										overrideHelper={overrideHelper}
 									>
-										{(value, handleUpdate) => (
-											<TextInputControl
-												modifiedClassName="bghl"
-												classNames="input text-input input-l"
-												value={value}
-												handleUpdate={handleUpdate}
-											/>
-										)}
+										{(value, handleUpdate) => <TextInputControl value={value} handleUpdate={handleUpdate} />}
 									</LabelAndOverrides>
 									<LabelAndOverrides
 										label={t('Is Immutable')}
@@ -229,13 +193,7 @@ export function AccessorTableRow({
 										itemKey={`container.accessors.${accessorId}.isImmutable`}
 										overrideHelper={overrideHelper}
 									>
-										{(value, handleUpdate) => (
-											<CheckboxControl
-												classNames="input text-input input-l"
-												value={value}
-												handleUpdate={handleUpdate}
-											/>
-										)}
+										{(value, handleUpdate) => <CheckboxControl value={value} handleUpdate={handleUpdate} />}
 									</LabelAndOverrides>
 									<LabelAndOverrides
 										label={t('Does NOT support HEAD requests')}
@@ -247,13 +205,7 @@ export function AccessorTableRow({
 										itemKey={`container.accessors.${accessorId}.useGETinsteadOfHEAD`}
 										overrideHelper={overrideHelper}
 									>
-										{(value, handleUpdate) => (
-											<CheckboxControl
-												classNames="input text-input input-l"
-												value={value}
-												handleUpdate={handleUpdate}
-											/>
-										)}
+										{(value, handleUpdate) => <CheckboxControl value={value} handleUpdate={handleUpdate} />}
 									</LabelAndOverrides>
 
 									<LabelAndOverrides
@@ -266,14 +218,7 @@ export function AccessorTableRow({
 										itemKey={`container.accessors.${accessorId}.networkId`}
 										overrideHelper={overrideHelper}
 									>
-										{(value, handleUpdate) => (
-											<TextInputControl
-												modifiedClassName="bghl"
-												classNames="input text-input input-l"
-												value={value}
-												handleUpdate={handleUpdate}
-											/>
-										)}
+										{(value, handleUpdate) => <TextInputControl value={value} handleUpdate={handleUpdate} />}
 									</LabelAndOverrides>
 								</>
 							) : accessor.type === Accessor.AccessType.HTTP_PROXY ? (
@@ -286,14 +231,7 @@ export function AccessorTableRow({
 										itemKey={`container.accessors.${accessorId}.baseUrl`}
 										overrideHelper={overrideHelper}
 									>
-										{(value, handleUpdate) => (
-											<TextInputControl
-												modifiedClassName="bghl"
-												classNames="input text-input input-l"
-												value={value}
-												handleUpdate={handleUpdate}
-											/>
-										)}
+										{(value, handleUpdate) => <TextInputControl value={value} handleUpdate={handleUpdate} />}
 									</LabelAndOverrides>
 									<LabelAndOverrides
 										label={t('Network Id')}
@@ -305,14 +243,7 @@ export function AccessorTableRow({
 										itemKey={`container.accessors.${accessorId}.networkId`}
 										overrideHelper={overrideHelper}
 									>
-										{(value, handleUpdate) => (
-											<TextInputControl
-												modifiedClassName="bghl"
-												classNames="input text-input input-l"
-												value={value}
-												handleUpdate={handleUpdate}
-											/>
-										)}
+										{(value, handleUpdate) => <TextInputControl value={value} handleUpdate={handleUpdate} />}
 									</LabelAndOverrides>
 								</>
 							) : accessor.type === Accessor.AccessType.FILE_SHARE ? (
@@ -325,14 +256,7 @@ export function AccessorTableRow({
 										itemKey={`container.accessors.${accessorId}.folderPath`}
 										overrideHelper={overrideHelper}
 									>
-										{(value, handleUpdate) => (
-											<TextInputControl
-												modifiedClassName="bghl"
-												classNames="input text-input input-l"
-												value={value}
-												handleUpdate={handleUpdate}
-											/>
-										)}
+										{(value, handleUpdate) => <TextInputControl value={value} handleUpdate={handleUpdate} />}
 									</LabelAndOverrides>
 									<LabelAndOverrides
 										label={t('User Name')}
@@ -342,14 +266,7 @@ export function AccessorTableRow({
 										itemKey={`container.accessors.${accessorId}.userName`}
 										overrideHelper={overrideHelper}
 									>
-										{(value, handleUpdate) => (
-											<TextInputControl
-												modifiedClassName="bghl"
-												classNames="input text-input input-l"
-												value={value}
-												handleUpdate={handleUpdate}
-											/>
-										)}
+										{(value, handleUpdate) => <TextInputControl value={value} handleUpdate={handleUpdate} />}
 									</LabelAndOverrides>
 									<LabelAndOverrides
 										label={t('Password')}
@@ -359,14 +276,7 @@ export function AccessorTableRow({
 										itemKey={`container.accessors.${accessorId}.password`}
 										overrideHelper={overrideHelper}
 									>
-										{(value, handleUpdate) => (
-											<TextInputControl
-												modifiedClassName="bghl"
-												classNames="input text-input input-l"
-												value={value}
-												handleUpdate={handleUpdate}
-											/>
-										)}
+										{(value, handleUpdate) => <TextInputControl value={value} handleUpdate={handleUpdate} />}
 									</LabelAndOverrides>
 									<LabelAndOverrides
 										label={t('Network Id')}
@@ -376,14 +286,7 @@ export function AccessorTableRow({
 										itemKey={`container.accessors.${accessorId}.networkId`}
 										overrideHelper={overrideHelper}
 									>
-										{(value, handleUpdate) => (
-											<TextInputControl
-												modifiedClassName="bghl"
-												classNames="input text-input input-l"
-												value={value}
-												handleUpdate={handleUpdate}
-											/>
-										)}
+										{(value, handleUpdate) => <TextInputControl value={value} handleUpdate={handleUpdate} />}
 									</LabelAndOverrides>
 								</>
 							) : accessor.type === Accessor.AccessType.QUANTEL ? (
@@ -396,14 +299,7 @@ export function AccessorTableRow({
 										itemKey={`container.accessors.${accessorId}.quantelGatewayUrl`}
 										overrideHelper={overrideHelper}
 									>
-										{(value, handleUpdate) => (
-											<TextInputControl
-												modifiedClassName="bghl"
-												classNames="input text-input input-l"
-												value={value}
-												handleUpdate={handleUpdate}
-											/>
-										)}
+										{(value, handleUpdate) => <TextInputControl value={value} handleUpdate={handleUpdate} />}
 									</LabelAndOverrides>
 									<LabelAndOverrides
 										label={t('ISA URLs')}
@@ -418,8 +314,6 @@ export function AccessorTableRow({
 											const strValue = Array.isArray(value) ? value.join(', ') : value
 											return (
 												<TextInputControl
-													modifiedClassName="bghl"
-													classNames="input text-input input-l"
 													value={strValue}
 													handleUpdate={(value: string) => {
 														// Convert comma-separated string into array of strings
@@ -437,14 +331,7 @@ export function AccessorTableRow({
 										itemKey={`container.accessors.${accessorId}.zoneId`}
 										overrideHelper={overrideHelper}
 									>
-										{(value, handleUpdate) => (
-											<TextInputControl
-												modifiedClassName="bghl"
-												classNames="input text-input input-l"
-												value={value}
-												handleUpdate={handleUpdate}
-											/>
-										)}
+										{(value, handleUpdate) => <TextInputControl value={value} handleUpdate={handleUpdate} />}
 									</LabelAndOverrides>
 									<LabelAndOverrides
 										label={t('Server ID')}
@@ -456,14 +343,7 @@ export function AccessorTableRow({
 										itemKey={`container.accessors.${accessorId}.serverId`}
 										overrideHelper={overrideHelper}
 									>
-										{(value, handleUpdate) => (
-											<IntInputControl
-												modifiedClassName="bghl"
-												classNames="input text-input input-l"
-												value={value}
-												handleUpdate={handleUpdate}
-											/>
-										)}
+										{(value, handleUpdate) => <IntInputControl value={value} handleUpdate={handleUpdate} />}
 									</LabelAndOverrides>
 									<LabelAndOverrides
 										label={t('Quantel transformer URL')}
@@ -473,14 +353,7 @@ export function AccessorTableRow({
 										itemKey={`container.accessors.${accessorId}.transformerURL`}
 										overrideHelper={overrideHelper}
 									>
-										{(value, handleUpdate) => (
-											<TextInputControl
-												modifiedClassName="bghl"
-												classNames="input text-input input-l"
-												value={value}
-												handleUpdate={handleUpdate}
-											/>
-										)}
+										{(value, handleUpdate) => <TextInputControl value={value} handleUpdate={handleUpdate} />}
 									</LabelAndOverrides>
 									<LabelAndOverrides
 										label={t('Quantel FileFlow URL')}
@@ -490,14 +363,7 @@ export function AccessorTableRow({
 										itemKey={`container.accessors.${accessorId}.fileflowURL`}
 										overrideHelper={overrideHelper}
 									>
-										{(value, handleUpdate) => (
-											<TextInputControl
-												modifiedClassName="bghl"
-												classNames="input text-input input-l"
-												value={value}
-												handleUpdate={handleUpdate}
-											/>
-										)}
+										{(value, handleUpdate) => <TextInputControl value={value} handleUpdate={handleUpdate} />}
 									</LabelAndOverrides>
 									<LabelAndOverrides
 										label={t('Quantel FileFlow Profile name')}
@@ -507,14 +373,7 @@ export function AccessorTableRow({
 										itemKey={`container.accessors.${accessorId}.fileflowProfile`}
 										overrideHelper={overrideHelper}
 									>
-										{(value, handleUpdate) => (
-											<TextInputControl
-												modifiedClassName="bghl"
-												classNames="input text-input input-l"
-												value={value}
-												handleUpdate={handleUpdate}
-											/>
-										)}
+										{(value, handleUpdate) => <TextInputControl value={value} handleUpdate={handleUpdate} />}
 									</LabelAndOverrides>
 								</>
 							) : accessor.type === Accessor.AccessType.ATEM_MEDIA_STORE ? (
@@ -527,14 +386,7 @@ export function AccessorTableRow({
 										itemKey={`container.accessors.${accessorId}.resourceId`}
 										overrideHelper={overrideHelper}
 									>
-										{(value, handleUpdate) => (
-											<TextInputControl
-												modifiedClassName="bghl"
-												classNames="input text-input input-l"
-												value={value}
-												handleUpdate={handleUpdate}
-											/>
-										)}
+										{(value, handleUpdate) => <TextInputControl value={value} handleUpdate={handleUpdate} />}
 									</LabelAndOverrides>
 									<LabelAndOverrides
 										label={t('Network Id')}
@@ -544,14 +396,7 @@ export function AccessorTableRow({
 										itemKey={`container.accessors.${accessorId}.networkId`}
 										overrideHelper={overrideHelper}
 									>
-										{(value, handleUpdate) => (
-											<TextInputControl
-												modifiedClassName="bghl"
-												classNames="input text-input input-l"
-												value={value}
-												handleUpdate={handleUpdate}
-											/>
-										)}
+										{(value, handleUpdate) => <TextInputControl value={value} handleUpdate={handleUpdate} />}
 									</LabelAndOverrides>
 
 									<LabelAndOverrides
@@ -562,14 +407,7 @@ export function AccessorTableRow({
 										itemKey={`container.accessors.${accessorId}.atemHost`}
 										overrideHelper={overrideHelper}
 									>
-										{(value, handleUpdate) => (
-											<TextInputControl
-												modifiedClassName="bghl"
-												classNames="input text-input input-l"
-												value={value}
-												handleUpdate={handleUpdate}
-											/>
-										)}
+										{(value, handleUpdate) => <TextInputControl value={value} handleUpdate={handleUpdate} />}
 									</LabelAndOverrides>
 									<LabelAndOverrides
 										label={t('Bank Index')}
@@ -579,14 +417,7 @@ export function AccessorTableRow({
 										itemKey={`container.accessors.${accessorId}.bankIndex`}
 										overrideHelper={overrideHelper}
 									>
-										{(value, handleUpdate) => (
-											<IntInputControl
-												modifiedClassName="bghl"
-												classNames="input text-input input-l"
-												value={value}
-												handleUpdate={handleUpdate}
-											/>
-										)}
+										{(value, handleUpdate) => <IntInputControl value={value} handleUpdate={handleUpdate} />}
 									</LabelAndOverrides>
 									<LabelAndOverridesForDropdown
 										label={t('Media Type')}
@@ -598,14 +429,7 @@ export function AccessorTableRow({
 										options={getDropdownInputOptions(['clip', 'still'])}
 									>
 										{(value, handleUpdate, options) => {
-											return (
-												<DropdownInputControl
-													classNames="input text-input input-l"
-													options={options}
-													value={value}
-													handleUpdate={handleUpdate}
-												/>
-											)
+											return <DropdownInputControl options={options} value={value} handleUpdate={handleUpdate} />
 										}}
 									</LabelAndOverridesForDropdown>
 								</>
@@ -864,10 +688,10 @@ export function AccessorTableRow({
 								{(value, handleUpdate) => <CheckboxControl value={!!value} handleUpdate={handleUpdate} />}
 							</LabelAndOverridesForCheckbox>
 						</div>
-						<div className="mod">
-							<button className="btn btn-primary right" onClick={() => toggleExpanded(accessorId)}>
+						<div className="text-end">
+							<Button variant="primary" onClick={() => toggleExpanded(accessorId)}>
 								<FontAwesomeIcon icon={faCheck} />
-							</button>
+							</Button>
 						</div>
 					</td>
 				</tr>

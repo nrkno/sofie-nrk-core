@@ -1,11 +1,12 @@
-import { PrompterViewContent, PrompterConfigMode } from '../PrompterView'
-import { MouseIshController } from './mouse-ish-device'
-import { MidiPedalController } from './midi-pedal-device'
-import { ControllerAbstract } from './lib'
-import { JoyConController } from './joycon-device'
-import { KeyboardController } from './keyboard-device'
-import { ShuttleKeyboardController } from './shuttle-keyboard-device'
-import { ShuttleWebHidController } from './shuttle-webhid-device'
+import { type PrompterViewContent, PrompterConfigMode } from '../PrompterView.js'
+import { MouseIshController } from './mouse-ish-device.js'
+import { MidiPedalController } from './midi-pedal-device.js'
+import type { ControllerAbstract } from './lib.js'
+import { JoyConController } from './joycon-device.js'
+import { KeyboardController } from './keyboard-device.js'
+import { ShuttleKeyboardController } from './shuttle-keyboard-device.js'
+import { XboxController } from './xbox-controller-device.js'
+import { CustomizableShuttleWebHidController } from './customizable-shuttle-webhid-device.js'
 
 export class PrompterControlManager {
 	private _view: PrompterViewContent
@@ -21,23 +22,26 @@ export class PrompterControlManager {
 		window.addEventListener('mouseup', this._onMouseKeyUp)
 
 		if (Array.isArray(this._view.configOptions.mode)) {
-			if (this._view.configOptions.mode.indexOf(PrompterConfigMode.MOUSE) > -1) {
+			if (this._view.configOptions.mode.includes(PrompterConfigMode.MOUSE)) {
 				this._controllers.push(new MouseIshController(this._view))
 			}
-			if (this._view.configOptions.mode.indexOf(PrompterConfigMode.KEYBOARD) > -1) {
+			if (this._view.configOptions.mode.includes(PrompterConfigMode.KEYBOARD)) {
 				this._controllers.push(new KeyboardController(this._view))
 			}
-			if (this._view.configOptions.mode.indexOf(PrompterConfigMode.SHUTTLEKEYBOARD) > -1) {
+			if (this._view.configOptions.mode.includes(PrompterConfigMode.SHUTTLEKEYBOARD)) {
 				this._controllers.push(new ShuttleKeyboardController(this._view))
 			}
-			if (this._view.configOptions.mode.indexOf(PrompterConfigMode.PEDAL) > -1) {
+			if (this._view.configOptions.mode.includes(PrompterConfigMode.PEDAL)) {
 				this._controllers.push(new MidiPedalController(this._view))
 			}
-			if (this._view.configOptions.mode.indexOf(PrompterConfigMode.JOYCON) > -1) {
+			if (this._view.configOptions.mode.includes(PrompterConfigMode.JOYCON)) {
 				this._controllers.push(new JoyConController(this._view))
 			}
-			if (this._view.configOptions.mode.indexOf(PrompterConfigMode.SHUTTLEWEBHID) > -1) {
-				this._controllers.push(new ShuttleWebHidController(this._view))
+			if (this._view.configOptions.mode.includes(PrompterConfigMode.SHUTTLEWEBHID)) {
+				this._controllers.push(new CustomizableShuttleWebHidController(this._view))
+			}
+			if (this._view.configOptions.mode.includes(PrompterConfigMode.XBOX)) {
+				this._controllers.push(new XboxController(this._view))
 			}
 		}
 

@@ -1,12 +1,12 @@
-import * as React from 'react'
+import type * as React from 'react'
 import { useTranslation } from 'react-i18next'
-import { TFunction } from 'i18next'
-import { FilterType, IRundownPlaylistFilterLink } from '@sofie-automation/blueprints-integration'
-import { assertNever } from '../../../../../../lib/tempLib'
-import { FilterEditor } from './FilterEditor'
-import { useTracker } from '../../../../../../lib/ReactMeteorData/ReactMeteorData'
-import { EditAttributeType } from '../../../../../../lib/EditAttribute'
-import { Studios } from '../../../../../../collections'
+import type { TFunction } from 'i18next'
+import type { FilterType, IRundownPlaylistFilterLink } from '@sofie-automation/blueprints-integration'
+import { assertNever } from '@sofie-automation/corelib/dist/lib'
+import type { EditAttributeType } from '../../../../../../lib/EditAttribute.js'
+import { useTracker } from '../../../../../../lib/ReactMeteorData/ReactMeteorData.js'
+import { FilterEditor } from './FilterEditor.js'
+import { Studios } from '../../../../../../collections/index.js'
 
 interface IProps {
 	index: number

@@ -1,51 +1,55 @@
 import * as React from 'react'
-import { DBStudio, IStudioSettings } from '@sofie-automation/corelib/dist/dataModel/Studio'
+import type { DBStudio } from '@sofie-automation/corelib/dist/dataModel/Studio'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faExclamationTriangle } from '@fortawesome/free-solid-svg-icons'
 import { useTranslation } from 'react-i18next'
-import { EditAttribute } from '../../../lib/EditAttribute'
-import { StudioBaselineStatus } from './Baseline'
-import { ShowStyleBaseId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { DBShowStyleBase } from '@sofie-automation/corelib/dist/dataModel/ShowStyleBase'
-import { Studios } from '../../../collections'
+import { EditAttribute } from '../../../lib/EditAttribute.js'
+import { StudioBaselineStatus } from './Baseline.js'
+import type { ShowStyleBaseId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import { ShowStyleBases, Studios } from '../../../collections/index.js'
 import { useHistory } from 'react-router-dom'
-import { MeteorCall } from '../../../lib/meteorApi'
+import { MeteorCall } from '../../../lib/meteorApi.js'
 import {
 	LabelActual,
 	LabelAndOverrides,
 	LabelAndOverridesForCheckbox,
 	LabelAndOverridesForDropdown,
 	LabelAndOverridesForInt,
-} from '../../../lib/Components/LabelAndOverrides'
-import { catchError } from '../../../lib/lib'
-import { ForceQuickLoopAutoNext } from '@sofie-automation/shared-lib/dist/core/model/StudioSettings'
-import {
-	applyAndValidateOverrides,
-	ObjectWithOverrides,
-	SomeObjectOverrideOp,
-} from '@sofie-automation/corelib/dist/settings/objectWithOverrides'
-import { useOverrideOpHelper, WrappedOverridableItemNormal } from '../util/OverrideOpHelper'
-import { IntInputControl } from '../../../lib/Components/IntInput'
-import { literal } from '@sofie-automation/corelib/dist/lib'
+} from '../../../lib/Components/LabelAndOverrides.js'
+import { catchError } from '../../../lib/lib.js'
+import { ForceQuickLoopAutoNext, ShelfButtonSize } from '@sofie-automation/shared-lib/dist/core/model/StudioSettings'
+import type { SomeObjectOverrideOp } from '@sofie-automation/corelib/dist/settings/objectWithOverrides'
+import { useOverrideOpHelperForSimpleObject } from '../util/OverrideOpHelper.js'
+import { IntInputControl } from '../../../lib/Components/IntInput.js'
+import { FloatInputControl } from '../../../lib/Components/FloatInput.js'
 import { useMemo } from 'react'
-import { CheckboxControl } from '../../../lib/Components/Checkbox'
-import { TextInputControl } from '../../../lib/Components/TextInput'
-import { DropdownInputControl, DropdownInputOption } from '../../../lib/Components/DropdownInput'
+import { CheckboxControl } from '../../../lib/Components/Checkbox.js'
+import { TextInputControl } from '../../../lib/Components/TextInput.js'
+import { DropdownInputControl, type DropdownInputOption } from '../../../lib/Components/DropdownInput.js'
+import { useTracker } from '../../../lib/ReactMeteorData/ReactMeteorData.js'
+import Button from 'react-bootstrap/Button'
 
 interface IStudioGenericPropertiesProps {
 	studio: DBStudio
-	availableShowStyleBases: Array<{
-		name: string
-		value: ShowStyleBaseId
-		showStyleBase: DBShowStyleBase
-	}>
 }
 
-export function StudioGenericProperties({
-	studio,
-	availableShowStyleBases,
-}: IStudioGenericPropertiesProps): JSX.Element {
+export function StudioGenericProperties({ studio }: IStudioGenericPropertiesProps): JSX.Element {
 	const { t } = useTranslation()
+
+	const availableShowStyleBases = useTracker(
+		() =>
+			ShowStyleBases.find()
+				.fetch()
+				.map((showStyle) => {
+					return {
+						name: `${showStyle.name}`,
+						value: showStyle._id,
+						showStyleBase: showStyle,
+					}
+				}),
+		[],
+		[]
+	)
 
 	const showStyleEditButtons: JSX.Element[] = []
 	for (const showStyleBaseId of studio.supportedShowStyleBase) {
@@ -63,7 +67,8 @@ export function StudioGenericProperties({
 
 	return (
 		<div className="properties-grid">
-			<h2 className="mhn mtn">{t('Generic Properties')}</h2>
+			<h2 className="mb-4">{t('Generic Properties')}</h2>
+
 			<label className="field">
 				<LabelActual label={t('Studio Name')} />
 				{!studio.name ? (
@@ -71,21 +76,11 @@ export function StudioGenericProperties({
 						{t('No name set')} <FontAwesomeIcon icon={faExclamationTriangle} />
 					</div>
 				) : null}
-				<div className="mdi">
-					<EditAttribute
-						modifiedClassName="bghl"
-						attribute="name"
-						obj={studio}
-						type="text"
-						collection={Studios}
-						className="mdinput"
-					/>
-					<span className="mdfx"></span>
-				</div>
+				<EditAttribute attribute="name" obj={studio} type="text" collection={Studios} />
 			</label>
 			<div className="field">
 				{t('Select Compatible Show Styles')}
-				<div className="mdi">
+				<div>
 					<EditAttribute
 						attribute="supportedShowStyleBase"
 						obj={studio}
@@ -124,9 +119,9 @@ const NewShowStyleButton = React.memo(function NewShowStyleButton() {
 	}
 
 	return (
-		<button className="btn btn-primary mts" onClick={onShowStyleAdd}>
+		<Button variant="primary mt-2 me-2" onClick={onShowStyleAdd}>
 			New Show Style
-		</button>
+		</Button>
 	)
 })
 
@@ -139,9 +134,9 @@ const RedirectToShowStyleButton = React.memo(function RedirectToShowStyleButton(
 	const doRedirect = () => history.push('/settings/showStyleBase/' + props.id)
 
 	return (
-		<button className="btn mrs mts" onClick={doRedirect}>
+		<Button variant="light" className="mt-2 me-2" onClick={doRedirect}>
 			Edit {props.name}
-		</button>
+		</Button>
 	)
 })
 
@@ -162,32 +157,10 @@ function StudioSettings({ studio }: { studio: DBStudio }): JSX.Element {
 		[studio._id]
 	)
 
-	const [wrappedItem, wrappedConfigObject] = useMemo(() => {
-		const prefixedOps = studio.settingsWithOverrides.overrides.map((op) => ({
-			...op,
-			// TODO: can we avoid doing this hack?
-			path: `0.${op.path}`,
-		}))
-
-		const computedValue = applyAndValidateOverrides(studio.settingsWithOverrides).obj
-
-		const wrappedItem = literal<WrappedOverridableItemNormal<IStudioSettings>>({
-			type: 'normal',
-			id: '0',
-			computed: computedValue,
-			defaults: studio.settingsWithOverrides.defaults,
-			overrideOps: prefixedOps,
-		})
-
-		const wrappedConfigObject: ObjectWithOverrides<IStudioSettings> = {
-			defaults: studio.settingsWithOverrides.defaults,
-			overrides: prefixedOps,
-		}
-
-		return [wrappedItem, wrappedConfigObject]
-	}, [studio.settingsWithOverrides])
-
-	const overrideHelper = useOverrideOpHelper(saveOverrides, wrappedConfigObject)
+	const { overrideHelper, wrappedItem } = useOverrideOpHelperForSimpleObject(
+		saveOverrides,
+		studio.settingsWithOverrides
+	)
 
 	const autoNextOptions: DropdownInputOption<ForceQuickLoopAutoNext>[] = useMemo(
 		() => [
@@ -210,6 +183,22 @@ function StudioSettings({ studio }: { studio: DBStudio }): JSX.Element {
 		[t]
 	)
 
+	const shelfAdlibButtonSizeOptions: DropdownInputOption<ShelfButtonSize.COMPACT | ShelfButtonSize.LARGE>[] = useMemo(
+		() => [
+			{
+				name: t('Large'),
+				value: ShelfButtonSize.LARGE,
+				i: 0,
+			},
+			{
+				name: t('Compact'),
+				value: ShelfButtonSize.COMPACT,
+				i: 1,
+			},
+		],
+		[t]
+	)
+
 	return (
 		<>
 			<LabelAndOverridesForInt
@@ -218,14 +207,7 @@ function StudioSettings({ studio }: { studio: DBStudio }): JSX.Element {
 				itemKey={'frameRate'}
 				overrideHelper={overrideHelper}
 			>
-				{(value, handleUpdate) => (
-					<IntInputControl
-						modifiedClassName="bghl"
-						classNames="input text-input input-l"
-						value={value}
-						handleUpdate={handleUpdate}
-					/>
-				)}
+				{(value, handleUpdate) => <IntInputControl value={value} handleUpdate={handleUpdate} />}
 			</LabelAndOverridesForInt>
 
 			<LabelAndOverridesForInt
@@ -234,14 +216,7 @@ function StudioSettings({ studio }: { studio: DBStudio }): JSX.Element {
 				itemKey={'minimumTakeSpan'}
 				overrideHelper={overrideHelper}
 			>
-				{(value, handleUpdate) => (
-					<IntInputControl
-						modifiedClassName="bghl"
-						classNames="input text-input input-l"
-						value={value}
-						handleUpdate={handleUpdate}
-					/>
-				)}
+				{(value, handleUpdate) => <IntInputControl value={value} handleUpdate={handleUpdate} />}
 			</LabelAndOverridesForInt>
 
 			<LabelAndOverridesForCheckbox
@@ -259,14 +234,7 @@ function StudioSettings({ studio }: { studio: DBStudio }): JSX.Element {
 				itemKey={'mediaPreviewsUrl'}
 				overrideHelper={overrideHelper}
 			>
-				{(value, handleUpdate) => (
-					<TextInputControl
-						modifiedClassName="bghl"
-						classNames="input text-input input-l"
-						value={value}
-						handleUpdate={handleUpdate}
-					/>
-				)}
+				{(value, handleUpdate) => <TextInputControl value={value} handleUpdate={handleUpdate} />}
 			</LabelAndOverrides>
 
 			<LabelAndOverrides
@@ -275,14 +243,7 @@ function StudioSettings({ studio }: { studio: DBStudio }): JSX.Element {
 				itemKey={'slackEvaluationUrls'}
 				overrideHelper={overrideHelper}
 			>
-				{(value, handleUpdate) => (
-					<TextInputControl
-						modifiedClassName="bghl"
-						classNames="input text-input input-l"
-						value={value}
-						handleUpdate={handleUpdate}
-					/>
-				)}
+				{(value, handleUpdate) => <TextInputControl value={value} handleUpdate={handleUpdate} />}
 			</LabelAndOverrides>
 
 			<LabelAndOverrides
@@ -291,14 +252,7 @@ function StudioSettings({ studio }: { studio: DBStudio }): JSX.Element {
 				itemKey={'supportedMediaFormats'}
 				overrideHelper={overrideHelper}
 			>
-				{(value, handleUpdate) => (
-					<TextInputControl
-						modifiedClassName="bghl"
-						classNames="input text-input input-l"
-						value={value}
-						handleUpdate={handleUpdate}
-					/>
-				)}
+				{(value, handleUpdate) => <TextInputControl value={value} handleUpdate={handleUpdate} />}
 			</LabelAndOverrides>
 
 			<LabelAndOverrides
@@ -307,14 +261,7 @@ function StudioSettings({ studio }: { studio: DBStudio }): JSX.Element {
 				itemKey={'supportedAudioStreams'}
 				overrideHelper={overrideHelper}
 			>
-				{(value, handleUpdate) => (
-					<TextInputControl
-						modifiedClassName="bghl"
-						classNames="input text-input input-l"
-						value={value}
-						handleUpdate={handleUpdate}
-					/>
-				)}
+				{(value, handleUpdate) => <TextInputControl value={value} handleUpdate={handleUpdate} />}
 			</LabelAndOverrides>
 
 			<LabelAndOverridesForCheckbox
@@ -332,14 +279,7 @@ function StudioSettings({ studio }: { studio: DBStudio }): JSX.Element {
 				itemKey={'multiGatewayNowSafeLatency'}
 				overrideHelper={overrideHelper}
 			>
-				{(value, handleUpdate) => (
-					<IntInputControl
-						modifiedClassName="bghl"
-						classNames="input text-input input-l"
-						value={value}
-						handleUpdate={handleUpdate}
-					/>
-				)}
+				{(value, handleUpdate) => <IntInputControl value={value} handleUpdate={handleUpdate} />}
 			</LabelAndOverridesForInt>
 
 			<LabelAndOverridesForCheckbox
@@ -371,6 +311,15 @@ function StudioSettings({ studio }: { studio: DBStudio }): JSX.Element {
 			</LabelAndOverridesForCheckbox>
 
 			<LabelAndOverridesForCheckbox
+				label={t('Allow infinites from AdLib testing to persist')}
+				item={wrappedItem}
+				itemKey={'allowTestingAdlibsToPersist'}
+				overrideHelper={overrideHelper}
+			>
+				{(value, handleUpdate) => <CheckboxControl value={!!value} handleUpdate={handleUpdate} />}
+			</LabelAndOverridesForCheckbox>
+
+			<LabelAndOverridesForCheckbox
 				label={t('Enable Buckets')}
 				item={wrappedItem}
 				itemKey={'enableBuckets'}
@@ -379,6 +328,18 @@ function StudioSettings({ studio }: { studio: DBStudio }): JSX.Element {
 			>
 				{(value, handleUpdate) => <CheckboxControl value={!!value} handleUpdate={handleUpdate} />}
 			</LabelAndOverridesForCheckbox>
+
+			<LabelAndOverridesForDropdown
+				label={t('Mini shelf AdLib button size')}
+				item={wrappedItem}
+				itemKey={'shelfAdlibButtonSize'}
+				overrideHelper={overrideHelper}
+				options={shelfAdlibButtonSizeOptions}
+			>
+				{(value, handleUpdate, options) => (
+					<DropdownInputControl options={options} value={value} handleUpdate={handleUpdate} />
+				)}
+			</LabelAndOverridesForDropdown>
 
 			<LabelAndOverridesForCheckbox
 				label={t('Enable User Editing')}
@@ -410,19 +371,14 @@ function StudioSettings({ studio }: { studio: DBStudio }): JSX.Element {
 			</LabelAndOverridesForCheckbox>
 
 			<LabelAndOverridesForDropdown
-				label={t('Source Type')}
+				label={t('AutoNext in QuickLoop behavior')}
 				item={wrappedItem}
 				itemKey={'forceQuickLoopAutoNext'}
 				overrideHelper={overrideHelper}
 				options={autoNextOptions}
 			>
 				{(value, handleUpdate, options) => (
-					<DropdownInputControl
-						classNames="focusable-main input-l"
-						options={options}
-						value={value}
-						handleUpdate={handleUpdate}
-					/>
+					<DropdownInputControl options={options} value={value} handleUpdate={handleUpdate} />
 				)}
 			</LabelAndOverridesForDropdown>
 
@@ -432,14 +388,7 @@ function StudioSettings({ studio }: { studio: DBStudio }): JSX.Element {
 				itemKey={'fallbackPartDuration'}
 				overrideHelper={overrideHelper}
 			>
-				{(value, handleUpdate) => (
-					<IntInputControl
-						modifiedClassName="bghl"
-						classNames="input text-input input-l"
-						value={value}
-						handleUpdate={handleUpdate}
-					/>
-				)}
+				{(value, handleUpdate) => <IntInputControl value={value} handleUpdate={handleUpdate} />}
 			</LabelAndOverridesForInt>
 
 			<LabelAndOverridesForCheckbox
@@ -461,6 +410,138 @@ function StudioSettings({ studio }: { studio: DBStudio }): JSX.Element {
 			>
 				{(value, handleUpdate) => <CheckboxControl value={!!value} handleUpdate={handleUpdate} />}
 			</LabelAndOverridesForCheckbox>
+
+			<LabelAndOverridesForCheckbox
+				label={t('Mock Piece Content Status')}
+				item={wrappedItem}
+				itemKey={'mockPieceContentStatus'}
+				overrideHelper={overrideHelper}
+				hint={t(
+					'When enabled, this will override the piece content statuses to have no errors or warnings and display a mock preview. This should only be used for development!'
+				)}
+			>
+				{(value, handleUpdate) => <CheckboxControl value={!!value} handleUpdate={handleUpdate} />}
+			</LabelAndOverridesForCheckbox>
+
+			<LabelAndOverridesForInt
+				label={t('Rundown Global Piece Prepare Time')}
+				item={wrappedItem}
+				itemKey={'rundownGlobalPiecesPrepareTime'}
+				overrideHelper={overrideHelper}
+				hint={t('How much preparation time to add to global pieces on the timeline before they are played')}
+			>
+				{(value, handleUpdate) => (
+					<IntInputControl
+						modifiedClassName="bghl"
+						classNames="input text-input input-l"
+						value={value}
+						handleUpdate={handleUpdate}
+					/>
+				)}
+			</LabelAndOverridesForInt>
+
+			<LabelAndOverridesForCheckbox
+				label={t('Auto-rewind segment when leaving it')}
+				item={wrappedItem}
+				itemKey={'autoRewindLeavingSegment'}
+				overrideHelper={overrideHelper}
+				hint={t('Should a segment in the Rundown view automatically rewind after it stops being live')}
+			>
+				{(value, handleUpdate) => <CheckboxControl value={!!value} handleUpdate={handleUpdate} />}
+			</LabelAndOverridesForCheckbox>
+
+			<LabelAndOverridesForCheckbox
+				label={t('Disable blur border')}
+				item={wrappedItem}
+				itemKey={'disableBlurBorder'}
+				overrideHelper={overrideHelper}
+				hint={t('Disable the blur border around the Rundown view when it is not in focus and studio mode is enabled')}
+			>
+				{(value, handleUpdate) => <CheckboxControl value={!!value} handleUpdate={handleUpdate} />}
+			</LabelAndOverridesForCheckbox>
+
+			<LabelAndOverridesForCheckbox
+				label={t('Allow grabbing the timeline')}
+				item={wrappedItem}
+				itemKey={'allowGrabbingTimeline'}
+				overrideHelper={overrideHelper}
+				hint={t('Allow grabbing the segment timelines to scroll them')}
+			>
+				{(value, handleUpdate) => <CheckboxControl value={!!value} handleUpdate={handleUpdate} />}
+			</LabelAndOverridesForCheckbox>
+
+			<LabelAndOverridesForCheckbox
+				label={t('Count down to freeze-frame')}
+				item={wrappedItem}
+				itemKey={'useCountdownToFreezeFrame'}
+				overrideHelper={overrideHelper}
+				hint={t(
+					'If enabled, countdowns of videos will count down to the last freeze-frame of the video instead of to the end of the video'
+				)}
+			>
+				{(value, handleUpdate) => <CheckboxControl value={!!value} handleUpdate={handleUpdate} />}
+			</LabelAndOverridesForCheckbox>
+
+			<LabelAndOverridesForInt
+				label={t('Default Part Display Duration')}
+				item={wrappedItem}
+				itemKey={'defaultDisplayDuration'}
+				overrideHelper={overrideHelper}
+				hint={t('The fallback duration (in milliseconds) to use to render parts when no duration is provided')}
+			>
+				{(value, handleUpdate) => (
+					<IntInputControl
+						modifiedClassName="bghl"
+						classNames="input text-input input-l"
+						value={value}
+						handleUpdate={handleUpdate}
+					/>
+				)}
+			</LabelAndOverridesForInt>
+
+			<LabelAndOverrides
+				label={t('Default Shelf Display Options')}
+				item={wrappedItem}
+				itemKey={'defaultShelfDisplayOptions'}
+				overrideHelper={overrideHelper}
+				hint={t("Default value used to toggle Shelf options when the 'display' URL argument is not provided")}
+			>
+				{(value, handleUpdate) => <TextInputControl value={value} handleUpdate={handleUpdate} />}
+			</LabelAndOverrides>
+
+			<LabelAndOverrides
+				label={t('Default Timeline Time Scale')}
+				item={wrappedItem}
+				itemKey={'defaultTimeScale'}
+				overrideHelper={overrideHelper}
+				hint={t('Default zoom factor of the timelines in the UI')}
+			>
+				{(value, handleUpdate) => (
+					<FloatInputControl
+						modifiedClassName="bghl"
+						classNames="input text-input input-l"
+						value={value}
+						handleUpdate={handleUpdate}
+					/>
+				)}
+			</LabelAndOverrides>
+
+			<LabelAndOverridesForInt
+				label={t('Follow On-Air Segments History')}
+				item={wrappedItem}
+				itemKey={'followOnAirSegmentsHistory'}
+				overrideHelper={overrideHelper}
+				hint={t('How many segments of history to show when scrolling back in time (0 = show current segment only)')}
+			>
+				{(value, handleUpdate) => (
+					<IntInputControl
+						modifiedClassName="bghl"
+						classNames="input text-input input-l"
+						value={value}
+						handleUpdate={handleUpdate}
+					/>
+				)}
+			</LabelAndOverridesForInt>
 		</>
 	)
 }

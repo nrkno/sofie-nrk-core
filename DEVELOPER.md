@@ -19,7 +19,7 @@ Follow these instructions to start up Sofie Core in development mode. (For produ
 ### Prerequisites
 
 - Install [Node.js](https://nodejs.org) 22 (using [nvm](https://github.com/nvm-sh/nvm) or [nvm-windows](https://github.com/coreybutler/nvm-windows) is the recommended way to install Node.js)
-- Install [Meteor](https://www.meteor.com/install) (`npx meteor`)
+- Install [Meteor](https://docs.meteor.com/about/install.html) (`npx meteor`)
 - Enable [corepack](https://nodejs.org/api/corepack.html#corepack) (`corepack enable`) as administrator/root. If `corepack` is not found, you may need to install it first with `npm install --global corepack`
 
 - If on Windows, you may need to `npm install --global windows-build-tools` but this is not always necessary
@@ -118,10 +118,10 @@ For support of various languages in the GUI, Sofie uses the _i18next_ framework.
 
 ```bash
 cd meteor
-yarn i18n-extract-pot
+yarn i18n-extract-po
 ```
 
-Find the created `template.pot` file in `meteor/i18n` folder. Create a new PO file based on that template using a PO editor of your choice. Save it in the `meteor/i18n` folder using your [ISO 639-1 language code](https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes) of choice as the filename.
+Find the created `.po` files in `meteor/i18n` folder. Edit the appropriate PO file using a PO editor of your choice.
 
 Then, run the compilation script:
 
@@ -144,10 +144,6 @@ However, one usage by AdlibActions for their userDataManifest remains as this is
 
 In R52, the replacement flow of `validateConfig` and `applyConfig` was extended to the system blueprint
 It is no longer recommended to use the old migrations flow for system blueprints.
-
-### ExpectedMediaItems
-
-These are used for Media-manager which is no longer being developed.
 
 ### Blueprints: getPieceABSessionId & getTimelineObjectAbSessionId
 

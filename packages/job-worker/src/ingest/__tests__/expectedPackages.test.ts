@@ -3,15 +3,15 @@ import { DBPart } from '@sofie-automation/corelib/dist/dataModel/Part'
 import { Piece } from '@sofie-automation/corelib/dist/dataModel/Piece'
 import { literal } from '@sofie-automation/corelib/dist/lib'
 import { protectString } from '@sofie-automation/corelib/dist/protectedString'
-import { defaultPart, defaultPiece, defaultAdLibPiece } from '../../__mocks__/defaultCollectionObjects'
-import { LAYER_IDS } from '../../__mocks__/presetCollections'
+import { defaultPart, defaultPiece, defaultAdLibPiece } from '../../__mocks__/defaultCollectionObjects.js'
+import { LAYER_IDS } from '../../__mocks__/presetCollections.js'
 import { ExpectedPackage, PieceLifespan, VTContent } from '@sofie-automation/blueprints-integration'
-import { updateExpectedPackagesForPartModel } from '../expectedPackages'
-import { MockJobContext, setupDefaultJobEnvironment } from '../../__mocks__/context'
+import { updateExpectedMediaAndPlayoutItemsForPartModel } from '../expectedPackages.js'
+import { MockJobContext, setupDefaultJobEnvironment } from '../../__mocks__/context.js'
 import { ReadonlyDeep } from 'type-fest'
-import { IngestPartModel } from '../model/IngestPartModel'
+import { IngestPartModel } from '../model/IngestPartModel.js'
 
-describe('Expected Media Items', () => {
+describe('Expected Playout Items', () => {
 	let context: MockJobContext
 	beforeAll(async () => {
 		context = setupDefaultJobEnvironment()
@@ -44,9 +44,6 @@ describe('Expected Media Items', () => {
 		const mockFileName1 = 'mockFileName1'
 		const mockPath1 = mockBase + mockFileName1
 
-		const mockFlow0 = 'mockFlow0'
-		const mockFlow1 = 'mockFlow1'
-
 		const part: ReadonlyDeep<DBPart> = literal<DBPart>({
 			...defaultPart(protectString('mockPart0'), protectString(''), protectString('')),
 			_rank: 1,
@@ -68,7 +65,6 @@ describe('Expected Media Items', () => {
 				content: literal<VTContent>({
 					fileName: mockFileName0,
 					path: mockPath0,
-					mediaFlowIds: [mockFlow0, mockFlow1],
 					sourceDuration: 0,
 				}),
 				expectedPackages: [getExpectedPackage('id0', mockPath0), getExpectedPackage('id1', mockPath0)],
@@ -88,7 +84,6 @@ describe('Expected Media Items', () => {
 				content: literal<VTContent>({
 					fileName: mockFileName1,
 					path: mockPath1,
-					mediaFlowIds: [mockFlow0],
 					sourceDuration: 0,
 				}),
 				expectedPackages: [getExpectedPackage('id0', mockPath1)],
@@ -107,7 +102,6 @@ describe('Expected Media Items', () => {
 				content: literal<VTContent>({
 					fileName: mockFileName1,
 					path: mockPath1,
-					mediaFlowIds: [mockFlow0],
 					sourceDuration: 0,
 				}),
 				expectedPackages: [getExpectedPackage('id0', mockPath1)],
@@ -117,10 +111,8 @@ describe('Expected Media Items', () => {
 		return { part, pieces, adLibPieces }
 	}
 
-	test('Generates ExpectedPackages(/ExpectedMediaItems) for a Part', async () => {
-		const setExpectedMediaItems = jest.fn()
+	test('Generates for a Part', async () => {
 		const setExpectedPlayoutItems = jest.fn()
-		const setExpectedPackages = jest.fn()
 
 		const { part, pieces, adLibPieces } = getMockPartContent()
 
@@ -129,28 +121,18 @@ describe('Expected Media Items', () => {
 			pieces,
 			adLibActions: [],
 			adLibPieces,
-			expectedMediaItems: [],
 			expectedPlayoutItems: [],
 			expectedPackages: [],
 
-			setExpectedMediaItems,
 			setExpectedPlayoutItems,
-			setExpectedPackages,
 			setInvalid: function (_invalid: boolean): void {
 				throw new Error('Function not implemented.')
 			},
 		}
 
-		updateExpectedPackagesForPartModel(context, partModel)
-
-		expect(setExpectedPackages).toHaveBeenCalledTimes(1)
-		expect(setExpectedPackages.mock.calls[0][0]).toHaveLength(4)
+		updateExpectedMediaAndPlayoutItemsForPartModel(context, partModel)
 
 		expect(setExpectedPlayoutItems).toHaveBeenCalledTimes(1)
 		expect(setExpectedPlayoutItems).toHaveBeenCalledWith([])
-
-		// to be deprecated:
-		expect(setExpectedMediaItems).toHaveBeenCalledTimes(1)
-		expect(setExpectedMediaItems.mock.calls[0][0]).toHaveLength(4)
 	})
 })

@@ -3,8 +3,12 @@ name: "Prune container images"
 on:
   workflow_dispatch:
   schedule:
-    - cron: '12 14 * * *'
+    - cron: "12 14 * * *"
 
+permissions:
+  contents: read
+  packages: write
+  
 jobs:
   prune-container-images:
     if: ${{ github.repository_owner == 'nrkno' }}
@@ -13,7 +17,7 @@ jobs:
     strategy:
       max-parallel: 1
       matrix:
-        repo: [ server-core, playout-gateway, mos-gateway ]
+        repo: [server-core, playout-gateway, mos-gateway]
     with:
       dry-run: false
       prune-untagged: true

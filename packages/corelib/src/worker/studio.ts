@@ -1,7 +1,9 @@
 import { PlayoutChangedResults } from '@sofie-automation/shared-lib/dist/peripheralDevice/peripheralDeviceAPI'
+import type { PeripheralDeviceExternalEvent } from '@sofie-automation/shared-lib/dist/peripheralDevice/externalEvents'
 import {
 	AdLibActionId,
 	BucketAdLibActionId,
+	BucketAdLibId,
 	BucketId,
 	ExpectedPackageId,
 	PartId,
@@ -12,13 +14,15 @@ import {
 	RundownId,
 	RundownPlaylistId,
 	SegmentId,
+	SnapshotId,
 	StudioId,
-} from '../dataModel/Ids'
+} from '../dataModel/Ids.js'
 import { JSONBlob } from '@sofie-automation/shared-lib/dist/lib/JSONBlob'
-import { CoreRundownPlaylistSnapshot } from '../snapshots'
-import { NoteSeverity } from '@sofie-automation/blueprints-integration'
-import { ITranslatableMessage } from '../TranslatableMessage'
-import { QuickLoopMarker } from '../dataModel/RundownPlaylist'
+import { CoreRundownPlaylistSnapshot } from '../snapshots.js'
+import { BlueprintSnapshotType, NoteSeverity } from '@sofie-automation/blueprints-integration'
+import { ITranslatableMessage } from '../TranslatableMessage.js'
+import { QuickLoopMarker } from '../dataModel/RundownPlaylist/RundownPlaylist.js'
+import { RundownTTimerIndex } from '../dataModel/RundownPlaylist/TTimers.js'
 
 /** List of all Jobs performed by the Worker related to a certain Studio */
 export enum StudioJobs {
@@ -124,6 +128,17 @@ export enum StudioJobs {
 	 * ( typically when using the "now"-feature )
 	 */
 	OnTimelineTriggerTime = 'onTimelineTriggerTime',
+	/**
+	 * Called by a gateway when a playout device emits an external event.
+	 * Events from multiple gateways or rapid bursts are merged into a single job.
+	 */
+	OnExternalEvents = 'onExternalEvents',
+
+	/**
+	 * Recalculate T-Timer projections based on current playlist state
+	 * Called after setNext, takes, and ingest changes to update timing anchor projections
+	 */
+	RecalculateTTimerProjections = 'recalculateTTimerProjections',
 
 	/**
 	 * Update the timeline with a regenerated Studio Baseline
@@ -167,6 +182,11 @@ export enum StudioJobs {
 	RestorePlaylistSnapshot = 'restorePlaylistSnapshot',
 
 	/**
+	 * Invoke {@link StudioBlueprintManifest.onSystemSnapshotCreated} for the studio after a system or debug snapshot is stored.
+	 */
+	OnSystemSnapshotCreated = 'onSystemSnapshotCreated',
+
+	/**
 	 * Run the Blueprint applyConfig for the studio
 	 */
 	BlueprintUpgradeForStudio = 'blueprintUpgradeForStudio',
@@ -204,6 +224,49 @@ export enum StudioJobs {
 	 * for use in ad.lib actions and other triggers
 	 */
 	SwitchRouteSet = 'switchRouteSet',
+
+	/**
+	 * Cleanup any expected packages playout references that are orphaned
+	 * During playout it is hard to track removal of PieceInstances (particularly when resetting PieceInstances)
+	 */
+	CleanupOrphanedExpectedPackageReferences = 'cleanupOrphanedExpectedPackageReferences',
+	/**
+	 * Configure a T-timer as a countdown
+	 */
+	TTimerStartCountdown = 'tTimerStartCountdown',
+
+	/**
+	 * Configure a T-timer as a free-running timer
+	 */
+	TTimerStartFreeRun = 'tTimerStartFreeRun',
+	/**
+	 * Pause a T-timer
+	 */
+	TTimerPause = 'tTimerPause',
+	/**
+	 * Resume a T-timer
+	 */
+	TTimerResume = 'tTimerResume',
+	/**
+	 * Restart a T-timer
+	 */
+	TTimerRestart = 'tTimerRestart',
+	/**
+	 * Clear the projection state of a T-timer
+	 */
+	TTimerClearProjected = 'tTimerClearProjected',
+	/**
+	 * Set the projection anchor part of a T-timer
+	 */
+	TTimerSetProjectedAnchorPart = 'tTimerSetProjectedAnchorPart',
+	/**
+	 * Set the projection time of a T-timer
+	 */
+	TTimerSetProjectedTime = 'tTimerSetProjectedTime',
+	/**
+	 * Set the projection duration of a T-timer
+	 */
+	TTimerSetProjectedDuration = 'tTimerSetProjectedDuration',
 }
 
 export interface RundownPlayoutPropsBase {
@@ -213,7 +276,7 @@ export type UpdateTimelineAfterIngestProps = RundownPlayoutPropsBase
 
 export interface AdlibPieceStartProps extends RundownPlayoutPropsBase {
 	partInstanceId: PartInstanceId
-	adLibPieceId: PieceId
+	adLibPieceId: PieceId | BucketAdLibId
 	pieceType: 'baseline' | 'normal' | 'bucket'
 	queue?: boolean
 }
@@ -237,7 +300,9 @@ export type ActivateHoldProps = RundownPlayoutPropsBase
 export type DeactivateHoldProps = RundownPlayoutPropsBase
 export type PrepareRundownForBroadcastProps = RundownPlayoutPropsBase
 export interface ResetRundownPlaylistProps extends RundownPlayoutPropsBase {
+	/** If set, also activate the RundownPlaylist */
 	activate?: 'active' | 'rehearsal'
+	/** If true and `activate` is set, deactivates any other active Playlists and activates this one. */
 	forceActivate?: boolean
 }
 export interface ActivateRundownPlaylistProps extends RundownPlayoutPropsBase {
@@ -245,7 +310,8 @@ export interface ActivateRundownPlaylistProps extends RundownPlayoutPropsBase {
 }
 export type DeactivateRundownPlaylistProps = RundownPlayoutPropsBase
 export interface SetNextPartProps extends RundownPlayoutPropsBase {
-	nextPartId: PartId
+	nextPartId?: PartId
+	nextPartInstanceId?: PartInstanceId
 	setManually?: boolean
 	nextTimeOffset?: number
 }
@@ -257,16 +323,11 @@ export interface QueueNextSegmentProps extends RundownPlayoutPropsBase {
 }
 export type QueueNextSegmentResult = { nextPartId: PartId } | { queuedSegmentId: SegmentId | null }
 export interface ExecuteActionProps extends RundownPlayoutPropsBase {
-	actionDocId: AdLibActionId | RundownBaselineAdLibActionId | BucketAdLibActionId
+	actionDocId: AdLibActionId | RundownBaselineAdLibActionId | BucketAdLibActionId | null
 	actionId: string
-	userData: any
+	userData: any | null
 	triggerMode?: string
 	actionOptions?: { [key: string]: any }
-}
-export interface ExecuteBucketAdLibOrActionProps extends RundownPlayoutPropsBase {
-	bucketId: BucketId
-	externalId: string
-	triggerMode?: string
 }
 export interface ExecuteBucketAdLibOrActionProps extends RundownPlayoutPropsBase {
 	bucketId: BucketId
@@ -276,6 +337,7 @@ export interface ExecuteBucketAdLibOrActionProps extends RundownPlayoutPropsBase
 export interface ExecuteActionResult {
 	queuedPartInstanceId?: PartInstanceId
 	taken?: boolean
+	validationErrors?: any
 }
 export interface TakeNextPartProps extends RundownPlayoutPropsBase {
 	fromPartInstanceId: PartInstanceId | null
@@ -292,6 +354,9 @@ export interface OnPlayoutPlaybackChangedProps extends RundownPlayoutPropsBase {
 export interface OnTimelineTriggerTimeProps {
 	results: Array<{ id: string; time: number }>
 }
+export interface OnExternalEventsProps {
+	events: PeripheralDeviceExternalEvent[]
+}
 
 export type OrderRestoreToDefaultProps = RundownPlayoutPropsBase
 export interface OrderMoveRundownToPlaylistProps {
@@ -307,10 +372,30 @@ export type DebugRegenerateNextPartInstanceProps = RundownPlayoutPropsBase
 export type DebugSyncInfinitesForNextPartInstanceProps = RundownPlayoutPropsBase
 
 export interface GeneratePlaylistSnapshotProps extends RundownPlayoutPropsBase {
-	// Include all Instances, or just recent ones
+	/** Include all part/piece instances, or only recent/non-reset instances. */
 	full: boolean
-	// Include the Timeline
+	/** Include the timeline if the playlist is activated. */
 	withTimeline: boolean
+	/** Id of the snapshot (assigned in Meteor before the worker job is queued). Passed to the playlist snapshot blueprint hook. */
+	snapshotId?: SnapshotId
+	/** Human-readable reason for creating the snapshot. Passed to the playlist snapshot blueprint hook. */
+	reason?: string
+}
+
+/** Props for {@link StudioJobs.OnSystemSnapshotCreated}. */
+export interface OnSystemSnapshotCreatedProps {
+	/** Id of the stored snapshot file. */
+	snapshotId: SnapshotId
+	/** Human-readable reason from the snapshot request. */
+	reason: string
+	type: BlueprintSnapshotType
+	/** Snapshot options; `studioId` is the studio this worker job runs for. */
+	options: {
+		studioId?: StudioId
+		withDeviceSnapshots?: boolean
+		/** True when the stored snapshot is a full-system snapshot (not filtered to a single studio). */
+		fullSystem?: boolean
+	}
 }
 export interface GeneratePlaylistSnapshotResult {
 	/**
@@ -365,6 +450,44 @@ export interface SwitchRouteSetProps {
 	routeSetId: string
 	state: boolean | 'toggle'
 }
+export interface TTimerPropsBase extends RundownPlayoutPropsBase {
+	timerIndex: RundownTTimerIndex
+}
+export interface TTimerStartCountdownProps extends TTimerPropsBase {
+	duration: number
+	stopAtZero: boolean
+	startPaused: boolean
+}
+
+export interface TTimerStartFreeRunProps extends TTimerPropsBase {
+	startPaused: boolean
+}
+export type TTimerPauseProps = TTimerPropsBase
+export type TTimerResumeProps = TTimerPropsBase
+export type TTimerRestartProps = TTimerPropsBase
+
+export type TTimerClearProjectedProps = TTimerPropsBase
+export interface TTimerSetProjectedAnchorPartProps extends TTimerPropsBase {
+	partId?: PartId
+	externalId?: string
+}
+export interface TTimerSetProjectedTimeProps extends TTimerPropsBase {
+	time: number
+	paused: boolean
+}
+export interface TTimerSetProjectedDurationProps extends TTimerPropsBase {
+	duration: number
+	paused: boolean
+}
+
+export interface CleanupOrphanedExpectedPackageReferencesProps {
+	playlistId: RundownPlaylistId
+	rundownId: RundownId
+}
+
+export interface TakeNextPartResult {
+	nextTakeTime: number
+}
 
 /**
  * Set of valid functions, of form:
@@ -390,13 +513,16 @@ export type StudioJobFunc = {
 	[StudioJobs.QueueNextSegment]: (data: QueueNextSegmentProps) => QueueNextSegmentResult
 	[StudioJobs.ExecuteAction]: (data: ExecuteActionProps) => ExecuteActionResult
 	[StudioJobs.ExecuteBucketAdLibOrAction]: (data: ExecuteBucketAdLibOrActionProps) => ExecuteActionResult
-	[StudioJobs.TakeNextPart]: (data: TakeNextPartProps) => void
+	[StudioJobs.TakeNextPart]: (data: TakeNextPartProps) => TakeNextPartResult
 	[StudioJobs.DisableNextPiece]: (data: DisableNextPieceProps) => void
 	[StudioJobs.RemovePlaylist]: (data: RemovePlaylistProps) => void
 	[StudioJobs.RegeneratePlaylist]: (data: RegeneratePlaylistProps) => void
 
 	[StudioJobs.OnPlayoutPlaybackChanged]: (data: OnPlayoutPlaybackChangedProps) => void
 	[StudioJobs.OnTimelineTriggerTime]: (data: OnTimelineTriggerTimeProps) => void
+	[StudioJobs.OnExternalEvents]: (data: OnExternalEventsProps) => void
+
+	[StudioJobs.RecalculateTTimerProjections]: () => void
 
 	[StudioJobs.UpdateStudioBaseline]: () => string | false
 	[StudioJobs.CleanupEmptyPlaylists]: () => void
@@ -409,6 +535,7 @@ export type StudioJobFunc = {
 
 	[StudioJobs.GeneratePlaylistSnapshot]: (data: GeneratePlaylistSnapshotProps) => GeneratePlaylistSnapshotResult
 	[StudioJobs.RestorePlaylistSnapshot]: (data: RestorePlaylistSnapshotProps) => RestorePlaylistSnapshotResult
+	[StudioJobs.OnSystemSnapshotCreated]: (data: OnSystemSnapshotCreatedProps) => void
 	[StudioJobs.DebugCrash]: (data: DebugRegenerateNextPartInstanceProps) => void
 
 	[StudioJobs.BlueprintUpgradeForStudio]: () => void
@@ -422,6 +549,18 @@ export type StudioJobFunc = {
 	[StudioJobs.ClearQuickLoopMarkers]: (data: ClearQuickLoopMarkersProps) => void
 
 	[StudioJobs.SwitchRouteSet]: (data: SwitchRouteSetProps) => void
+
+	[StudioJobs.CleanupOrphanedExpectedPackageReferences]: (data: CleanupOrphanedExpectedPackageReferencesProps) => void
+	[StudioJobs.TTimerStartCountdown]: (data: TTimerStartCountdownProps) => void
+
+	[StudioJobs.TTimerStartFreeRun]: (data: TTimerStartFreeRunProps) => void
+	[StudioJobs.TTimerPause]: (data: TTimerPauseProps) => void
+	[StudioJobs.TTimerResume]: (data: TTimerResumeProps) => void
+	[StudioJobs.TTimerRestart]: (data: TTimerRestartProps) => void
+	[StudioJobs.TTimerClearProjected]: (data: TTimerClearProjectedProps) => void
+	[StudioJobs.TTimerSetProjectedAnchorPart]: (data: TTimerSetProjectedAnchorPartProps) => void
+	[StudioJobs.TTimerSetProjectedTime]: (data: TTimerSetProjectedTimeProps) => void
+	[StudioJobs.TTimerSetProjectedDuration]: (data: TTimerSetProjectedDurationProps) => void
 }
 
 export function getStudioQueueName(id: StudioId): string {

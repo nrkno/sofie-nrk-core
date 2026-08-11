@@ -1,4 +1,4 @@
-import React, { JSX } from 'react'
+import React, { type JSX } from 'react'
 import Tooltip from 'rc-tooltip'
 import { PieceStatusCode } from '@sofie-automation/corelib/dist/dataModel/Piece'
 import { assertNever } from '@sofie-automation/corelib/dist/lib'
@@ -7,7 +7,7 @@ import {
 	HourglassIconSmall,
 	OKIconSmall,
 	WarningIconSmallWorkingOnIt,
-} from '../../lib/ui/icons/notifications'
+} from '../../lib/ui/icons/notifications.js'
 
 export const MediaStatusIndicator = React.memo(function MediaStatusIndicator({
 	status,

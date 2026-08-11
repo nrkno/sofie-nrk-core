@@ -3,14 +3,15 @@ import { SegmentNote, PartNote } from '@sofie-automation/corelib/dist/dataModel/
 import { DBSegment, SegmentOrphanedReason } from '@sofie-automation/corelib/dist/dataModel/Segment'
 import { literal } from '@sofie-automation/corelib/dist/lib'
 import { stringifyError } from '@sofie-automation/shared-lib/dist/lib/stringifyError'
-import { RawPartNote, SegmentUserContext } from '../blueprints/context'
-import { WatchedPackagesHelper } from '../blueprints/context/watchedPackages'
-import { postProcessAdLibActions, postProcessAdLibPieces, postProcessPieces } from '../blueprints/postProcess'
-import { logger } from '../logging'
-import { IngestModel, IngestModelReadonly, IngestReplaceSegmentType } from './model/IngestModel'
-import { getSegmentId, canSegmentBeUpdated } from './lib'
-import { JobContext, ProcessedShowStyleCompound } from '../jobs'
-import { CommitIngestData } from './lock'
+import { ShelfButtonSize } from '@sofie-automation/shared-lib/dist/core/model/StudioSettings'
+import { RawPartNote, SegmentUserContext } from '../blueprints/context/index.js'
+import { WatchedPackagesHelper } from '../blueprints/context/watchedPackages.js'
+import { postProcessAdLibActions, postProcessAdLibPieces, postProcessPieces } from '../blueprints/postProcess.js'
+import { logger } from '../logging.js'
+import { IngestModel, IngestModelReadonly, IngestReplaceSegmentType } from './model/IngestModel.js'
+import { getSegmentId, canSegmentBeUpdated } from './lib.js'
+import { JobContext, ProcessedShowStyleCompound } from '../jobs/index.js'
+import { CommitIngestData } from './lock.js'
 import {
 	BlueprintResultPart,
 	BlueprintResultSegment,
@@ -19,12 +20,12 @@ import {
 	SofieIngestSegment,
 } from '@sofie-automation/blueprints-integration'
 import { wrapTranslatableMessageFromBlueprints } from '@sofie-automation/corelib/dist/TranslatableMessage'
-import { updateExpectedPackagesForPartModel } from './expectedPackages'
-import { IngestReplacePartType, IngestSegmentModel } from './model/IngestSegmentModel'
+import { updateExpectedMediaAndPlayoutItemsForPartModel } from './expectedPackages.js'
+import { IngestReplacePartType, IngestSegmentModel } from './model/IngestSegmentModel.js'
 import { ReadonlyDeep } from 'type-fest'
 import { Rundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
-import { WrappedShowStyleBlueprint } from '../blueprints/cache'
-import { translateUserEditPropertiesFromBlueprint, translateUserEditsFromBlueprint } from '../blueprints/context/lib'
+import { WrappedShowStyleBlueprint } from '../blueprints/cache.js'
+import { translateUserEditPropertiesFromBlueprint, translateUserEditsFromBlueprint } from '../blueprints/context/lib.js'
 
 async function getWatchedPackagesHelper(
 	context: JobContext,
@@ -107,7 +108,7 @@ async function regenerateSegmentAndUpdateModelFull(
 	const segmentId = ingestModel.getSegmentIdFromExternalId(ingestSegment.externalId)
 	const segmentWatchedPackages = allRundownWatchedPackages.filter(
 		context,
-		(p) => 'segmentId' in p && p.segmentId === segmentId
+		(p) => 'segmentId' in p.source && p.source.segmentId === segmentId
 	)
 
 	let updatedSegmentModel = await regenerateSegmentAndUpdateModel(
@@ -191,11 +192,10 @@ async function checkIfSegmentReferencesUnloadedPackageInfos(
 	// check if there are any updates right away?
 	for (const part of segmentModel.parts) {
 		for (const expectedPackage of part.expectedPackages) {
-			if (expectedPackage.listenToPackageInfoUpdates) {
-				const loadedPackage = segmentWatchedPackages.getPackage(expectedPackage._id)
-				if (!loadedPackage) {
+			if (expectedPackage.source.listenToPackageInfoUpdates) {
+				if (!segmentWatchedPackages.hasPackage(expectedPackage.packageId)) {
 					// The package didn't exist prior to the blueprint running
-					expectedPackageIdsToCheck.add(expectedPackage._id)
+					expectedPackageIdsToCheck.add(expectedPackage.packageId)
 				}
 			}
 		}
@@ -236,6 +236,14 @@ async function generateSegmentWithBlueprints(
 
 	try {
 		const blueprintSegment = await blueprint.blueprint.getSegment(blueprintContext, ingestSegment)
+
+		const legacyShowShelf = (blueprintSegment?.segment as any)?.showShelf
+		if (legacyShowShelf !== undefined) {
+			blueprintContext.logWarning(
+				'Deprecated blueprint segment field "showShelf" used. Use "displayMinishelf" instead.'
+			)
+		}
+
 		return {
 			blueprintSegment,
 			blueprintNotes: blueprintContext.notes,
@@ -284,9 +292,28 @@ function updateModelWithGeneratedSegment(
 
 	const segmentNotes = extractAndWrapSegmentNotes(blueprintId, blueprintNotes, knownPartExternalIds)
 
+	const blueprintSegmentSegment = blueprintSegment.segment as any
+	const legacyShowShelf: boolean | undefined = blueprintSegmentSegment?.showShelf
+
+	// Normalize legacy blueprint output (showShelf) into the new field (displayMinishelf)
+	const sanitizedSegment = { ...(blueprintSegmentSegment ?? {}) }
+	delete sanitizedSegment.showShelf
+	if (sanitizedSegment.displayMinishelf === undefined && legacyShowShelf !== undefined) {
+		if (legacyShowShelf === true) {
+			sanitizedSegment.displayMinishelf = ShelfButtonSize.INHERIT
+		} else {
+			// showShelf === false means hidden, which is encoded by leaving displayMinishelf unset
+		}
+
+		logger.warn(
+			`Deprecated blueprint segment field "showShelf" used during ingest. ` +
+				`blueprintId=${blueprintId}, segmentExternalId=${ingestSegment.externalId}`
+		)
+	}
+
 	const segmentModel = ingestModel.replaceSegment(
 		literal<IngestReplaceSegmentType>({
-			...blueprintSegment.segment,
+			...sanitizedSegment,
 			externalId: ingestSegment.externalId,
 			_rank: ingestSegment.rank,
 			notes: segmentNotes,
@@ -376,7 +403,7 @@ function updateModelWithGeneratedPart(
 					message: wrapTranslatableMessageFromBlueprints(blueprintPart.part.invalidReason.message, [
 						blueprintId,
 					]),
-			  }
+				}
 			: undefined,
 		userEditOperations: translateUserEditsFromBlueprint(blueprintPart.part.userEditOperations, [blueprintId]),
 		userEditProperties: translateUserEditPropertiesFromBlueprint(blueprintPart.part.userEditProperties, [
@@ -411,7 +438,7 @@ function updateModelWithGeneratedPart(
 	)
 
 	const partModel = segmentModel.replacePart(part, processedPieces, adlibPieces, adlibActions)
-	updateExpectedPackagesForPartModel(context, partModel)
+	updateExpectedMediaAndPlayoutItemsForPartModel(context, partModel)
 }
 
 /**

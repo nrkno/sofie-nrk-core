@@ -1,8 +1,8 @@
-import { PeripheralDevice } from '@sofie-automation/corelib/dist/dataModel/PeripheralDevice'
-import { MeteorCall } from '../lib/meteorApi'
-import { PeripheralDeviceId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { eventContextForLog } from './clientUserAction'
-import { TSR } from '@sofie-automation/blueprints-integration'
+import type { PeripheralDevice } from '@sofie-automation/corelib/dist/dataModel/PeripheralDevice'
+import { MeteorCall } from '../lib/meteorApi.js'
+import type { PeripheralDeviceId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import { eventContextForLog } from './clientUserAction.js'
+import type { TSR } from '@sofie-automation/blueprints-integration'
 
 export async function callPeripheralDeviceFunction(
 	e: Event | React.SyntheticEvent<object>,

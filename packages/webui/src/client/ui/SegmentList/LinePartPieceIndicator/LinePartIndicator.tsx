@@ -1,10 +1,10 @@
 import classNames from 'classnames'
-import React, { useCallback, useEffect, useState } from 'react'
-import { UIStudio } from '@sofie-automation/meteor-lib/dist/api/studios'
-import { ISourceLayerExtended } from '../../../lib/RundownResolver'
-import { RundownUtils } from '../../../lib/rundown'
-import { AdLibPieceUi } from '../../../lib/shelf'
-import { PieceUi } from '../../SegmentContainer/withResolvedSegment'
+import { useCallback, useEffect, useState } from 'react'
+import type { AdLibPieceUi } from '../../../lib/shelf.js'
+import type { UIStudio } from '@sofie-automation/corelib/src/dataModel/Studio.js'
+import type { ISourceLayerExtended } from '@sofie-automation/corelib/src/dataModel/ShowStyleBase.js'
+import type { PieceUi } from '@sofie-automation/corelib/src/dataModel/Piece.js'
+import { RundownUtils } from '../../../lib/rundown.js'
 
 interface IProps {
 	overlay?: (ref: HTMLDivElement | null, setIsOver: (isOver: boolean) => void) => React.ReactNode
@@ -49,7 +49,6 @@ export function LinePartIndicator({
 			)
 				return
 			setIsMenuOpen(false)
-			window.removeEventListener('mousedown', onClickAway)
 		},
 		[element]
 	)
@@ -57,15 +56,17 @@ export function LinePartIndicator({
 	function onClick(e: React.MouseEvent<HTMLDivElement>) {
 		const shouldBeOpen = !isMenuOpen
 		setIsMenuOpen(shouldBeOpen)
-		onClickExternal && onClickExternal(e)
-		window.addEventListener('mousedown', onClickAway)
+		onClickExternal?.(e)
 	}
 
 	useEffect(() => {
+		if (!isMenuOpen) return
+		window.addEventListener('mousedown', onClickAway)
+
 		return () => {
 			window.removeEventListener('mousedown', onClickAway)
 		}
-	}, [])
+	}, [isMenuOpen, onClickAway])
 
 	return (
 		<>

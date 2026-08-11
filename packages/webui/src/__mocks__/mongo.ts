@@ -1,11 +1,16 @@
 /* eslint-disable @typescript-eslint/explicit-module-boundary-types */
-import * as _ from 'underscore'
-import { literal, ProtectedString, unprotectString, protectString, getRandomString } from '../client/lib/tempLib'
-import { RandomMock } from './random'
-import { MeteorMock } from './meteor'
+import _ from 'underscore'
+import { literal, getRandomString } from '@sofie-automation/corelib/dist/lib'
+import {
+	type ProtectedString,
+	unprotectString,
+	protectString,
+} from '@sofie-automation/shared-lib/dist/lib/protectedString'
+import { RandomMock } from './random.js'
+import { MeteorMock } from './meteor.js'
 import { Meteor } from 'meteor/meteor'
 import type { AnyBulkWriteOperation } from 'mongodb'
-import {
+import type {
 	FindOneOptions,
 	FindOptions,
 	MongoReadOnlyCollection,
@@ -14,17 +19,17 @@ import {
 	UpdateOptions,
 	UpsertOptions,
 	WrappedMongoCollection,
-} from '../client/collections/lib'
+} from '../client/collections/lib.js'
 import {
 	mongoWhere,
 	mongoFindOptions,
 	mongoModify,
-	MongoQuery,
-	MongoModifier,
+	type MongoQuery,
+	type MongoModifier,
 } from '@sofie-automation/corelib/dist/mongo'
-import { Mongo } from 'meteor/mongo'
+import type { Mongo } from 'meteor/mongo'
 import { sleep } from '@sofie-automation/shared-lib/dist/lib/lib'
-const clone = require('fast-clone')
+import clone from 'fast-clone'
 
 export namespace MongoMock {
 	interface ObserverEntry<T extends CollectionObject> {
@@ -182,6 +187,7 @@ export namespace MongoMock {
 			if (!d._id) d._id = protectString(RandomMock.id())
 
 			if (this.documents[unprotectString(d._id)]) {
+				// eslint-disable-next-line @typescript-eslint/only-throw-error
 				throw new MeteorMock.Error(500, `Duplicate key '${d._id}'`)
 			}
 

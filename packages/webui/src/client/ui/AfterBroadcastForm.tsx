@@ -1,23 +1,29 @@
 import React, { useMemo, useState } from 'react'
 import { Meteor } from 'meteor/meteor'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
-import { TFunction, useTranslation } from 'react-i18next'
-import { EvaluationBase } from '@sofie-automation/meteor-lib/dist/collections/Evaluations'
-import { doUserAction, UserAction } from '../lib/clientUserAction'
-import { MeteorCall } from '../lib/meteorApi'
-import { SnapshotId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import type { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
+import type { EvaluationBase } from '@sofie-automation/meteor-lib/dist/collections/Evaluations'
+import { doUserAction, UserAction } from '../lib/clientUserAction.js'
+import { MeteorCall } from '../lib/meteorApi.js'
+import type { SnapshotId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { ClientAPI } from '@sofie-automation/meteor-lib/dist/api/client'
-import { hashSingleUseToken } from '../lib/lib'
-import { DropdownInputControl, DropdownInputOption, getDropdownInputOptions } from '../lib/Components/DropdownInput'
-import { MultiLineTextInputControl } from '../lib/Components/MultiLineTextInput'
-import { TextInputControl } from '../lib/Components/TextInput'
-import { Spinner } from '../lib/Spinner'
-import { NotificationCenter, Notification, NoticeLevel } from '../lib/notifications/notifications'
-import { isLoopRunning } from '../lib/RundownResolver'
-import { useTracker } from '../lib/ReactMeteorData/ReactMeteorData'
-import { CoreSystem } from '../collections'
+import { hashSingleUseToken } from '../lib/lib.js'
+import {
+	DropdownInputControl,
+	type DropdownInputOption,
+	getDropdownInputOptions,
+} from '../lib/Components/DropdownInput.js'
+import { MultiLineTextInputControl } from '../lib/Components/MultiLineTextInput.js'
+import { TextInputControl } from '../lib/Components/TextInput.js'
+import { Spinner } from '../lib/Spinner.js'
+import { NotificationCenter, Notification, NoticeLevel } from '../lib/notifications/notifications.js'
+import { useTracker } from '../lib/ReactMeteorData/ReactMeteorData.js'
+import { CoreSystem } from '../collections/index.js'
 import { applyAndValidateOverrides } from '@sofie-automation/corelib/dist/settings/objectWithOverrides'
 import { SYSTEM_ID } from '@sofie-automation/meteor-lib/dist/collections/CoreSystem'
+import { UserError } from '@sofie-automation/corelib/dist/error'
+import { isLoopRunning } from '@sofie-automation/corelib/src/playout/stateCacheResolver.js'
 
 type ProblemType = 'nothing' | 'minor' | 'major'
 
@@ -81,7 +87,8 @@ export function AfterBroadcastForm({ playlist }: Readonly<{ playlist: DBRundownP
 				UserAction.CREATE_SNAPSHOT_FOR_DEBUG,
 				async (e, ts) =>
 					MeteorCall.system.generateSingleUseToken().then((tokenResult) => {
-						if (ClientAPI.isClientResponseError(tokenResult) || !tokenResult.result) throw tokenResult
+						if (ClientAPI.isClientResponseError(tokenResult)) throw UserError.fromSerialized(tokenResult.error)
+						if (!tokenResult.result) throw new Error('Failed to generate token')
 						return MeteorCall.userAction.storeRundownSnapshot(
 							e,
 							ts,
@@ -120,7 +127,7 @@ export function AfterBroadcastForm({ playlist }: Readonly<{ playlist: DBRundownP
 	const problemOptions = useMemo(() => getDropdownInputOptions<ProblemType>(getQuestionOptions(t)), [])
 
 	return (
-		<div className="afterbroadcastform-container" role="complementary" aria-labelledby="evaluation-header">
+		<div className="afterbroadcastform-container my-4" role="complementary" aria-labelledby="evaluation-header">
 			<div className="afterbroadcastform">
 				<form className="form" onSubmit={saveForm}>
 					<EvaluationInfoBubble />
@@ -197,6 +204,7 @@ function EvaluationBubbleStem() {
 				fillRule="evenodd"
 				clipRule="evenodd"
 				d="M0 0.400223H101C101 0.400223 97.5 0.400146 84 0.400146C70.5 0.400146 56.5 5.99992 42.5 21.4999C28.5 36.9999 21.1095 39.4985 16.5 39.4985C15.9438 39.4985 16.2207 38.9292 17.1378 37.928C30.1502 23.7223 23.3237 0.400195 4.05909 0.400218L0 0.400223Z"
+				fill="white"
 			/>
 		</svg>
 	)
