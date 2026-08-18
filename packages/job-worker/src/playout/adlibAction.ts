@@ -34,6 +34,7 @@ import { convertNoteToNotification } from '../notifications/util'
 import type { INoteBase } from '@sofie-automation/corelib/dist/dataModel/Notes'
 import { NotificationsModelHelper } from '../notifications/NotificationsModelHelper'
 import type { INotificationsModel } from '../notifications/NotificationsModel'
+import { triggerUpdateTimelineAfterIngestData } from '../ingest/commit'
 
 /**
  * Execute an AdLib Action
@@ -316,6 +317,10 @@ async function executeDataStoreAction(
 			actionParameters.userData,
 			actionParameters.triggerMode
 		)
+
+		setTimeout(() => {
+			triggerUpdateTimelineAfterIngestData(context, playlist._id)
+		}, 11)
 
 		return actionContext.notes
 	} catch (err) {

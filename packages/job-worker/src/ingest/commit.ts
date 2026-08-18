@@ -645,7 +645,7 @@ export function triggerUpdateTimelineAfterIngestData(context: JobContext, playli
 					logger.error(`triggerUpdateTimelineAfterIngestData: Execution failed: ${stringifyError(e)}`)
 				})
 		}
-	}, 1000)
+	}, 1)
 
 	updateTimelineFromIngestDataTimeouts.set(playlistId, data)
 }
