@@ -399,11 +399,11 @@ function generateCurrentInfinitePieceObjects(
 		infiniteGroup,
 		...transformPieceGroupAndObjects(
 			activePlaylist._id,
+			undefined,
 			infiniteGroup,
 			nowInParent,
 			pieceInstanceWithUpdatedEndCap,
 			pieceEnable,
-			0,
 			groupClasses,
 			isInHold,
 			isOriginOfInfinite
