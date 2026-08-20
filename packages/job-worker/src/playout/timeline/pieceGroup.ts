@@ -38,9 +38,9 @@ export function createPieceGroupAndCap(
 		| 'dynamicallyInserted'
 	>,
 	controlObjEnable: TSR.Timeline.TimelineEnable,
-	controlObjClasses?: string[],
-	partGroup?: TimelineObjRundown,
-	pieceStartOffset?: number
+	controlObjClasses: string[],
+	partGroup: TimelineObjRundown,
+	pieceStartOffset: number
 ): {
 	/** The 'control' object which defines the bounds of the group. This triggers the timing, and does not include and pre/postroll */
 	controlObj: TimelineObjPieceAbstract & OnGenerateTimelineObjExt<PieceTimelineMetadata>
@@ -136,7 +136,8 @@ export function createPieceGroupAndCap(
 	let resolvedEndCap: number | string | undefined
 	// If the start has been adjusted, the end needs to be updated to compensate
 	if (typeof pieceInstance.resolvedEndCap === 'number') {
-		resolvedEndCap = pieceInstance.resolvedEndCap + (pieceStartOffset ?? 0)
+		// TODO: This needs to be offset by Part's toPartDelay, as all timeline objects within the Part are in a "pre-preroll-adjusted timespace" (see PR#1441)
+		resolvedEndCap = pieceInstance.resolvedEndCap + (pieceStartOffset ?? 0) // partTimings.toPartDelay
 	} else if (pieceInstance.resolvedEndCap) {
 		// TODO - there could already be a piece with a cap of 'now' that we could use as our end time
 		// As the cap is for 'now', rather than try to get tsr to understand `end: 'now'`, we can create a 'now' object to tranlate it

@@ -96,7 +96,14 @@ describe('Pieces', () => {
 		const partGroup = { id: 'randomId9003' } as any as TimelineObjRundown
 
 		test('Basic piece', () => {
-			const res = createPieceGroupAndCap(playlistId, simplePieceInstance, simplePieceInstance.piece.enable)
+			const res = createPieceGroupAndCap(
+				playlistId,
+				simplePieceInstance,
+				simplePieceInstance.piece.enable,
+				[],
+				partGroup,
+				0
+			)
 
 			expect(res.capObjs).toHaveLength(0)
 			expect(res.childGroup).toStrictEqual(simplePieceGroup)
@@ -108,7 +115,8 @@ describe('Pieces', () => {
 				simplePieceInstance,
 				simplePieceInstance.piece.enable,
 				[],
-				partGroup
+				partGroup,
+				0
 			)
 
 			expect(res.capObjs).toHaveLength(0)
@@ -124,7 +132,7 @@ describe('Pieces', () => {
 		})
 		test('override enable', () => {
 			const enable: TimelineEnable = { start: 'abc + 3', end: 999 }
-			const res = createPieceGroupAndCap(playlistId, simplePieceInstance, enable, [], partGroup)
+			const res = createPieceGroupAndCap(playlistId, simplePieceInstance, enable, [], partGroup, 0)
 
 			expect(res.capObjs).toHaveLength(0)
 			expect(res.childGroup).toStrictEqual({
@@ -147,7 +155,7 @@ describe('Pieces', () => {
 					...simplePieceInstance,
 					resolvedEndCap: 800,
 				}
-				const res = createPieceGroupAndCap(playlistId, pieceInstance, enable, [], partGroup)
+				const res = createPieceGroupAndCap(playlistId, pieceInstance, enable, [], partGroup, 0)
 
 				expect(res.capObjs).toHaveLength(0)
 				expect(res.childGroup).toStrictEqual({
@@ -171,7 +179,7 @@ describe('Pieces', () => {
 					...simplePieceInstance,
 					resolvedEndCap: 8000,
 				}
-				const res = createPieceGroupAndCap(playlistId, pieceInstance, enable, [], partGroup)
+				const res = createPieceGroupAndCap(playlistId, pieceInstance, enable, [], partGroup, 0)
 
 				expect(res.capObjs).toHaveLength(0)
 				expect(res.childGroup).toStrictEqual({
@@ -194,7 +202,7 @@ describe('Pieces', () => {
 					...simplePieceInstance,
 					resolvedEndCap: 800,
 				}
-				const res = createPieceGroupAndCap(playlistId, pieceInstance, enable, [], partGroup)
+				const res = createPieceGroupAndCap(playlistId, pieceInstance, enable, [], partGroup, 0)
 
 				expect(res.capObjs).toHaveLength(0)
 				expect(res.childGroup).toStrictEqual({
@@ -219,7 +227,7 @@ describe('Pieces', () => {
 					...simplePieceInstance,
 					resolvedEndCap: 800,
 				}
-				const res = createPieceGroupAndCap(playlistId, pieceInstance, enable, [], partGroup)
+				const res = createPieceGroupAndCap(playlistId, pieceInstance, enable, [], partGroup, 0)
 
 				expect(res.capObjs).toStrictEqual([
 					{
@@ -257,7 +265,7 @@ describe('Pieces', () => {
 				...simplePieceInstance,
 				resolvedEndCap: 800,
 			}
-			const res = createPieceGroupAndCap(playlistId, pieceInstance, enable, [], partGroup)
+			const res = createPieceGroupAndCap(playlistId, pieceInstance, enable, [], partGroup, 0)
 
 			expect(res.capObjs).toHaveLength(0)
 			expect(res.childGroup).toStrictEqual({
@@ -282,7 +290,7 @@ describe('Pieces', () => {
 				...simplePieceInstance,
 				resolvedEndCap: { offsetFromNow: 99 },
 			}
-			const res = createPieceGroupAndCap(playlistId, pieceInstance, enable, [], partGroup)
+			const res = createPieceGroupAndCap(playlistId, pieceInstance, enable, [], partGroup, 0)
 
 			expect(res.capObjs).toStrictEqual([
 				{
@@ -332,7 +340,7 @@ describe('Pieces', () => {
 				...simplePieceInstance,
 				resolvedEndCap: { offsetFromNow: 0 },
 			}
-			const res = createPieceGroupAndCap(playlistId, pieceInstance, enable, [], partGroup)
+			const res = createPieceGroupAndCap(playlistId, pieceInstance, enable, [], partGroup, 0)
 
 			expect(res.capObjs).toStrictEqual([
 				{
@@ -370,7 +378,7 @@ describe('Pieces', () => {
 				...simplePieceInstance,
 				resolvedEndCap: { offsetFromNow: 0 },
 			}
-			const res = createPieceGroupAndCap(playlistId, pieceInstance, enable, [], partGroup)
+			const res = createPieceGroupAndCap(playlistId, pieceInstance, enable, [], partGroup, 0)
 
 			expect(res.capObjs).toStrictEqual([
 				{
@@ -420,7 +428,7 @@ describe('Pieces', () => {
 				...simplePieceInstance,
 				resolvedEndCap: { offsetFromNow: 99 },
 			}
-			const res = createPieceGroupAndCap(playlistId, pieceInstance, enable, [], partGroup)
+			const res = createPieceGroupAndCap(playlistId, pieceInstance, enable, [], partGroup, 0)
 
 			expect(res.capObjs).toStrictEqual([
 				{
@@ -470,7 +478,7 @@ describe('Pieces', () => {
 				...simplePieceInstance,
 				resolvedEndCap: { offsetFromNow: 99 },
 			}
-			const res = createPieceGroupAndCap(playlistId, pieceInstance, enable, [], partGroup)
+			const res = createPieceGroupAndCap(playlistId, pieceInstance, enable, [], partGroup, 0)
 
 			expect(res.capObjs).toStrictEqual([
 				{
@@ -510,7 +518,7 @@ describe('Pieces', () => {
 			}
 
 			// No offset
-			const res = createPieceGroupAndCap(playlistId, pieceInstance, enable, [], partGroup)
+			const res = createPieceGroupAndCap(playlistId, pieceInstance, enable, [], partGroup, 0)
 			expect(res.capObjs).toHaveLength(0)
 			expect(res.childGroup).toStrictEqual({
 				...simplePieceGroup,
