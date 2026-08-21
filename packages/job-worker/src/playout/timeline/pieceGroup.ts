@@ -14,6 +14,7 @@ import { getPieceControlObjectId, getPieceGroupId } from '@sofie-automation/core
 import { unprotectString } from '@sofie-automation/corelib/dist/protectedString'
 import { PieceInstanceWithTimings } from '@sofie-automation/corelib/dist/playout/processAndPrune'
 import { PlayoutChangedType } from '@sofie-automation/shared-lib/dist/peripheralDevice/peripheralDeviceAPI'
+import { PartCalculatedTimings } from '@sofie-automation/corelib/dist/playout/timings'
 
 export interface PieceTimelineMetadata {
 	/** Indicate that this is a PieceTimeline object */
@@ -39,8 +40,8 @@ export function createPieceGroupAndCap(
 	>,
 	controlObjEnable: TSR.Timeline.TimelineEnable,
 	controlObjClasses: string[],
-	partGroup: TimelineObjRundown,
-	pieceStartOffset: number
+	partTiming: PartCalculatedTimings | undefined,
+	partGroup: TimelineObjRundown
 ): {
 	/** The 'control' object which defines the bounds of the group. This triggers the timing, and does not include and pre/postroll */
 	controlObj: TimelineObjPieceAbstract & OnGenerateTimelineObjExt<PieceTimelineMetadata>
@@ -136,8 +137,9 @@ export function createPieceGroupAndCap(
 	let resolvedEndCap: number | string | undefined
 	// If the start has been adjusted, the end needs to be updated to compensate
 	if (typeof pieceInstance.resolvedEndCap === 'number') {
-		// TODO: This needs to be offset by Part's toPartDelay, as all timeline objects within the Part are in a "pre-preroll-adjusted timespace" (see PR#1441)
-		resolvedEndCap = pieceInstance.resolvedEndCap + (pieceStartOffset ?? 0) // partTimings.toPartDelay
+		// The resolvedEndCap is in the "part-specific" timespace and it needs to be offset by Part's toPartDelay,
+		// as all timeline objects within the Part are in a "pre-preroll-adjusted timespace" (see PR#1441)
+		resolvedEndCap = pieceInstance.resolvedEndCap + (partTiming?.toPartDelay ?? 0)
 	} else if (pieceInstance.resolvedEndCap) {
 		// TODO - there could already be a piece with a cap of 'now' that we could use as our end time
 		// As the cap is for 'now', rather than try to get tsr to understand `end: 'now'`, we can create a 'now' object to tranlate it
