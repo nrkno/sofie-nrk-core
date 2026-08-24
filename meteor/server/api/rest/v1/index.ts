@@ -19,17 +19,12 @@ import { registerRoutes as registerStudiosRoutes } from './studios'
 import { registerRoutes as registerSystemRoutes } from './system'
 import { registerRoutes as registerBucketsRoutes } from './buckets'
 import { registerRoutes as registerSnapshotRoutes } from './snapshots'
+import { registerRoutes as registerIngestRoutes } from './ingest'
 import { APIFactory, ServerAPIContext } from './types'
 import { getSystemStatus } from '../../../systemStatus/systemStatus'
 import { Component, ExternalStatus } from '@sofie-automation/meteor-lib/dist/api/systemStatus'
 
-function restAPIUserEvent(
-	ctx: Koa.ParameterizedContext<
-		Koa.DefaultState,
-		Koa.DefaultContext & KoaRouter.RouterParamContext<Koa.DefaultState, Koa.DefaultContext>,
-		unknown
-	>
-): string {
+function restAPIUserEvent(ctx: Koa.ParameterizedContext<Koa.DefaultState, Koa.DefaultContext, unknown>): string {
 	// the ctx.URL.pathname will contain `/v1.0`, but will not contain `/api`
 	return `REST API: ${ctx.method} /api${ctx.URL.pathname} ${ctx.URL.origin}`
 }
@@ -122,6 +117,7 @@ interface APIRequestError {
 	status: number
 	message: string
 	details?: string[]
+	additionalInfo?: Record<string, unknown>
 }
 
 function sofieAPIRequest<API, Params, Body, Response>(
@@ -138,6 +134,7 @@ function sofieAPIRequest<API, Params, Body, Response>(
 	) => Promise<ClientAPI.ClientResponse<Response>>
 ) {
 	koaRouter[method](route, async (ctx, next) => {
+		let responseAdditionalInfo: Record<string, unknown> | undefined
 		try {
 			const context = new APIContext()
 			const serverAPI = serverAPIFactory.createServerAPI(context)
@@ -149,6 +146,7 @@ function sofieAPIRequest<API, Params, Body, Response>(
 				ctx.request.body as unknown as Body
 			)
 			if (ClientAPI.isClientResponseError(response)) {
+				responseAdditionalInfo = response.additionalInfo
 				throw UserError.fromSerialized(response.error)
 			}
 			ctx.body = JSON.stringify({ status: response.success, result: response.result })
@@ -181,7 +179,8 @@ function sofieAPIRequest<API, Params, Body, Response>(
 			ctx.type = 'application/json'
 			const bodyObj: APIRequestError = { status: errCode, message: errMsg }
 			const details = extractErrorDetails(e)
-			if (details) bodyObj['details'] = details
+			if (details) bodyObj.details = details
+			if (responseAdditionalInfo) bodyObj.additionalInfo = responseAdditionalInfo
 			ctx.body = JSON.stringify(bodyObj)
 			ctx.status = errCode
 		}
@@ -296,3 +295,4 @@ registerStudiosRoutes(sofieAPIRequest)
 registerSystemRoutes(sofieAPIRequest)
 registerBucketsRoutes(sofieAPIRequest)
 registerSnapshotRoutes(sofieAPIRequest)
+registerIngestRoutes(sofieAPIRequest)

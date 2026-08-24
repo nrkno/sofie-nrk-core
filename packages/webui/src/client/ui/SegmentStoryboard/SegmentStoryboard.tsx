@@ -1,14 +1,11 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { NoteSeverity } from '@sofie-automation/blueprints-integration'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
-import { IContextMenuContext } from '../RundownView.js'
 import {
-	IOutputLayerUi,
-	PartUi,
-	PieceUi,
-	SegmentNoteCounts,
-	SegmentUi,
-} from '../SegmentContainer/withResolvedSegment.js'
+	type DBRundownPlaylist,
+	RundownHoldState,
+} from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
+import type { IContextMenuContext } from '../RundownView.js'
+import type { IOutputLayerUi, PartUi, SegmentNoteCounts, SegmentUi } from '../SegmentContainer/withResolvedSegment.js'
 import { ContextMenuTrigger } from '@jstarpl/react-contextmenu'
 import { CriticalIconSmall, WarningIconSmall } from '../../lib/ui/icons/notifications.js'
 import { SegmentDuration } from '../RundownView/RundownTiming/SegmentDuration.js'
@@ -23,13 +20,12 @@ import { lockPointer, scrollToPart, unlockPointer } from '../../lib/viewPort.js'
 import { StoryboardPart } from './StoryboardPart.js'
 import classNames from 'classnames'
 import {
-	GoToPartEvent,
-	GoToPartInstanceEvent,
-	HighlightEvent,
+	type GoToPartEvent,
+	type GoToPartInstanceEvent,
+	type HighlightEvent,
 	RundownViewEvents,
 } from '@sofie-automation/meteor-lib/dist/triggers/RundownViewEventBus'
 import { getElementWidth } from '../../utils/dimensions.js'
-import { HOVER_TIMEOUT } from '../Shelf/DashboardPieceButton.js'
 import { Meteor } from 'meteor/meteor'
 import { hidePointerLockCursor, showPointerLockCursor } from '../../lib/PointerLockCursor.js'
 import { SegmentScrollbar } from './SegmentScrollbar.js'
@@ -41,12 +37,19 @@ import { motion } from 'motion/react'
 import { SegmentViewMode } from '../SegmentContainer/SegmentViewModes.js'
 import { ErrorBoundary } from '../../lib/ErrorBoundary.js'
 import { SwitchViewModeButton } from '../SegmentContainer/SwitchViewModeButton.js'
-import { UIStudio } from '@sofie-automation/meteor-lib/dist/api/studios'
-import { PartId, SegmentId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { RundownHoldState } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import type { PartId, SegmentId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { SegmentTimeAnchorTime } from '../RundownView/RundownTiming/SegmentTimeAnchorTime.js'
-import * as RundownResolver from '../../lib/RundownResolver.js'
 import { logger } from '../../lib/logging.js'
+import type { UIStudio } from '@sofie-automation/corelib/src/dataModel/Studio.js'
+import type { PieceUi } from '@sofie-automation/corelib/src/dataModel/Piece.js'
+import {
+	isLoopRunning as getIsLoopRunning,
+	isEndOfLoopingShow as getIsEndOfLoopingShow,
+	isQuickLoopStart as getIsQuickLoopStart,
+	isQuickLoopEnd as getIsQuickLoopEnd,
+	isEntirePlaylistLooping as getIsEntirePlaylistLooping,
+} from '@sofie-automation/corelib/src/playout/stateCacheResolver.js'
+import { HOVER_TIMEOUT } from '../Shelf/DashboardPieceButton/types.js'
 
 interface IProps {
 	id: string
@@ -206,8 +209,8 @@ export const SegmentStoryboard = React.memo(
 			squishedPartsNum > 1 ? Math.max(4, (spaceLeft - PART_WIDTH) / (squishedPartsNum - 1)) : null
 
 		const playlistHasNextPart = !!props.playlist.nextPartInfo
-		const isPlaylistLooping = RundownResolver.isLoopRunning(props.playlist)
-		const isEntirePlaylistLooping = RundownResolver.isEntirePlaylistLooping(props.playlist)
+		const isPlaylistLooping = getIsLoopRunning(props.playlist)
+		const isEntirePlaylistLooping = getIsEntirePlaylistLooping(props.playlist)
 
 		renderedParts.forEach((part, index) => {
 			const isLivePart = part.instance._id === props.playlist.currentPartInfo?.partInstanceId
@@ -228,14 +231,14 @@ export const SegmentStoryboard = React.memo(
 					isNextPart={isNextPart}
 					isLastPartInSegment={part.instance._id === lastValidPartId}
 					isLastSegment={props.isLastSegment}
-					isEndOfLoopingShow={RundownResolver.isEndOfLoopingShow(
+					isEndOfLoopingShow={getIsEndOfLoopingShow(
 						props.playlist,
 						props.isLastSegment,
 						part.instance._id === lastValidPartId,
 						part.instance.part
 					)}
-					isQuickLoopStart={RundownResolver.isQuickLoopStart(part.partId, props.playlist)}
-					isQuickLoopEnd={RundownResolver.isQuickLoopEnd(part.partId, props.playlist)}
+					isQuickLoopStart={getIsQuickLoopStart(part.partId, props.playlist)}
+					isQuickLoopEnd={getIsQuickLoopEnd(part.partId, props.playlist)}
 					isPlaylistLooping={isPlaylistLooping}
 					isEntirePlaylistLooping={isEntirePlaylistLooping}
 					doesPlaylistHaveNextPart={playlistHasNextPart}

@@ -12,8 +12,11 @@ export {
 } from '@sofie-automation/shared-lib/dist/peripheralDevice/ingest'
 
 /** The IngestRundown is extended with data from Core */
-export interface ExtendedIngestRundown<TRundownPayload = unknown, TSegmentPayload = unknown, TPartPayload = unknown>
-	extends SofieIngestRundown<TRundownPayload, TSegmentPayload, TPartPayload> {
+export interface ExtendedIngestRundown<
+	TRundownPayload = unknown,
+	TSegmentPayload = unknown,
+	TPartPayload = unknown,
+> extends SofieIngestRundown<TRundownPayload, TSegmentPayload, TPartPayload> {
 	coreData: IBlueprintRundownDBData | undefined
 }
 
@@ -81,6 +84,8 @@ export enum IngestChangeType {
 	Ingest = 'ingest',
 	/** Indicate that this change is from user operations */
 	User = 'user',
+	/** Indicate that this change is from playout operations */
+	Playout = 'playout',
 }
 
 /**
@@ -118,18 +123,47 @@ export interface NrcsIngestChangeDetails {
 	changedSegmentExternalIds?: Record<string, string>
 }
 
-export interface UserOperationTarget {
-	segmentExternalId: string | undefined
-	partExternalId: string | undefined
-	pieceExternalId: string | undefined
-}
+export type UserOperationTarget =
+	| {
+			target: 'segment'
+			segmentExternalId: string
+	  }
+	| {
+			target: 'part'
+			segmentExternalId: string
+			partExternalId: string
+	  }
+	| {
+			target: 'piece'
+			segmentExternalId: string | undefined
+			partExternalId: string | undefined
+			pieceExternalId: string
+	  }
+	| {
+			target: 'adlibAction'
+			segmentExternalId: string | undefined
+			partExternalId: string | undefined
+			adlibActionExternalId: string
+	  }
+	| {
+			target: 'adlibPiece'
+			segmentExternalId: string | undefined
+			partExternalId: string | undefined
+			adlibPieceExternalId: string
+	  }
 
 export enum DefaultUserOperationsTypes {
+	/** Revert changes made to a Segment and return it to the state it has inside of the NRCS */
 	REVERT_SEGMENT = '__sofie-revert-segment',
+	/** Revert changes made to a Part and return it to the state it has inside of the NRCS */
 	REVERT_PART = '__sofie-revert-part',
+	/** Revert changes made to a Rundown and return it to the state it has inside of the NRCS */
 	REVERT_RUNDOWN = '__sofie-revert-rundown',
+	/** Update properties of an item using an interactive form defined inside of `userEditProperties` */
 	UPDATE_PROPS = '__sofie-update-props',
+	/** Import a MOS object into a Part - only supported on Parts */
 	IMPORT_MOS_ITEM = '__sofie-import-mos',
+	/** Retime a Piece / move it into a different Part - only supported on Pieces */
 	RETIME_PIECE = '__sofie-retime-piece',
 }
 
@@ -188,6 +222,19 @@ export interface UserOperationChange<TCustomBlueprintOperations extends { id: st
 	operationTarget: UserOperationTarget
 	operation: DefaultUserOperations | TCustomBlueprintOperations
 }
+export interface PlayoutOperationChange {
+	/** Indicate that this change is from playout operations */
+	source: IngestChangeType.Playout
+
+	/** If known and valid, the id of the segment when this operation occurred */
+	currentSegmentId: string | null
+	/** If known and valid, the id of the part when this operation occurred */
+	currentPartId: string | null
+
+	/** The blueprint defined payload for the operation */
+	operation: unknown
+}
+
 /**
  * The MutableIngestRundown is used to modify the contents of an IngestRundown during ingest.
  * The public properties and methods are used i blueprints to selectively apply incoming

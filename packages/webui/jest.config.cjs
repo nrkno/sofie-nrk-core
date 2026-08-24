@@ -7,6 +7,8 @@ module.exports = {
 	globals: {},
 	moduleFileExtensions: ['js', 'ts', 'tsx'],
 	moduleNameMapper: {
+		'^@sofie-automation/shared-lib/dist/(.+)\\.js$': '<rootDir>/../shared-lib/src/$1',
+		'^@sofie-automation/shared-lib/dist/(.+)$': '<rootDir>/../shared-lib/src/$1',
 		'sha.js': 'sha.js',
 		'meteor/(.*)': '<rootDir>/src/meteor/$1',
 		'(.+)\\.js$': '$1',
@@ -16,6 +18,12 @@ module.exports = {
 			'ts-jest',
 			{
 				tsconfig: 'tsconfig.jest.json',
+				diagnostics: {
+					ignoreCodes: [
+						151002, // hybrid module kind (Node16/18/Next)
+						2823, // Import attributes not supported in CJS mode (ts-jest forces CJS, emits require() anyway)
+					],
+				},
 			},
 		],
 		'^.+\\.(js|jsx)$': ['babel-jest', { presets: ['@babel/preset-env'] }],

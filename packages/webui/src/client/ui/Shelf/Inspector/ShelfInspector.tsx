@@ -1,15 +1,15 @@
 import * as React from 'react'
 import _ from 'underscore'
 import renderItem from './ItemRenderers/ItemRendererFactory.js'
-import { PieceUi } from '../../SegmentTimeline/SegmentTimelineContainer.js'
 import { ContextMenuTrigger } from '@jstarpl/react-contextmenu'
 import { contextMenuHoldToDisplayTime } from '../../../lib/lib.js'
-import { BucketAdLibItem } from '../RundownViewBuckets.js'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
-import { IAdLibListItem } from '../AdLibListItem.js'
-import { UIShowStyleBase } from '@sofie-automation/meteor-lib/dist/api/showStyles'
-import { UIStudio } from '@sofie-automation/meteor-lib/dist/api/studios'
+import type { BucketAdLibItem } from '../RundownViewBuckets.js'
+import type { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
+import type { IAdLibListItem } from '../AdLibListItem.js'
 import { useContentStatusForItem } from '../../SegmentTimeline/withMediaObjectStatus.js'
+import type { UIShowStyleBase } from '@sofie-automation/corelib/src/dataModel/ShowStyleBase.js'
+import type { UIStudio } from '@sofie-automation/corelib/src/dataModel/Studio.js'
+import type { PieceUi } from '@sofie-automation/corelib/src/dataModel/Piece.js'
 
 interface IShelfInspectorProps {
 	selected: BucketAdLibItem | IAdLibListItem | PieceUi | undefined

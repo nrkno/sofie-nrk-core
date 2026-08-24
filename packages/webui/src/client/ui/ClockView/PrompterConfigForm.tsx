@@ -1,9 +1,10 @@
 import { useState, useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { StudioId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import type { StudioId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import Form from 'react-bootstrap/esm/Form'
 import Collapse from 'react-bootstrap/esm/Collapse'
+import { FullscreenLink } from './FullscreenLink.js'
 
 import './PrompterConfigForm.scss'
 
@@ -668,9 +669,12 @@ export function PrompterConfigForm({ studioId }: Readonly<{ studioId: StudioId }
 					</Form.Label>
 					<Form.Control type="text" size="sm" readOnly value={generatedUrl} onClick={(e) => e.currentTarget.select()} />
 				</Form.Group>
-				<Link to={generatedUrl} className="btn btn-primary">
+				<Link to={generatedUrl} className="btn btn-primary me-2">
 					{t('Open Prompter')}
 				</Link>
+				<FullscreenLink to={generatedUrl} className="btn btn-secondary">
+					{t('Open Fullscreen')}
+				</FullscreenLink>
 			</div>
 		</div>
 	)

@@ -218,9 +218,9 @@ onto a playout system.
 ![Media Status View](/img/docs/main/features/media-status.png)
 
 By default, the Media items are sorted according to their position in the
-rundown, and the rundowns are in the same order as in the [Lobby View]
-(#lobby-view). You can change the sorting order by clicking on the buttons in
-the table header.
+rundown, and the rundowns are in the same order as in the 
+[Lobby View](#lobby-view). You can change the sorting order by clicking on
+the buttons in the table header.
 
 The Rundown View also has a panel that presents this information in the [context of the current Rundown](#media-status-panel).
 
@@ -254,8 +254,7 @@ The Configurable Screens section uses collapsible accordion panels that let you 
 **Camera Screen Configuration**
 - Filter by specific Source Layer IDs (e.g., cameras, DVEs)
 - Filter by Studio Labels to show only relevant cameras
-- Enable fullscreen mode for mobile devices
-- Generates URL with `sourceLayerIds`, `studioLabels`, and `fullscreen` parameters
+- Generates URL with `sourceLayerIds` and `studioLabels` parameters
 
 **Prompter Configuration**
 - Configure display options (mirroring, font size, margins, read marker position)
@@ -270,6 +269,8 @@ Bookmark the "Available screens" view for your studio (e.g., `/countdowns/studio
 :::
 
 ## Sofie Screens
+
+All Screens support a `?fullscreen=1` query parameter. When this parameter is present, the screen will display a semi-transparent overlay prompting the user to click anywhere to enter fullscreen mode. Once fullscreen is entered, the overlay disappears. If the user exits fullscreen, the overlay will reappear.
 
 ### Prompter Screen
 
@@ -335,7 +336,6 @@ This screen can be configured using query parameters:
 | :--------------- | :----- | :--------------------------------------------------------------------------------------------------------- | :----------- |
 | `sourceLayerIds` | string | A comma-separated list of Source Layer IDs to be considered for display                                    | _(show all)_ |
 | `studioLabels`   | string | A comma-separated list of Studio Labels (Piece `.content.studioLabel` values) to be considered for display | _(show all)_ |
-| `fullscreen`     | 0 / 1  | Should the screen be shown fullscreen on the device on first user interaction                              | 0            |
 
 Example: [http://127.0.0.1/countdowns/studio0/camera?sourceLayerIds=camera0,dve0&studioLabels=1,KAM%201,K1,KAM1&fullscreen=1](http://127.0.0.1/countdowns/studio0/camera?sourceLayerIds=camera0,dve0&studioLabels=1,KAM%201,K1,KAM1&fullscreen=1)
 
@@ -347,6 +347,20 @@ Example: [http://127.0.0.1/countdowns/studio0/camera?sourceLayerIds=camera0,dve0
 
 A page which automatically displays the currently active rundown. Can be useful for the producer to have on a secondary screen.
 
+When no rundown is active, a message is shown with a link back to the rundown list.
+
+This screen can be configured using query parameters:
+
+| Query parameter | Type  | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Default |
+| :-------------- | :---- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------ |
+| `lockView`      | 0 / 1 | Locks the view for unattended or kiosk displays. Hides the header close button and the context menu “Close Rundown” action, and disables the in-app navigation confirmation when a rundown is active. When no rundown is active, shows the [Screensaver](#screensaver) instead of the default idle message. Does not block browser back, manual URL changes, or closing the tab. Only applies on Active Rundown routes (not on a specific `/rundown/:playlistId` URL). | `0`     |
+
+Example (locked Active Rundown for a secondary monitor):
+
+`http://localhost:3000/activeRundown/studio0?lockView=1`
+
+Other query parameters for the rundown view itself (such as `hideRundownHeader` and layout selection) can be combined with `lockView`. See [URL Query Parameters](../../for-developers/url-query-parameters.md).
+
 ### Active Rundown Shelf Screen
 
 `/activeRundown/:studioId/shelf`
@@ -356,6 +370,10 @@ A page which automatically displays the currently active rundown. Can be useful 
 A screen which automatically displays the currently active rundown, and shows the Shelf in fullscreen. Can be useful for the producer to have on a secondary screen.
 
 A shelf layout can be selected by modifying the query string, see [Shelf Layouts](#shelf-layouts).
+
+The `lockView` parameter described above also applies to this route. Example:
+
+`http://localhost:3000/activeRundown/studio0/shelf?lockView=1&layout=Stream`
 
 ### Specific Rundown Shelf Screen
 
@@ -379,7 +397,7 @@ Each embedded screen shows a label to identify it. This screen is mostly intende
 
 ### Screensaver
 
-When big screen displays \(like Prompter Screen and the Presenter Screen\) do not have any meaningful content to show, an animated screensaver showing the current time and the next planned show will be displayed. If no Rundown is upcoming, the Studio name will be displayed.
+When big screen displays \(like Prompter Screen, the Presenter Screen, and the Active Rundown Screen with `lockView=1`\) do not have any meaningful content to show, an animated screensaver showing the current time and the next planned show will be displayed. If no Rundown is upcoming, the Studio name will be displayed.
 
 ![A screensaver showing the next scheduled show](/img/docs/main/features/next-scheduled-show-example.png)
 

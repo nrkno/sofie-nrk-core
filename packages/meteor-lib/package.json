@@ -16,8 +16,7 @@
 	},
 	"homepage": "https://github.com/nrkno/sofie-core/blob/main/packages/corelib#readme",
 	"scripts": {
-		"lint:raw": "run -T eslint",
-		"lint": "run lint:raw .",
+		"lint": "run -T lint meteor-lib",
 		"unit": "run -T jest",
 		"test": "run lint && run unit",
 		"watch": "run -T jest --watch --coverage=false",
@@ -42,27 +41,19 @@
 		"@sofie-automation/corelib": "26.3.0-2",
 		"@sofie-automation/shared-lib": "26.3.0-2",
 		"deep-extend": "0.6.0",
-		"semver": "^7.6.3",
-		"type-fest": "^4.33.0",
-		"underscore": "^1.13.7"
+		"semver": "^7.7.4",
+		"type-fest": "^4.41.0",
+		"underscore": "^1.13.8"
 	},
 	"devDependencies": {
 		"@types/deep-extend": "^0.6.2",
-		"@types/semver": "^7.5.8",
+		"@types/semver": "^7.7.1",
 		"@types/underscore": "^1.13.0"
 	},
 	"peerDependencies": {
-		"i18next": "^21.10.0",
-		"mongodb": "^6.12.0"
+		"i18next": "^26.0.4",
+		"mongodb": "^7.1.1"
 	},
 	"prettier": "@sofie-automation/code-standard-preset/.prettierrc.json",
-	"lint-staged": {
-		"*.{js,css,json,md,scss}": [
-			"yarn run -T prettier"
-		],
-		"*.{ts,tsx}": [
-			"yarn lint:raw"
-		]
-	},
-	"packageManager": "yarn@4.12.0"
+	"packageManager": "yarn@4.14.1"
 }

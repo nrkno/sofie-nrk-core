@@ -14,8 +14,11 @@ import { PlayoutModel, PlayoutModelPreInit } from './model/PlayoutModel.js'
 import { runJobWithPlaylistLock } from './lock.js'
 import { updateTimeline } from './timeline/generate.js'
 import { performTakeToNextedPart } from './take.js'
-import { ActionUserData } from '@sofie-automation/blueprints-integration'
-import { DBRundownPlaylist, SelectedPartInstance } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import { ActionUserData, BlueprintExecuteActionResult } from '@sofie-automation/blueprints-integration'
+import {
+	DBRundownPlaylist,
+	SelectedPartInstance,
+} from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import { logger } from '../logging.js'
 import {
 	AdLibActionId,
@@ -35,9 +38,7 @@ import type { INoteBase } from '@sofie-automation/corelib/dist/dataModel/Notes'
 import { NotificationsModelHelper } from '../notifications/NotificationsModelHelper.js'
 import type { INotificationsModel } from '../notifications/NotificationsModel.js'
 import { PersistentPlayoutStateStore } from '../blueprints/context/services/PersistantStateStore.js'
-import { AdLibAction } from '@sofie-automation/corelib/dist/dataModel/AdlibAction'
-import { RundownBaselineAdLibAction } from '@sofie-automation/corelib/dist/dataModel/RundownBaselineAdLibAction'
-import { BucketAdLibAction } from '@sofie-automation/corelib/dist/dataModel/BucketAdLibAction'
+import { interpollateTranslation } from '@sofie-automation/corelib/dist/TranslatableMessage'
 
 /**
  * Execute an AdLib Action
@@ -79,43 +80,7 @@ export async function executeAdlibActionAndSaveModel(
 		throw UserError.create(UserErrorMessage.ActionsNotSupported)
 	}
 
-	const [adLibAction, baselineAdLibAction, bucketAdLibAction] = await Promise.all([
-		context.directCollections.AdLibActions.findOne(data.actionDocId as AdLibActionId, {
-			projection: {
-				_id: 1,
-				privateData: 1,
-				publicData: 1,
-				invalid: 1,
-				rundownId: 1,
-			},
-		}) as Promise<Pick<AdLibAction, '_id' | 'privateData' | 'publicData' | 'invalid' | 'rundownId'> | undefined>,
-		context.directCollections.RundownBaselineAdLibActions.findOne(
-			data.actionDocId as RundownBaselineAdLibActionId,
-			{
-				projection: {
-					_id: 1,
-					privateData: 1,
-					publicData: 1,
-					invalid: 1,
-					rundownId: 1,
-				},
-			}
-		) as Promise<
-			Pick<RundownBaselineAdLibAction, '_id' | 'privateData' | 'publicData' | 'invalid' | 'rundownId'> | undefined
-		>,
-		context.directCollections.BucketAdLibActions.findOne(data.actionDocId as BucketAdLibActionId, {
-			projection: {
-				_id: 1,
-				privateData: 1,
-				publicData: 1,
-				invalid: 1,
-				bucketId: 1,
-			},
-		}) as Promise<
-			Pick<BucketAdLibAction, '_id' | 'privateData' | 'publicData' | 'invalid' | 'bucketId'> | undefined
-		>,
-	])
-	const adLibActionDoc = adLibAction ?? baselineAdLibAction ?? bucketAdLibAction
+	const adLibActionDoc = await findActionDoc(context, data)
 
 	if (adLibActionDoc && adLibActionDoc.invalid)
 		throw UserError.from(
@@ -227,6 +192,26 @@ export interface ExecuteActionParameters {
 	triggerMode: string | undefined
 }
 
+async function findActionDoc(context: JobContext, data: ExecuteActionProps) {
+	if (data.actionDocId === null) return undefined
+
+	const [adLibAction, baselineAdLibAction, bucketAdLibAction] = await Promise.all([
+		context.directCollections.AdLibActions.findOne(data.actionDocId as AdLibActionId, {
+			projection: { _id: 1, privateData: 1, publicData: 1 },
+		}),
+		context.directCollections.RundownBaselineAdLibActions.findOne(
+			data.actionDocId as RundownBaselineAdLibActionId,
+			{
+				projection: { _id: 1, privateData: 1, publicData: 1 },
+			}
+		),
+		context.directCollections.BucketAdLibActions.findOne(data.actionDocId as BucketAdLibActionId, {
+			projection: { _id: 1, privateData: 1, publicData: 1 },
+		}),
+	])
+	return adLibAction ?? baselineAdLibAction ?? bucketAdLibAction
+}
+
 export async function executeActionInner(
 	context: JobContext,
 	playoutModel: PlayoutModel,
@@ -265,10 +250,15 @@ export async function executeActionInner(
 		)} (${actionParameters.triggerMode})`
 	)
 
-	try {
-		const blueprintPersistentState = new PersistentPlayoutStateStore(playoutModel.playlist.previousPersistentState)
+	let result: BlueprintExecuteActionResult | void
 
-		await blueprint.blueprint.executeAction(
+	try {
+		const blueprintPersistentState = new PersistentPlayoutStateStore(
+			playoutModel.playlist.privatePlayoutPersistentState,
+			playoutModel.playlist.publicPlayoutPersistentState
+		)
+
+		result = await blueprint.blueprint.executeAction(
 			actionContext,
 			blueprintPersistentState,
 			actionParameters.actionId,
@@ -279,12 +269,27 @@ export async function executeActionInner(
 			actionParameters.actionOptions ?? {}
 		)
 
-		if (blueprintPersistentState.hasChanges) {
-			playoutModel.setBlueprintPersistentState(blueprintPersistentState.getAll())
-		}
+		blueprintPersistentState.saveToModel(playoutModel)
 	} catch (err) {
 		logger.error(`Error in showStyleBlueprint.executeAction: ${stringifyError(err)}`)
 		throw UserError.fromUnknown(err)
+	}
+
+	// If the blueprint returned an error, abort the action and throw the error
+	if (result && typeof result === 'object' && result.message) {
+		const messageStr = interpollateTranslation(result.message.key, result.message.args)
+		const statusCode = Number.isFinite(result.errorCode)
+			? Math.max(Math.min(Math.round(result.errorCode as number), 499), 400)
+			: 409
+		throw UserError.from(
+			new Error(messageStr),
+			UserErrorMessage.ValidationFailed,
+			{ message: messageStr, rawMessage: result.message, details: result.details },
+			statusCode
+		)
+	} else if (result !== undefined) {
+		// Unexpected return value — does not match the BlueprintExecuteActionResult shape; treat as success but warn so it can be investigated
+		logger.warn(`executeAction returned an unexpected value: ${JSON.stringify(result)}`)
 	}
 
 	// Store any notes generated by the action
@@ -304,12 +309,12 @@ export async function executeActionInner(
 	}
 }
 
-async function applyAnyExecutionSideEffects(
+export async function applyAnyExecutionSideEffects(
 	context: JobContext,
 	playoutModel: PlayoutModel,
 	actionContext: ActionExecutionContext,
 	now: number
-) {
+): Promise<void> {
 	await applyActionSideEffects(context, playoutModel, actionContext)
 
 	if (actionContext.takeAfterExecute) {
@@ -367,13 +372,13 @@ async function executeDataStoreAction(
 	}
 }
 
-function storeNotificationsForCategory(
+export function storeNotificationsForCategory(
 	notificationHelper: INotificationsModel,
 	notificationCategory: string,
 	blueprintId: BlueprintId,
 	notes: INoteBase[],
 	partInstanceInfo: SelectedPartInstance | null
-) {
+): void {
 	for (const note of notes) {
 		notificationHelper.setNotification(notificationCategory, {
 			...convertNoteToNotification(note, [blueprintId]),

@@ -1,5 +1,5 @@
 import { DBRundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import { DatabasePersistedModel } from '../../../modelBase.js'
 import { IngestModelReadonly } from '../../../ingest/model/IngestModel.js'
 import { PlaylistLock } from '../../../jobs/lock.js'
@@ -123,7 +123,7 @@ async function loadInitData(
 	const [peripheralDevices, reloadedPlaylist, rundowns] = await Promise.all([
 		context.directCollections.PeripheralDevices.findFetch({ 'studioAndConfigId.studioId': tmpPlaylist.studioId }),
 		reloadPlaylist
-			? await context.directCollections.RundownPlaylists.findOne(tmpPlaylist._id)
+			? context.directCollections.RundownPlaylists.findOne(tmpPlaylist._id)
 			: clone<DBRundownPlaylist>(tmpPlaylist),
 		existingRundowns ?? context.directCollections.Rundowns.findFetch({ playlistId: tmpPlaylist._id }),
 	])

@@ -36,8 +36,7 @@ export interface IBlueprintRundown<TPrivateData = unknown, TPublicData = unknown
 /** The Rundown sent from Core */
 
 export interface IBlueprintRundownDB<TPrivateData = unknown, TPublicData = unknown>
-	extends IBlueprintRundown<TPrivateData, TPublicData>,
-		IBlueprintRundownDBData {}
+	extends IBlueprintRundown<TPrivateData, TPublicData>, IBlueprintRundownDBData {}
 /** Properties added to a rundown in Core */
 
 export interface IBlueprintRundownDBData {
@@ -55,6 +54,9 @@ export interface IBlueprintRundownDBData {
 
 export interface IBlueprintSegmentRundown<TPrivateData = unknown, TPublicData = unknown> {
 	externalId: string
+
+	/** Rundown timing information */
+	timing: RundownPlaylistTiming
 
 	/** Arbitraty data storage for internal use in the blueprints */
 	privateData?: TPrivateData

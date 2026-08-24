@@ -7,7 +7,7 @@ import { RundownBaselineAdLibAction } from './dataModel/RundownBaselineAdLibActi
 import { RundownBaselineAdLibItem } from './dataModel/RundownBaselineAdLibPiece.js'
 import { DBPartInstance } from './dataModel/PartInstance.js'
 import { DBRundown } from './dataModel/Rundown.js'
-import { DBRundownPlaylist } from './dataModel/RundownPlaylist.js'
+import { DBRundownPlaylist } from './dataModel/RundownPlaylist/RundownPlaylist.js'
 import { DBSegment } from './dataModel/Segment.js'
 import { DBShowStyleBase } from './dataModel/ShowStyleBase.js'
 import { DBShowStyleVariant } from './dataModel/ShowStyleVariant.js'
@@ -316,7 +316,7 @@ export interface CorelibPubSubTypes {
 		studioIds: StudioId[] | null,
 		token?: string
 	) => CollectionName.Studios
-	[CorelibPubSub.timelineDatastore]: (studioId: StudioId, token?: string) => CollectionName.TimelineDatastore
+	[CorelibPubSub.timelineDatastore]: () => CollectionName.TimelineDatastore
 	[CorelibPubSub.buckets]: (studioId: StudioId, bucketId: BucketId | null, token?: string) => CollectionName.Buckets
 	[CorelibPubSub.bucketAdLibPieces]: (
 		studioId: StudioId,

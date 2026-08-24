@@ -1,18 +1,18 @@
 import React, { useCallback, useMemo } from 'react'
 import { useTracker, useSubscription } from '../../lib/ReactMeteorData/ReactMeteorData.js'
-import { ICoreSystem, SofieLogo } from '@sofie-automation/meteor-lib/dist/collections/CoreSystem'
+import { type ICoreSystem, SofieLogo } from '@sofie-automation/meteor-lib/dist/collections/CoreSystem'
 import { MeteorPubSub } from '@sofie-automation/meteor-lib/dist/api/pubsub'
 import { EditAttribute } from '../../lib/EditAttribute.js'
 import { doModalDialog } from '../../lib/ModalDialog.js'
 import { MeteorCall } from '../../lib/meteorApi.js'
 import { languageAnd } from '../../lib/language.js'
 import { TriggeredActionsEditor } from './components/triggeredActions/TriggeredActionsEditor.js'
-import { TFunction, useTranslation } from 'react-i18next'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { Meteor } from 'meteor/meteor'
-import { literal } from '@sofie-automation/corelib/dist/lib'
 import { LogLevel } from '@sofie-automation/meteor-lib/dist/lib'
 import { CoreSystem } from '../../collections/index.js'
-import { CollectionCleanupResult } from '@sofie-automation/meteor-lib/dist/api/system'
+import type { CollectionCleanupResult } from '@sofie-automation/meteor-lib/dist/api/system'
 import {
 	LabelActual,
 	LabelAndOverrides,
@@ -21,13 +21,8 @@ import {
 } from '../../lib/Components/LabelAndOverrides.js'
 import { catchError } from '../../lib/lib.js'
 import { SystemManagementBlueprint } from './SystemManagement/Blueprint.js'
-import {
-	applyAndValidateOverrides,
-	ObjectWithOverrides,
-	SomeObjectOverrideOp,
-} from '@sofie-automation/corelib/dist/settings/objectWithOverrides'
-import { ICoreSystemSettings } from '@sofie-automation/blueprints-integration'
-import { WrappedOverridableItemNormal, useOverrideOpHelper } from './util/OverrideOpHelper.js'
+import type { SomeObjectOverrideOp } from '@sofie-automation/corelib/dist/settings/objectWithOverrides'
+import { useOverrideOpHelperForSimpleObject } from './util/OverrideOpHelper.js'
 import { CheckboxControl } from '../../lib/Components/Checkbox.js'
 import {
 	CombinedMultiLineTextInputControl,
@@ -531,35 +526,5 @@ function useCoreSystemSettingsWithOverrides(coreSystem: ICoreSystem) {
 		[coreSystem._id]
 	)
 
-	const [wrappedItem, wrappedConfigObject] = useMemo(() => {
-		const prefixedOps = coreSystem.settingsWithOverrides.overrides.map((op) => ({
-			...op,
-			// TODO: can we avoid doing this hack?
-			path: `0.${op.path}`,
-		}))
-
-		const computedValue = applyAndValidateOverrides(coreSystem.settingsWithOverrides).obj
-
-		const wrappedItem = literal<WrappedOverridableItemNormal<ICoreSystemSettings>>({
-			type: 'normal',
-			id: '0',
-			computed: computedValue,
-			defaults: coreSystem.settingsWithOverrides.defaults,
-			overrideOps: prefixedOps,
-		})
-
-		const wrappedConfigObject: ObjectWithOverrides<ICoreSystemSettings> = {
-			defaults: coreSystem.settingsWithOverrides.defaults,
-			overrides: prefixedOps,
-		}
-
-		return [wrappedItem, wrappedConfigObject]
-	}, [coreSystem.settingsWithOverrides])
-
-	const overrideHelper = useOverrideOpHelper(saveOverrides, wrappedConfigObject)
-
-	return {
-		wrappedItem,
-		overrideHelper,
-	}
+	return useOverrideOpHelperForSimpleObject(saveOverrides, coreSystem.settingsWithOverrides)
 }

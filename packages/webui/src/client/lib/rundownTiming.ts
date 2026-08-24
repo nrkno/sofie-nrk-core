@@ -11,21 +11,29 @@
  * without knowing what particular case you are trying to solve.
  */
 
-import { PartId, PartInstanceId, SegmentId, SegmentPlayoutId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import type { PartId, PartInstanceId, SegmentId, SegmentPlayoutId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { literal } from '@sofie-automation/corelib/dist/lib'
 import { PlaylistTiming } from '@sofie-automation/corelib/dist/playout/rundownTiming'
 import { calculatePartInstanceExpectedDurationWithTransition } from '@sofie-automation/corelib/dist/playout/timings'
 import { unprotectString } from '@sofie-automation/corelib/dist/protectedString'
-import { PartInstance } from '@sofie-automation/meteor-lib/dist/collections/PartInstances'
-import { DBPart } from '@sofie-automation/corelib/dist/dataModel/Part'
-import { DBRundownPlaylist, QuickLoopMarkerType } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import type { DBPart, PartExtended } from '@sofie-automation/corelib/dist/dataModel/Part'
+import {
+	type DBRundownPlaylist,
+	QuickLoopMarkerType,
+} from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import { objectFromEntries } from '@sofie-automation/shared-lib/dist/lib/lib'
 import { getCurrentTime } from './systemTime.js'
 import { Settings } from '../lib/Settings.js'
-import { Rundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
-import { DBSegment } from '@sofie-automation/corelib/dist/dataModel/Segment'
+import type { Rundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
+import type { DBSegment } from '@sofie-automation/corelib/dist/dataModel/Segment'
 import { CountdownType } from '@sofie-automation/blueprints-integration'
-import { isLoopDefined, isEntirePlaylistLooping, isLoopRunning } from '../lib/RundownResolver.js'
+import { RundownUtils } from './rundown.js'
+import type { PartInstance } from '@sofie-automation/corelib/src/dataModel/PartInstance'
+import {
+	isLoopRunning,
+	isLoopDefined,
+	isEntirePlaylistLooping,
+} from '@sofie-automation/corelib/src/playout/stateCacheResolver.js'
 
 // Minimum duration that a part can be assigned. Used by gap parts to allow them to "compress" to indicate time running out.
 const MINIMAL_NONZERO_DURATION = 1
@@ -168,12 +176,17 @@ export class RundownTimingCalculator {
 						const liveSegment = segmentsMap.get(liveSegmentIds.segmentId)
 
 						if (liveSegment?.segmentTiming?.countdownType === CountdownType.SEGMENT_BUDGET_DURATION) {
-							remainingBudgetOnCurrentSegment =
-								(playlist.segmentsStartedPlayback?.[unprotectString(liveSegmentIds.segmentPlayoutId)] ??
-									lastStartedPlayback ??
-									now) +
-								(liveSegment.segmentTiming.budgetDuration ?? 0) -
-								now
+							const budgetDuration = liveSegment.segmentTiming.budgetDuration ?? 0
+							if (budgetDuration > 0) {
+								remainingBudgetOnCurrentSegment =
+									(playlist.segmentsStartedPlayback?.[
+										unprotectString(liveSegmentIds.segmentPlayoutId)
+									] ??
+										lastStartedPlayback ??
+										now) +
+									budgetDuration -
+									now
+							}
 						}
 					}
 					segmentDisplayDuration = 0
@@ -786,23 +799,21 @@ export interface RundownTimingContext {
  */
 export function computeSegmentDuration(
 	timingDurations: RundownTimingContext,
-	partIds: PartId[],
+	parts: PartExtended[],
 	display?: boolean
 ): number {
-	const partDurations = timingDurations.partDurations
+	const partDisplayDurations = timingDurations?.partDisplayDurations
 
-	if (partDurations === undefined) return 0
+	if (!partDisplayDurations) return RundownUtils.getSegmentDuration(parts, display)
 
-	return partIds.reduce((memo, partId) => {
-		const pId = unprotectString(partId)
-		let partDuration = 0
-		if (partDurations && partDurations[pId] !== undefined) {
-			partDuration = partDurations[pId]
-		}
-		if (!partDuration && display) {
-			partDuration = Settings.defaultDisplayDuration
-		}
-		return memo + partDuration
+	return parts.reduce((memo, partExtended) => {
+		// total += durations.partDurations ? durations.partDurations[item._id] : (item.duration || item.renderedDuration || 1)
+		const partInstanceTimingId = getPartInstanceTimingId(partExtended.instance)
+		const duration = Math.max(
+			partExtended.instance.timings?.duration || partExtended.renderedDuration || 0,
+			partDisplayDurations?.[partInstanceTimingId] || (display ? Settings.defaultDisplayDuration : 0)
+		)
+		return memo + duration
 	}, 0)
 }
 
@@ -846,10 +857,18 @@ export function getPlaylistTimingDiff(
 		backAnchor = timingContext.nextRundownAnchor ?? timing.expectedEnd
 	}
 
-	let diff = PlaylistTiming.isPlaylistTimingNone(timing)
-		? (timingContext.asPlayedPlaylistDuration || 0) -
+	let diff = 0
+	if (PlaylistTiming.isPlaylistTimingNone(timing)) {
+		diff =
+			(timingContext.asPlayedPlaylistDuration || 0) -
 			(timing.expectedDuration ?? timingContext.totalPlaylistDuration ?? 0)
-		: frontAnchor + (timingContext.remainingPlaylistDuration || 0) - backAnchor
+	} else if (PlaylistTiming.isPlaylistDurationTimed(timing)) {
+		diff =
+			(timingContext.asPlayedPlaylistDuration || 0) -
+			(timing.expectedDuration ?? timingContext.totalPlaylistDuration ?? 0)
+	} else {
+		diff = frontAnchor + (timingContext.remainingPlaylistDuration || 0) - backAnchor
+	}
 
 	// handle special cases
 
@@ -869,9 +888,11 @@ export function getPlaylistTimingDiff(
 			diff =
 				(timingContext.asPlayedPlaylistDuration || 0) -
 				(timing.expectedDuration ?? timingContext.totalPlaylistDuration ?? 0)
-		} else if (PlaylistTiming.isPlaylistTimingBackTime(timing)) {
-			// we want to see how late we've ended compared to the expectedEnd
-			diff = startedPlayback + (timingContext.asPlayedPlaylistDuration || 0) - timing.expectedEnd
+		} else if (PlaylistTiming.isPlaylistDurationTimed(timing)) {
+			//  we want to know how heavy/light we were compared to the original plan
+			diff =
+				(timingContext.asPlayedPlaylistDuration || 0) -
+				(timing.expectedDuration ?? timingContext.totalPlaylistDuration ?? 0)
 		}
 	}
 

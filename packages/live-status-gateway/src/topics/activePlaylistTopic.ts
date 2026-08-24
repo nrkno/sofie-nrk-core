@@ -5,7 +5,8 @@ import {
 	DBRundownPlaylist,
 	QuickLoopMarker,
 	QuickLoopMarkerType,
-} from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+} from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
+import { RundownTTimer } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/TTimers'
 import { DBPartInstance } from '@sofie-automation/corelib/dist/dataModel/PartInstance'
 import { assertNever, literal } from '@sofie-automation/shared-lib/dist/lib/lib'
 import { SelectedPartInstances } from '../collections/partInstancesHandler.js'
@@ -30,11 +31,22 @@ import {
 	ActivePlaylistQuickLoop,
 	QuickLoopMarker as QuickLoopMarkerStatus,
 	QuickLoopMarkerType as QuickLoopMarkerStatusType,
+	TTimerStatus,
+	TTimerIndex,
+	TimerModeCountdown,
+	TimerModeFreeRun,
+	TimerModeTimeOfDay,
+	TimerStateRunning,
+	TimerStatePaused,
 } from '@sofie-automation/live-status-gateway-api'
 
 import { CollectionHandlers } from '../liveStatusServer.js'
 import areElementsShallowEqual from '@sofie-automation/shared-lib/dist/lib/isShallowEqual'
-import { PickKeys } from '@sofie-automation/shared-lib/dist/lib/types'
+import { Complete, PickKeys } from '@sofie-automation/shared-lib/dist/lib/types'
+
+// Union types for timer modes and states (not exported from API package)
+type TimerMode = TimerModeCountdown | TimerModeFreeRun | TimerModeTimeOfDay
+type TimerState = TimerStateRunning | TimerStatePaused
 
 const THROTTLE_PERIOD_MS = 100
 
@@ -45,11 +57,13 @@ const PLAYLIST_KEYS = [
 	'name',
 	'rundownIdsInOrder',
 	'publicData',
+	'publicPlayoutPersistentState',
 	'currentPartInfo',
 	'nextPartInfo',
 	'timing',
 	'startedPlayback',
 	'quickLoop',
+	'tTimers',
 ] as const
 type Playlist = PickKeys<DBRundownPlaylist, typeof PLAYLIST_KEYS>
 
@@ -101,7 +115,7 @@ export class ActivePlaylistTopic extends WebSocketTopicBase implements WebSocket
 			(currentPart && this._partsBySegmentId[unprotectString(currentPart.segmentId)]) ?? []
 
 		const message = this._activePlaylist
-			? literal<ActivePlaylistEvent>({
+			? literal<Complete<ActivePlaylistEvent>>({
 					event: 'activePlaylist',
 					id: unprotectString(this._activePlaylist._id),
 					externalId: this._activePlaylist.externalId,
@@ -157,6 +171,7 @@ export class ActivePlaylistTopic extends WebSocketTopicBase implements WebSocket
 						: null,
 					quickLoop: this.transformQuickLoopStatus(),
 					publicData: this._activePlaylist.publicData,
+					playoutState: this._activePlaylist.publicPlayoutPersistentState,
 					timing: {
 						timingMode: translatePlaylistTimingType(this._activePlaylist.timing.type),
 						startedPlayback: this._activePlaylist.startedPlayback,
@@ -166,12 +181,14 @@ export class ActivePlaylistTopic extends WebSocketTopicBase implements WebSocket
 								? this._activePlaylist.timing.expectedStart
 								: undefined,
 						expectedEnd:
-							this._activePlaylist.timing.type !== PlaylistTimingType.None
+							this._activePlaylist.timing.type !== PlaylistTimingType.None &&
+							this._activePlaylist.timing.type !== PlaylistTimingType.Duration
 								? this._activePlaylist.timing.expectedEnd
 								: undefined,
 					},
+					tTimers: this.transformTTimers(this._activePlaylist.tTimers),
 				})
-			: literal<ActivePlaylistEvent>({
+			: literal<Complete<ActivePlaylistEvent>>({
 					event: 'activePlaylist',
 					id: null,
 					externalId: null,
@@ -182,9 +199,11 @@ export class ActivePlaylistTopic extends WebSocketTopicBase implements WebSocket
 					nextPart: null,
 					quickLoop: undefined,
 					publicData: undefined,
+					playoutState: undefined,
 					timing: {
 						timingMode: ActivePlaylistTimingMode.NONE,
 					},
+					tTimers: this.transformTTimers(null),
 				})
 
 		this.sendMessage(subscribers, message)
@@ -245,6 +264,55 @@ export class ActivePlaylistTopic extends WebSocketTopicBase implements WebSocket
 			default:
 				assertNever(marker)
 				return undefined
+		}
+	}
+
+	private transformTTimers(tTimers: RundownTTimer[] | null | undefined): [TTimerStatus, TTimerStatus, TTimerStatus] {
+		// Always return exactly 3 timers
+		if (!tTimers || tTimers.length === 0) {
+			return [
+				{
+					index: 1 as TTimerIndex,
+					label: '',
+					configured: false,
+					mode: null,
+					state: null,
+					projected: null,
+					anchorPartId: null,
+				},
+				{
+					index: 2 as TTimerIndex,
+					label: '',
+					configured: false,
+					mode: null,
+					state: null,
+					projected: null,
+					anchorPartId: null,
+				},
+				{
+					index: 3 as TTimerIndex,
+					label: '',
+					configured: false,
+					mode: null,
+					state: null,
+					projected: null,
+					anchorPartId: null,
+				},
+			]
+		}
+
+		return [this.transformTTimer(tTimers[0]), this.transformTTimer(tTimers[1]), this.transformTTimer(tTimers[2])]
+	}
+
+	private transformTTimer({ index, label, mode, state, projectedState, anchorPartId }: RundownTTimer): TTimerStatus {
+		return {
+			index: index as TTimerIndex,
+			label,
+			configured: !!(mode && state),
+			mode: mode as TimerMode | null,
+			state: state as TimerState | null,
+			projected: projectedState ? (projectedState as TimerState) : null,
+			anchorPartId: anchorPartId ? unprotectString(anchorPartId) : null,
 		}
 	}
 
@@ -335,6 +403,8 @@ function translatePlaylistTimingType(type: PlaylistTimingType): ActivePlaylistTi
 			return ActivePlaylistTimingMode.BACK_MINUS_TIME
 		case PlaylistTimingType.ForwardTime:
 			return ActivePlaylistTimingMode.FORWARD_MINUS_TIME
+		case PlaylistTimingType.Duration:
+			return ActivePlaylistTimingMode.DURATION
 		default:
 			assertNever(type)
 			// Cast and return the value anyway, so that the application works

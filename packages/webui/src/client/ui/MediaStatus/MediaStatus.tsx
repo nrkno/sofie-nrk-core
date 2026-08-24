@@ -1,7 +1,7 @@
-import { useMemo, JSX } from 'react'
+import { useMemo, type JSX } from 'react'
 import { useSubscription, useSubscriptions, useTracker } from '../../lib/ReactMeteorData/ReactMeteorData.js'
 import { MeteorPubSub } from '@sofie-automation/meteor-lib/dist/api/pubsub'
-import {
+import type {
 	AdLibActionId,
 	PartId,
 	PartInstanceId,
@@ -9,6 +9,7 @@ import {
 	PieceInstanceId,
 	RundownBaselineAdLibActionId,
 	RundownId,
+	RundownPlaylistActivationId,
 	RundownPlaylistId,
 	SegmentId,
 	ShowStyleBaseId,
@@ -23,13 +24,13 @@ import {
 	RundownPlaylists,
 	Rundowns,
 } from '../../collections/index.js'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
-import { ProtectedString, unprotectString } from '@sofie-automation/corelib/dist/protectedString'
-import { ExpectedPackage } from '@sofie-automation/shared-lib/dist/package-manager/package'
-import { PartInvalidReason } from '@sofie-automation/corelib/dist/dataModel/Part'
-import { IBlueprintActionManifestDisplayContent, SourceLayerType } from '@sofie-automation/blueprints-integration'
-import { PieceContentStatusObj } from '@sofie-automation/corelib/dist/dataModel/PieceContentStatus'
-import { Piece, PieceStatusCode } from '@sofie-automation/corelib/dist/dataModel/Piece'
+import type { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
+import { type ProtectedString, unprotectString } from '@sofie-automation/corelib/dist/protectedString'
+import type { ExpectedPackage } from '@sofie-automation/shared-lib/dist/package-manager/package'
+import type { PartInvalidReason } from '@sofie-automation/corelib/dist/dataModel/Part'
+import type { IBlueprintActionManifestDisplayContent, SourceLayerType } from '@sofie-automation/blueprints-integration'
+import type { PieceContentStatusObj } from '@sofie-automation/corelib/dist/dataModel/PieceContentStatus'
+import { type Piece, PieceStatusCode } from '@sofie-automation/corelib/dist/dataModel/Piece'
 import { assertNever, literal } from '@sofie-automation/corelib/dist/lib'
 import { UIPieceContentStatuses, UIShowStyleBases } from '../Collections.js'
 import { isTranslatableMessage, translateMessage } from '@sofie-automation/corelib/dist/TranslatableMessage'
@@ -100,7 +101,8 @@ function useRundownPlaylists(playlistIds: RundownPlaylistId[]) {
 						queuedSegmentId: 0,
 						nextTimeOffset: 0,
 						previousPartInfo: 0,
-						previousPersistentState: 0,
+						publicPlayoutPersistentState: 0,
+						privatePlayoutPersistentState: 0,
 						resetTime: 0,
 						rundownsStartedPlayback: 0,
 						trackedAbSessions: 0,
@@ -111,29 +113,26 @@ function useRundownPlaylists(playlistIds: RundownPlaylistId[]) {
 				.sort(sortRundownPlaylists)
 				.map((playlist) => ({
 					playlist,
-					segments: RundownUtils.getSegmentsWithPartInstances(
-						playlist,
-						undefined,
-						undefined,
-						undefined,
-						{
-							projection: {
-								displayAs: 0,
-								externalId: 0,
-								privateData: 0,
-								notes: 0,
-								segmentTiming: 0,
-								showShelf: 0,
+					segments: RundownUtils.getSegmentsWithPartInstances(playlist, {
+						options: {
+							segments: {
+								projection: {
+									displayAs: 0,
+									externalId: 0,
+									privateData: 0,
+									notes: 0,
+									segmentTiming: 0,
+									displayMinishelf: 0,
+								},
+							},
+							partInstances: {
+								projection: {
+									timings: 0,
+									partPlayoutTimings: 0,
+								},
 							},
 						},
-						undefined,
-						{
-							projection: {
-								timings: 0,
-								partPlayoutTimings: 0,
-							},
-						}
-					),
+					}),
 				})),
 		[playlistIds],
 		[]
@@ -258,14 +257,7 @@ function useMediaStatusSubscriptions(
 	let counter = 0
 	readyStatus[counter++] = useSubscription(CorelibPubSub.rundownPlaylists, playlistIds, null)
 	readyStatus[counter++] = useSubscription(CorelibPubSub.rundownsInPlaylists, playlistIds)
-	const uiShowStyleBaseSubArguments = useMemo(
-		() => showStyleBaseIds.map((showStyleBaseId) => [showStyleBaseId] as [ShowStyleBaseId]),
-		[showStyleBaseIds]
-	)
-	readyStatus[counter++] = useSubscriptions(MeteorPubSub.uiShowStyleBase, uiShowStyleBaseSubArguments)
 	readyStatus[counter++] = useSubscription(CorelibPubSub.segments, rundownIds, {})
-	readyStatus[counter++] = useSubscription(CorelibPubSub.parts, rundownIds, null)
-	readyStatus[counter++] = useSubscription(CorelibPubSub.partInstancesSimple, rundownIds, null)
 	readyStatus[counter++] = useSubscription(CorelibPubSub.pieceInstancesSimple, rundownIds, null)
 	readyStatus[counter++] = useSubscription(CorelibPubSub.pieces, rundownIds, null)
 	readyStatus[counter++] = useSubscription(CorelibPubSub.adLibActions, rundownIds)
@@ -273,11 +265,39 @@ function useMediaStatusSubscriptions(
 	readyStatus[counter++] = useSubscription(CorelibPubSub.rundownBaselineAdLibActions, rundownIds)
 	readyStatus[counter++] = useSubscription(CorelibPubSub.rundownBaselineAdLibPieces, rundownIds)
 
-	const uiPieceContentStatusesSubArguments = useMemo(
-		() => playlistIds.map((playlistIds) => [playlistIds] as [RundownPlaylistId]),
-		[playlistIds]
+	readyStatus[counter++] = useSubscriptions(
+		MeteorPubSub.uiShowStyleBase,
+		showStyleBaseIds.map((id) => [id])
 	)
-	readyStatus[counter++] = useSubscriptions(CorelibPubSub.uiPieceContentStatuses, uiPieceContentStatusesSubArguments)
+	readyStatus[counter++] = useSubscriptions(
+		MeteorPubSub.uiParts,
+		playlistIds.map((id) => [id])
+	)
+	readyStatus[counter++] = useSubscriptions(
+		CorelibPubSub.uiPieceContentStatuses,
+		playlistIds.map((id) => [id])
+	)
+
+	const playlistActivationIds = useTracker(
+		() =>
+			RundownPlaylists.find(
+				{
+					_id: {
+						$in: playlistIds,
+					},
+				},
+				{ projection: { activationId: 1 } }
+			)
+				.fetch()
+				.map((playlist) => playlist.activationId)
+				.filter(Boolean) as RundownPlaylistActivationId[],
+		[playlistIds],
+		[]
+	)
+	readyStatus[counter++] = useSubscriptions(
+		MeteorPubSub.uiPartInstances,
+		playlistActivationIds.map((id) => [id])
+	)
 
 	return readyStatus.reduce((mem, current) => mem && current, true)
 }

@@ -1,15 +1,8 @@
 import { addMigrationSteps } from './databaseMigration'
 import { CURRENT_SYSTEM_VERSION } from './currentSystemVersion'
-import { MongoInternals } from 'meteor/mongo'
-import { Studios } from '../collections'
-import { ExpectedPackages } from '../collections'
-import * as PackagesPreR53 from '@sofie-automation/corelib/dist/dataModel/Old/ExpectedPackagesR52'
-import {
-	ExpectedPackageDB,
-	ExpectedPackageIngestSource,
-} from '@sofie-automation/corelib/dist/dataModel/ExpectedPackages'
-import { BucketId, RundownId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { assertNever, Complete } from '@sofie-automation/corelib/dist/lib'
+import { RundownPlaylists, Segments, Studios } from '../collections'
+import { ContainerIdsToObjectWithOverridesMigrationStep } from './steps/X_X_X/ContainerIdsToObjectWithOverridesMigrationStep'
+import { ShelfButtonSize } from '@sofie-automation/shared-lib/dist/core/model/StudioSettings'
 
 /*
  * **************************************************************************************
@@ -23,176 +16,137 @@ import { assertNever, Complete } from '@sofie-automation/corelib/dist/lib'
 
 export const addSteps = addMigrationSteps(CURRENT_SYSTEM_VERSION, [
 	{
-		id: `Drop media manager collections`,
+		id: `Rename previousPersistentState to privatePlayoutPersistentState`,
 		canBeRunAutomatically: true,
 		validate: async () => {
-			// If MongoInternals is not available, we are in a test environment
-			if (!MongoInternals) return false
-
-			const existingCollections = await MongoInternals.defaultRemoteCollectionDriver()
-				.mongo.db.listCollections()
-				.toArray()
-			const collectionsToDrop = existingCollections.filter((c) =>
-				['expectedMediaItems', 'mediaWorkFlows', 'mediaWorkFlowSteps'].includes(c.name)
-			)
-			if (collectionsToDrop.length > 0) {
-				return `There are ${collectionsToDrop.length} obsolete collections to be removed: ${collectionsToDrop.map((c) => c.name).join(', ')}`
+			const playlists = await RundownPlaylists.countDocuments({
+				previousPersistentState: { $exists: true },
+				privatePlayoutPersistentState: { $exists: false },
+			})
+			if (playlists > 0) {
+				return 'One or more Playlists has previousPersistentState field that needs to be renamed to privatePlayoutPersistentState'
 			}
 
 			return false
 		},
 		migrate: async () => {
-			const existingCollections = await MongoInternals.defaultRemoteCollectionDriver()
-				.mongo.db.listCollections()
-				.toArray()
-			const collectionsToDrop = existingCollections.filter((c) =>
-				['expectedMediaItems', 'mediaWorkFlows', 'mediaWorkFlowSteps'].includes(c.name)
+			const playlists = await RundownPlaylists.findFetchAsync(
+				{
+					previousPersistentState: { $exists: true },
+					privatePlayoutPersistentState: { $exists: false },
+				},
+				{
+					projection: {
+						_id: 1,
+						// @ts-expect-error - This field is being renamed, so it won't exist on the type anymore
+						previousPersistentState: 1,
+					},
+				}
 			)
-			for (const c of collectionsToDrop) {
-				await MongoInternals.defaultRemoteCollectionDriver().mongo.db.dropCollection(c.name)
+
+			for (const playlist of playlists) {
+				// @ts-expect-error - This field is being renamed, so it won't exist on the type anymore
+				const previousPersistentState = playlist.previousPersistentState
+
+				await RundownPlaylists.mutableCollection.updateAsync(playlist._id, {
+					$set: {
+						privatePlayoutPersistentState: previousPersistentState,
+					},
+					$unset: {
+						previousPersistentState: 1,
+					},
+				})
 			}
 		},
 	},
-
+	new ContainerIdsToObjectWithOverridesMigrationStep(),
 	{
-		id: 'Ensure a single studio',
+		id: 'Add T-timers to RundownPlaylist',
 		canBeRunAutomatically: true,
 		validate: async () => {
-			const studioCount = await Studios.countDocuments()
-			if (studioCount === 0) return `No studios found`
-			if (studioCount > 1) return `There are ${studioCount} studios, but only one is supported`
+			const playlistCount = await RundownPlaylists.countDocuments({ tTimers: { $exists: false } })
+			if (playlistCount > 0) return `There are ${playlistCount} RundownPlaylists without T-timers`
 			return false
 		},
 		migrate: async () => {
-			// Do nothing, the user will have to resolve this manually
+			await RundownPlaylists.mutableCollection.updateAsync(
+				{ tTimers: { $exists: false } },
+				{
+					$set: {
+						tTimers: [
+							{ index: 1, label: '', mode: null, state: null },
+							{ index: 2, label: '', mode: null, state: null },
+							{ index: 3, label: '', mode: null, state: null },
+						],
+					},
+				},
+				{ multi: true }
+			)
 		},
 	},
 	{
-		id: `convert ExpectedPackages to new format`,
+		id: `studios settings create default shelfAdlibButtonSize=large`,
 		canBeRunAutomatically: true,
 		validate: async () => {
-			const packages = await ExpectedPackages.findFetchAsync({
-				fromPieceType: { $exists: true },
+			const studios = await Studios.findFetchAsync({
+				'settingsWithOverrides.defaults.shelfAdlibButtonSize': { $exists: false },
 			})
 
-			if (packages.length > 0) {
-				return 'ExpectedPackages must be converted to new format'
-			}
-
+			if (studios.length > 0) return `Some studios are missing settings default shelfAdlibButtonSize`
 			return false
 		},
 		migrate: async () => {
-			const packages = (await ExpectedPackages.findFetchAsync({
-				fromPieceType: { $exists: true },
-			})) as unknown as PackagesPreR53.ExpectedPackageDB[]
+			const studios = await Studios.findFetchAsync({
+				'settingsWithOverrides.defaults.shelfAdlibButtonSize': { $exists: false },
+			})
 
-			for (const pkg of packages) {
-				let rundownId: RundownId | null = null
-				let bucketId: BucketId | null = null
-				let ingestSource: ExpectedPackageIngestSource | undefined
-
-				switch (pkg.fromPieceType) {
-					case PackagesPreR53.ExpectedPackageDBType.PIECE:
-					case PackagesPreR53.ExpectedPackageDBType.ADLIB_PIECE:
-						rundownId = pkg.rundownId
-						ingestSource = {
-							fromPieceType: pkg.fromPieceType,
-							pieceId: pkg.pieceId,
-							partId: pkg.partId,
-							segmentId: pkg.segmentId,
-							blueprintPackageId: pkg.blueprintPackageId,
-							listenToPackageInfoUpdates: pkg.listenToPackageInfoUpdates,
-						}
-						break
-					case PackagesPreR53.ExpectedPackageDBType.ADLIB_ACTION:
-						rundownId = pkg.rundownId
-						ingestSource = {
-							fromPieceType: pkg.fromPieceType,
-							pieceId: pkg.pieceId,
-							partId: pkg.partId,
-							segmentId: pkg.segmentId,
-							blueprintPackageId: pkg.blueprintPackageId,
-							listenToPackageInfoUpdates: pkg.listenToPackageInfoUpdates,
-						}
-						break
-					case PackagesPreR53.ExpectedPackageDBType.BASELINE_ADLIB_PIECE:
-						rundownId = pkg.rundownId
-						ingestSource = {
-							fromPieceType: pkg.fromPieceType,
-							pieceId: pkg.pieceId,
-							blueprintPackageId: pkg.blueprintPackageId,
-							listenToPackageInfoUpdates: pkg.listenToPackageInfoUpdates,
-						}
-						break
-					case PackagesPreR53.ExpectedPackageDBType.BASELINE_ADLIB_ACTION:
-						rundownId = pkg.rundownId
-						ingestSource = {
-							fromPieceType: pkg.fromPieceType,
-							pieceId: pkg.pieceId,
-							blueprintPackageId: pkg.blueprintPackageId,
-							listenToPackageInfoUpdates: pkg.listenToPackageInfoUpdates,
-						}
-						break
-					case PackagesPreR53.ExpectedPackageDBType.RUNDOWN_BASELINE_OBJECTS:
-						rundownId = pkg.rundownId
-						ingestSource = {
-							fromPieceType: pkg.fromPieceType,
-							blueprintPackageId: pkg.blueprintPackageId,
-							listenToPackageInfoUpdates: pkg.listenToPackageInfoUpdates,
-						}
-						break
-					case PackagesPreR53.ExpectedPackageDBType.BUCKET_ADLIB:
-						bucketId = pkg.bucketId
-						ingestSource = {
-							fromPieceType: pkg.fromPieceType,
-							pieceId: pkg.pieceId,
-							pieceExternalId: pkg.pieceExternalId,
-							blueprintPackageId: pkg.blueprintPackageId,
-							listenToPackageInfoUpdates: pkg.listenToPackageInfoUpdates,
-						}
-						break
-					case PackagesPreR53.ExpectedPackageDBType.BUCKET_ADLIB_ACTION:
-						bucketId = pkg.bucketId
-						ingestSource = {
-							fromPieceType: pkg.fromPieceType,
-							pieceId: pkg.pieceId,
-							pieceExternalId: pkg.pieceExternalId,
-							blueprintPackageId: pkg.blueprintPackageId,
-							listenToPackageInfoUpdates: pkg.listenToPackageInfoUpdates,
-						}
-						break
-					case PackagesPreR53.ExpectedPackageDBType.STUDIO_BASELINE_OBJECTS:
-						ingestSource = {
-							fromPieceType: pkg.fromPieceType,
-							blueprintPackageId: pkg.blueprintPackageId,
-							listenToPackageInfoUpdates: pkg.listenToPackageInfoUpdates,
-						}
-						break
-					default:
-						assertNever(pkg)
-						break
-				}
-
-				await ExpectedPackages.mutableCollection.removeAsync(pkg._id)
-
-				if (ingestSource) {
-					await ExpectedPackages.mutableCollection.insertAsync({
-						_id: pkg._id, // Preserve the old id to ensure references aren't broken. This will be 'corrected' upon first ingest operation
-						studioId: pkg.studioId,
-						rundownId: rundownId,
-						bucketId: bucketId,
-						package: {
-							...(pkg as any), // Some fields should be pruned off this, but this is fine
-							_id: pkg.blueprintPackageId,
-						},
-						created: pkg.created,
-						ingestSources: [ingestSource],
-						playoutSources: {
-							pieceInstanceIds: [],
-						},
-					} satisfies Complete<ExpectedPackageDB>)
-				}
+			for (const studio of studios) {
+				await Studios.updateAsync(studio._id, {
+					$set: {
+						'settingsWithOverrides.defaults.shelfAdlibButtonSize': ShelfButtonSize.LARGE,
+					},
+				})
 			}
 		},
 	},
+	{
+		id: `segments migrate showShelf to displayMinishelf`,
+		canBeRunAutomatically: true,
+		validate: async () => {
+			const count = await Segments.countDocuments({
+				showShelf: { $exists: true },
+			})
+			if (count > 0) return `There are ${count} Segments with legacy showShelf`
+			return false
+		},
+		migrate: async () => {
+			// showShelf: true => displayMinishelf: inherit (if missing)
+			await Segments.mutableCollection.updateAsync(
+				{
+					showShelf: true,
+					displayMinishelf: { $exists: false },
+				},
+				{
+					$set: {
+						displayMinishelf: ShelfButtonSize.INHERIT,
+					},
+				},
+				{ multi: true }
+			)
+
+			// Always remove legacy field
+			await Segments.mutableCollection.updateAsync(
+				{
+					showShelf: { $exists: true },
+				},
+				{
+					$unset: {
+						showShelf: 1,
+					},
+				},
+				{ multi: true }
+			)
+		},
+	},
+	// Add your migration here
 ])

@@ -43,12 +43,13 @@ import {
 import { NrcsIngestDataCache, Parts, Pieces, Rundowns } from '../collections'
 import { NrcsIngestCacheType } from '@sofie-automation/corelib/dist/dataModel/NrcsIngestDataCache'
 import { verifyHashedToken } from './singleUseTokens'
-import { QuickLoopMarker } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import { QuickLoopMarker } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import { runIngestOperation } from './ingest/lib'
 import { IngestJobs } from '@sofie-automation/corelib/dist/worker/ingest'
 import { UserPermissions } from '@sofie-automation/meteor-lib/dist/userPermissions'
 import { assertConnectionHasOneOfPermissions } from '../security/auth'
 import { checkAccessToRundown } from '../security/check'
+import { protectString, unprotectString } from '@sofie-automation/corelib/dist/protectedString'
 
 const PERMISSIONS_FOR_PLAYOUT_USERACTION: Array<keyof UserPermissions> = ['studio']
 const PERMISSIONS_FOR_BUCKET_MODIFICATION: Array<keyof UserPermissions> = ['studio']
@@ -121,8 +122,9 @@ class ServerUserActionAPI
 		userEvent: string,
 		eventTime: Time,
 		rundownPlaylistId: RundownPlaylistId,
-		nextPartId: PartId,
-		timeOffset: number | null
+		nextPartOrInstanceId: PartId | PartInstanceId,
+		timeOffset: number | null,
+		isInstance: boolean | null
 	) {
 		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
 			this,
@@ -131,12 +133,15 @@ class ServerUserActionAPI
 			rundownPlaylistId,
 			() => {
 				check(rundownPlaylistId, String)
-				check(nextPartId, String)
+				check(nextPartOrInstanceId, String)
 			},
 			StudioJobs.SetNextPart,
 			{
 				playlistId: rundownPlaylistId,
-				nextPartId,
+				nextPartId: isInstance ? undefined : protectString<PartId>(unprotectString(nextPartOrInstanceId)),
+				nextPartInstanceId: isInstance
+					? protectString<PartInstanceId>(unprotectString(nextPartOrInstanceId))
+					: undefined,
 				setManually: true,
 				nextTimeOffset: timeOffset ?? undefined,
 			}
@@ -399,9 +404,9 @@ class ServerUserActionAPI
 		userEvent: string,
 		eventTime: Time,
 		rundownPlaylistId: RundownPlaylistId,
-		actionDocId: AdLibActionId | RundownBaselineAdLibActionId | BucketAdLibActionId,
+		actionDocId: AdLibActionId | RundownBaselineAdLibActionId | BucketAdLibActionId | null,
 		actionId: string,
-		userData: ActionUserData,
+		userData: ActionUserData | null,
 		triggerMode: string | null
 	) {
 		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
@@ -411,7 +416,7 @@ class ServerUserActionAPI
 			rundownPlaylistId,
 			() => {
 				check(rundownPlaylistId, String)
-				check(actionDocId, String)
+				check(actionDocId, Match.Maybe(String))
 				check(actionId, String)
 				check(userData, Match.Any)
 				check(triggerMode, Match.Maybe(String))

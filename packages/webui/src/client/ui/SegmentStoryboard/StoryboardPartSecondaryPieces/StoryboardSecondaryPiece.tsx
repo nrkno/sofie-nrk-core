@@ -1,7 +1,5 @@
-import React, { RefObject, useImperativeHandle, useContext, useRef, useState } from 'react'
-import { RundownUtils } from '../../../lib/rundown.js'
-import { ISourceLayer, SourceLayerType } from '@sofie-automation/blueprints-integration'
-import { PieceUi } from '../../SegmentContainer/withResolvedSegment.js'
+import { useImperativeHandle, useContext, useRef, useState, type RefObject } from 'react'
+import { type ISourceLayer, SourceLayerType } from '@sofie-automation/blueprints-integration'
 import { DefaultRenderer } from './Renderers/DefaultRenderer.js'
 import { assertNever } from '@sofie-automation/corelib/dist/lib'
 import { ScriptRenderer } from './Renderers/ScriptRenderer.js'
@@ -10,14 +8,16 @@ import { getElementWidth } from '../../../utils/dimensions.js'
 import { GraphicsRenderer } from './Renderers/GraphicsRenderer.js'
 import { SplitsRenderer } from './Renderers/SplitsRenderer.js'
 import { PieceElement } from '../../SegmentContainer/PieceElement.js'
-import { UIStudio } from '@sofie-automation/meteor-lib/dist/api/studios'
-import { PartId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import type { PartId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { useContentStatusForPieceInstance } from '../../SegmentTimeline/withMediaObjectStatus.js'
 import {
 	convertSourceLayerItemToPreview,
-	IPreviewPopUpSession,
+	type IPreviewPopUpSession,
 	PreviewPopUpContext,
 } from '../../PreviewPopUp/PreviewPopUpContext.js'
+import type { UIStudio } from '@sofie-automation/corelib/src/dataModel/Studio.js'
+import type { PieceUi } from '@sofie-automation/corelib/src/dataModel/Piece.js'
+import { RundownUtils } from '../../../lib/rundown.js'
 
 interface IProps {
 	layer: ISourceLayer
@@ -120,10 +120,11 @@ export function StoryboardSecondaryPiece(props: IProps): JSX.Element {
 			width,
 		})
 
-		if (previewContents.length > 0)
-			previewSession.current = previewContext.requestPreview(e.target as any, previewContents, {
+		if (previewContents.length > 0 && element.current)
+			previewSession.current = previewContext.requestPreview(element.current, previewContents, {
 				...previewOptions,
-				initialOffsetX: e.screenX,
+				initialOffsetX: e.clientX,
+				trackMouse: true,
 			})
 
 		if (onPointerEnterCallback) onPointerEnterCallback(e)

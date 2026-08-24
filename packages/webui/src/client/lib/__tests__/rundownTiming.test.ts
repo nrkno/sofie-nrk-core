@@ -1,14 +1,18 @@
-import { DBRundownPlaylist, QuickLoopMarkerType } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import {
+	type DBRundownPlaylist,
+	QuickLoopMarkerType,
+} from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import { ForceQuickLoopAutoNext } from '@sofie-automation/shared-lib/dist/core/model/StudioSettings'
-import { PartInstance, wrapPartToTemporaryInstance } from '@sofie-automation/meteor-lib/dist/collections/PartInstances'
-import { DBPart } from '@sofie-automation/corelib/dist/dataModel/Part'
-import { DBSegment } from '@sofie-automation/corelib/dist/dataModel/Segment'
-import { DBRundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
+import type { DBPart } from '@sofie-automation/corelib/dist/dataModel/Part'
+import type { DBSegment } from '@sofie-automation/corelib/dist/dataModel/Segment'
+import type { DBRundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
 import { literal } from '@sofie-automation/corelib/dist/lib'
 import { unprotectString, protectString } from '@sofie-automation/shared-lib/dist/lib/protectedString'
-import { RundownTimingCalculator, RundownTimingContext, findPartInstancesInQuickLoop } from '../rundownTiming.js'
-import { PlaylistTimingType, SegmentTimingInfo } from '@sofie-automation/blueprints-integration'
-import { PartId, RundownId, SegmentId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import { RundownTimingCalculator, type RundownTimingContext, findPartInstancesInQuickLoop } from '../rundownTiming.js'
+import { PlaylistTimingType, type SegmentTimingInfo } from '@sofie-automation/blueprints-integration'
+import type { PartId, RundownId, SegmentId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import type { PartInstance } from '@sofie-automation/corelib/src/dataModel/PartInstance.js'
+import { wrapPartToTemporaryInstance } from '@sofie-automation/corelib/src/playout/stateCacheResolver'
 
 const DEFAULT_DURATION = 0
 const DEFAULT_NONZERO_DURATION = 4000
@@ -28,6 +32,12 @@ function makeMockPlaylist(): DBRundownPlaylist {
 			type: PlaylistTimingType.None,
 		},
 		rundownIdsInOrder: [],
+
+		tTimers: [
+			{ index: 1, label: '', mode: null, state: null },
+			{ index: 2, label: '', mode: null, state: null },
+			{ index: 3, label: '', mode: null, state: null },
+		],
 	})
 }
 

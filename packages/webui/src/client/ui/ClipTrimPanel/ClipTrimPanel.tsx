@@ -1,17 +1,17 @@
 import { useCallback, useMemo } from 'react'
-import { VTContent } from '@sofie-automation/blueprints-integration'
+import type { VTContent } from '@sofie-automation/blueprints-integration'
 import { VideoEditMonitor } from './VideoEditMonitor.js'
 import { TimecodeEncoder } from './TimecodeEncoder.js'
 import { faUndo } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import Tooltip from 'rc-tooltip'
-import { UIStudio } from '@sofie-automation/meteor-lib/dist/api/studios'
 import { useTranslation } from 'react-i18next'
 import { useContentStatusForPiece } from '../SegmentTimeline/withMediaObjectStatus.js'
 import { useSubscription, useTracker } from '../../lib/ReactMeteorData/ReactMeteorData.js'
-import { PieceId, RundownId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import type { PieceId, RundownId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { Pieces } from '../../collections/index.js'
 import { CorelibPubSub } from '@sofie-automation/corelib/dist/pubsub'
+import type { UIStudio } from '@sofie-automation/corelib/src/dataModel/Studio.js'
 
 export interface IProps {
 	studio: UIStudio

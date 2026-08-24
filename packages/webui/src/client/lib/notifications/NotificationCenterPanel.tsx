@@ -1,18 +1,17 @@
 import * as React from 'react'
-import * as CoreIcon from '@nrk/core-icons/jsx'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import ClassNames from 'classnames'
-import { motion, AnimatePresence, HTMLMotionProps } from 'motion/react'
-import { translateWithTracker, Translated, useTracker } from '../ReactMeteorData/ReactMeteorData.js'
-import { NotificationCenter, Notification, NoticeLevel, NotificationAction } from './notifications.js'
+import { motion, AnimatePresence, type HTMLMotionProps } from 'motion/react'
+import { translateWithTracker, type Translated, useTracker } from '../ReactMeteorData/ReactMeteorData.js'
+import { NotificationCenter, Notification, NoticeLevel, type NotificationAction } from './notifications.js'
 import { ContextMenuTrigger, ContextMenu, MenuItem } from '@jstarpl/react-contextmenu'
 import { translateMessage, isTranslatableMessage } from '@sofie-automation/corelib/dist/TranslatableMessage'
 import { CriticalIcon, WarningIcon, CollapseChevrons, InformationIcon } from '../ui/icons/notifications.js'
 import update from 'immutability-helper'
 import { i18nTranslator } from '../../ui/i18n.js'
-import { RundownId, SegmentId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import type { RundownId, SegmentId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { useTranslation } from 'react-i18next'
 import { PopUpPanel } from '../../ui/RundownView/PopUpPanel.js'
-import classNames from 'classnames'
 
 interface IPopUpProps {
 	id?: string
@@ -88,12 +87,7 @@ class NotificationPopUp extends React.Component<IPopUpProps> {
 										className="btn btn-default notification-pop-up__actions--button"
 										onClick={(e) => this.triggerEvent(defaultAction, e)}
 									>
-										<CoreIcon.NrkArrowLeft
-											className="icon"
-											width="1em"
-											height="1em"
-											style={{ verticalAlign: 'middle', marginTop: '-0.1em', marginRight: '-0.4em' }}
-										/>
+										<FontAwesomeIcon icon="arrow-left" size="xs" />
 										<span className="label">{defaultAction.label}</span>
 									</button>
 								</div>
@@ -133,7 +127,7 @@ class NotificationPopUp extends React.Component<IPopUpProps> {
 							}}
 							aria-label={i18nTranslator('Dismiss')}
 						>
-							{this.props.item.persistent ? <CollapseChevrons /> : <CoreIcon.NrkClose id="nrk-close" />}
+							{this.props.item.persistent ? <CollapseChevrons /> : <FontAwesomeIcon icon="close" />}
 						</button>
 					</ContextMenuTrigger>
 				)}
@@ -476,7 +470,7 @@ export const NotificationCenterPanel = (props: {
 	hideRundownHeader?: boolean
 }): JSX.Element => (
 	<PopUpPanel
-		className={classNames('notification-center-panel', {
+		className={ClassNames('notification-center-panel', {
 			'notification-center-panel--no-rundown-header': props.hideRundownHeader,
 		})}
 	>

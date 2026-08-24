@@ -1,12 +1,13 @@
 import { useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { StudioId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import type { StudioId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import Container from 'react-bootstrap/esm/Container'
 import Accordion from 'react-bootstrap/esm/Accordion'
 import { PresenterConfigForm } from './PresenterConfigForm'
 import { CameraConfigForm } from './CameraConfigForm'
 import { PrompterConfigForm } from './PrompterConfigForm'
+import { FullscreenLink } from './FullscreenLink'
 
 type AccordionKey = 'presenter' | 'camera' | 'prompter'
 
@@ -38,12 +39,21 @@ export function ClockViewIndex({ studioId }: Readonly<{ studioId: StudioId }>): 
 					<ul>
 						<li>
 							<Link to={`/countdowns/${studioId}/director`}>{t('Director Screen')}</Link>
+							{' ('}
+							<FullscreenLink to={`/countdowns/${studioId}/director`}>{t('fullscreen')}</FullscreenLink>
+							{')'}
 						</li>
 						<li>
 							<Link to={`/countdowns/${studioId}/overlay`}>{t('Overlay Screen')}</Link>
+							{' ('}
+							<FullscreenLink to={`/countdowns/${studioId}/overlay`}>{t('fullscreen')}</FullscreenLink>
+							{')'}
 						</li>
 						<li>
 							<Link to={`/countdowns/${studioId}/multiview`}>{t('All Screens in a MultiViewer')}</Link>
+							{' ('}
+							<FullscreenLink to={`/countdowns/${studioId}/multiview`}>{t('fullscreen')}</FullscreenLink>
+							{')'}
 						</li>
 						<li>
 							<Link to={`/activeRundown/${studioId}`}>{t('Active Rundown View')}</Link>

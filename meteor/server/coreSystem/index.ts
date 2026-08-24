@@ -18,6 +18,8 @@ import { checkDatabaseVersions } from './checkDatabaseVersions'
 import PLazy from 'p-lazy'
 import { getCoreSystemAsync } from './collection'
 import { wrapDefaultObject } from '@sofie-automation/corelib/dist/settings/objectWithOverrides'
+const mosPkgJson = require('@mos-connection/helper/package.json')
+const superTimelinePkgJson = require('superfly-timeline/package.json')
 
 export { PackageInfo }
 
@@ -84,9 +86,9 @@ async function initializeCoreSystem() {
 		if (!isRunningInJest()) {
 			// Check what migration has to provide:
 			const migration = await prepareMigration(true)
-			if (migration.migrationNeeded && migration.manualStepCount === 0 && migration.chunks.length <= 1) {
+			if (migration.migrationNeeded && migration.chunks.length <= 1) {
 				// Since we've determined that the migration can be done automatically, and we have a fresh system, just do the migration automatically:
-				await runMigration(migration.chunks, migration.hash, [])
+				await runMigration(migration.chunks, migration.hash)
 			}
 		}
 	}
@@ -125,30 +127,10 @@ function onCoreSystemChanged() {
 export const RelevantSystemVersions = PLazy.from(async () => {
 	const versions: { [name: string]: string } = {}
 
-	const dependencies: any = PackageInfo.dependencies
-	if (dependencies) {
-		const libNames: string[] = ['@mos-connection/helper', 'superfly-timeline']
-
-		const getRealVersion = async (name: string, fallback: string): Promise<string> => {
-			try {
-				const pkgInfo = require(name + '/package.json')
-				return pkgInfo.version
-			} catch (e) {
-				logger.warn(`Failed to read version of package "${name}": ${stringifyError(e)}`)
-				return parseVersion(fallback)
-			}
-		}
-
-		await Promise.all([
-			...libNames.map(async (name) => {
-				versions[name] = await getRealVersion(name, dependencies[name])
-			}),
-		])
-		versions['core'] = PackageInfo.versionExtended || PackageInfo.version // package version
-		versions['timeline-state-resolver-types'] = TMP_TSR_VERSION
-	} else {
-		logger.error(`Core package dependencies missing`)
-	}
+	versions['@mos-connection/helper'] = mosPkgJson.version
+	versions['superfly-timeline'] = superTimelinePkgJson.version
+	versions['core'] = PackageInfo.versionExtended || PackageInfo.version // package version
+	versions['timeline-state-resolver-types'] = TMP_TSR_VERSION
 
 	return versions
 })

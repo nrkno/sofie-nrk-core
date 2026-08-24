@@ -1,6 +1,6 @@
 import { unprotectString, protectString } from '../../lib/protectedString.js'
-import { TSR } from '../../tsr.js'
-import { MappingsHash, PeripheralDeviceId, StudioId, TimelineBlob, TimelineHash } from './Ids.js'
+import type { TSR } from '../../tsr.js'
+import type { MappingsHash, PeripheralDeviceId, StudioId, TimelineBlob, TimelineHash } from './Ids.js'
 
 /**
  * This defines a session, indicating that this TimelineObject uses an AB player
@@ -34,6 +34,14 @@ export enum TimelineObjHoldMode {
 	/** The object is played when NOT doing a Hold */
 	EXCEPT = 2,
 }
+export enum TimelineObjOnAirMode {
+	/** Default: The object is played as usual (behaviour is not affected by rehearsal/on-air state)  */
+	ALWAYS = 0,
+	/** The object is played ONLY when in Rehearsal */
+	REHEARSAL = 1,
+	/** The object is played ONLY when onair */
+	ONAIR = 2,
+}
 
 export interface TimelineObjectCoreExt<
 	TContent extends { deviceType: TSR.DeviceTypeExt },
@@ -47,6 +55,8 @@ export interface TimelineObjectCoreExt<
 
 	/** Restrict object usage according to whether we are currently in a hold */
 	holdMode?: TimelineObjHoldMode
+	/** Restrict object usage according to whether we are currently in rehearsal or on-air */
+	onAirMode?: TimelineObjOnAirMode
 	/** Arbitrary data storage for plugins */
 	metaData?: TMetadata
 	/** Keyframes: Arbitrary data storage for plugins */
@@ -133,8 +143,9 @@ export enum LookaheadMode {
 export interface BlueprintMappings extends TSR.Mappings {
 	[layerName: string]: BlueprintMapping
 }
-export interface BlueprintMapping<TOptions extends { mappingType: string } | unknown = TSR.TSRMappingOptions>
-	extends TSR.Mapping<TOptions> {
+export interface BlueprintMapping<
+	TOptions extends { mappingType: string } | unknown = TSR.TSRMappingOptions,
+> extends TSR.Mapping<TOptions> {
 	/** What method core should use to create lookahead objects for this layer */
 	lookahead: LookaheadMode
 	/** How many lookahead objects to create for this layer. Default = 1 */
@@ -146,8 +157,10 @@ export interface BlueprintMapping<TOptions extends { mappingType: string } | unk
 export interface MappingsExt {
 	[layerName: string]: MappingExt
 }
-export interface MappingExt<TOptions extends { mappingType: string } | unknown = TSR.TSRMappingOptions>
-	extends Omit<BlueprintMapping<TOptions>, 'deviceId'> {
+export interface MappingExt<TOptions extends { mappingType: string } | unknown = TSR.TSRMappingOptions> extends Omit<
+	BlueprintMapping<TOptions>,
+	'deviceId'
+> {
 	deviceId: PeripheralDeviceId
 }
 export interface RoutedMappings {

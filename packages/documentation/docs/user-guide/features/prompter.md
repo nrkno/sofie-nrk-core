@@ -42,10 +42,10 @@ The prompter can be controlled by different types of controllers. The control mo
 | Default                 | Controlled by both mouse and keyboard                                                                                                                                                                                                         |
 | `?mode=mouse`           | Controlled by mouse only. [See configuration details](prompter.md#control-using-mouse-scroll-wheel)                                                                                                                                           |
 | `?mode=keyboard`        | Controlled by keyboard only. [See configuration details](prompter.md#control-using-keyboard)                                                                                                                                                  |
-| `?mode=shuttlekeyboard` | Controlled by a Contour Design ShuttleXpress, X-keys Jog and Shuttle or any compatible, configured as keyboard-ish device. [See configuration details](prompter.md#control-using-contour-shuttlexpress-or-x-keys-modeshuttlekeyboard)         |
+| `?mode=shuttlekeyboard` | Controlled by a Contour Design ShuttleXpress, X-keys Jog and Shuttle or any compatible, configured as keyboard-ish device. [See configuration details](prompter.md#control-using-contour-shuttlexpress-or-x-keys-modeshuttlekeyboard)       |
 | `?mode=shuttlewebhid`   | Controlled by a Contour Design ShuttleXpress, using the browser's WebHID API [See configuration details](prompter.md#control-using-contour-shuttlexpress-via-webhid)                                                                          |
 | `?mode=pedal`           | Controlled by any MIDI device outputting note values between 0 - 127 of CC notes on channel 8. Analogue Expression pedals work well with TRS-USB midi-converters. [See configuration details](prompter.md#control-using-midi-input-modepedal) |
-| `?mode=joycon`          | Controlled by Nintendo Switch Joycon, using the HTML5 GamePad API. [See configuration details](prompter.md#control-using-nintendo-joycon-gamepad)                                                                                             |
+| `?mode=joycon`          | Controlled by Nintendo Switch Joycon, using the HTML5 GamePad API. [See configuration details](prompter.md#control-using-nintendo-joycon-modejoycon)                                                                                          |
 | `?mode=xbox`            | Controlled by Xbox controller, using the HTML5 GamePad API. [See configuration details](prompter.md#control-using-xbox-controller-modexbox)                                                                                                   |
 
 #### Control using mouse \(scroll wheel\)
@@ -103,6 +103,21 @@ This mode uses a Contour ShuttleXpress (Multimedia Controller Xpress) through we
 When opening the Prompter View for the first time, it is necessary to press the _Connect to Contour Shuttle_ button in the top left corner of the screen, select the device, and press _Connect_.
 
 ![Contour ShuttleXpress input mapping](/img/docs/main/features/contour-shuttle-webhid.jpg)
+
+**Customizable Button Mapping:**
+
+By default, the ShuttleXpress buttons execute built-in prompter actions. However, you can customize button behavior by mapping buttons to global adlib actions using the `shuttleWebHid_buttonMap` query parameter.
+
+| Query parameter | Type | Description |
+| :--- | :--- | :--- |
+| `shuttleWebHid_buttonMap` | Comma-separated strings | Maps ShuttleXpress buttons to global adlib actions. Each entry should be in the format `buttonIndex:actionId`, where `buttonIndex` is the button number (0-indexed) and `actionId` is the ID of a global adlib action defined in your blueprints. Each custom action is triggered once on button press (trigger mode: `pressed`) and once on button release (trigger mode: `released`). Multiple mappings are comma-separated. |
+
+**Example:**
+```
+?mode=shuttlewebhid&shuttleWebHid_buttonMap=0:toggle_control_room_mics,1:make_coffee
+```
+
+Buttons without a custom mapping will use their default behavior.
 
 ####
 

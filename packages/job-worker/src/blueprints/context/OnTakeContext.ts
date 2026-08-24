@@ -1,5 +1,6 @@
 import {
 	IBlueprintMutatablePart,
+	IBlueprintMutatablePartInstance,
 	IBlueprintPart,
 	IBlueprintPartInstance,
 	IBlueprintPiece,
@@ -12,7 +13,7 @@ import {
 	TSR,
 	IBlueprintPlayoutDevice,
 	IOnTakeContext,
-	IBlueprintSegment,
+	IBlueprintSegmentDB,
 } from '@sofie-automation/blueprints-integration'
 import { PeripheralDeviceId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { ReadonlyDeep } from 'type-fest'
@@ -30,9 +31,14 @@ import {
 } from './services/PartAndPieceInstanceActionService.js'
 import { BlueprintQuickLookInfo } from '@sofie-automation/blueprints-integration/dist/context/quickLoopInfo'
 import { getOrderedPartsAfterPlayhead } from '../../playout/lookahead/util.js'
-import { convertPartToBlueprints } from './lib.js'
+import { convertPartToBlueprints, emitIngestOperation } from './lib.js'
+import type { IPlaylistTTimer } from '@sofie-automation/blueprints-integration/dist/context/tTimersContext'
+import { TTimersService } from './services/TTimersService.js'
+import type { RundownTTimerIndex } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/TTimers'
 
 export class OnTakeContext extends ShowStyleUserContext implements IOnTakeContext, IEventContext {
+	readonly #tTimersService: TTimersService
+
 	public isTakeAborted: boolean
 	public partToQueueAfterTake: QueueablePartAndPieces | undefined
 
@@ -61,6 +67,7 @@ export class OnTakeContext extends ShowStyleUserContext implements IOnTakeContex
 	) {
 		super(contextInfo, _context, showStyle, watchedPackages)
 		this.isTakeAborted = false
+		this.#tTimersService = TTimersService.withPlayoutModel(_playoutModel, _context)
 	}
 
 	async getUpcomingParts(limit: number = 5): Promise<ReadonlyDeep<IBlueprintPart[]>> {
@@ -80,7 +87,7 @@ export class OnTakeContext extends ShowStyleUserContext implements IOnTakeContex
 	async getResolvedPieceInstances(part: 'current' | 'next'): Promise<IBlueprintResolvedPieceInstance[]> {
 		return this.partAndPieceInstanceService.getResolvedPieceInstances(part)
 	}
-	async getSegment(segment: 'current' | 'next'): Promise<IBlueprintSegment | undefined> {
+	async getSegment(segment: 'current' | 'next'): Promise<IBlueprintSegmentDB | undefined> {
 		return this.partAndPieceInstanceService.getSegment(segment)
 	}
 
@@ -125,9 +132,10 @@ export class OnTakeContext extends ShowStyleUserContext implements IOnTakeContex
 
 	async updatePartInstance(
 		part: 'current' | 'next',
-		props: Partial<IBlueprintMutatablePart>
+		props: Partial<IBlueprintMutatablePart>,
+		instanceProps: Partial<IBlueprintMutatablePartInstance> = {}
 	): Promise<IBlueprintPartInstance> {
-		return this.partAndPieceInstanceService.updatePartInstance(part, props)
+		return this.partAndPieceInstanceService.updatePartInstance(part, props, instanceProps)
 	}
 
 	async stopPiecesOnLayers(sourceLayerIds: string[], timeOffset?: number): Promise<string[]> {
@@ -163,9 +171,10 @@ export class OnTakeContext extends ShowStyleUserContext implements IOnTakeContex
 	async executeTSRAction(
 		deviceId: PeripheralDeviceId,
 		actionId: string,
-		payload: Record<string, any>
+		payload: Record<string, any>,
+		timeoutMs?: number
 	): Promise<TSR.ActionExecutionResult> {
-		return executePeripheralDeviceAction(this._context, deviceId, null, actionId, payload)
+		return executePeripheralDeviceAction(this._context, deviceId, timeoutMs ?? null, actionId, payload)
 	}
 
 	queuePartAfterTake(rawPart: IBlueprintPart, rawPieces: IBlueprintPiece[]): void {
@@ -181,7 +190,18 @@ export class OnTakeContext extends ShowStyleUserContext implements IOnTakeContex
 		)
 	}
 
+	async emitIngestOperation(operation: unknown): Promise<void> {
+		await emitIngestOperation(this._context, this._playoutModel, operation)
+	}
+
 	getCurrentTime(): number {
 		return getCurrentTime()
+	}
+
+	getTimer(index: RundownTTimerIndex): IPlaylistTTimer {
+		return this.#tTimersService.getTimer(index)
+	}
+	clearAllTimers(): void {
+		this.#tTimersService.clearAllTimers()
 	}
 }

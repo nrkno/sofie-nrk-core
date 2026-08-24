@@ -1,6 +1,9 @@
 import { RundownPlaylistId, StudioId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { DBRundown, Rundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
-import { DBRundownPlaylist, QuickLoopMarkerType } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import {
+	DBRundownPlaylist,
+	QuickLoopMarkerType,
+} from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import { ForceQuickLoopAutoNext } from '@sofie-automation/shared-lib/dist/core/model/StudioSettings'
 import {
 	clone,
@@ -236,6 +239,11 @@ export function produceRundownPlaylistInfoFromRundown(
 			nextPartInfo: null,
 			previousPartInfo: null,
 			rundownIdsInOrder: [],
+			tTimers: [
+				{ index: 1, label: '', mode: null, state: null },
+				{ index: 2, label: '', mode: null, state: null },
+				{ index: 3, label: '', mode: null, state: null },
+			],
 
 			...clone<DBRundownPlaylist | undefined>(existingPlaylist),
 
@@ -332,6 +340,11 @@ function defaultPlaylistForRundown(
 		nextPartInfo: null,
 		previousPartInfo: null,
 		rundownIdsInOrder: [],
+		tTimers: [
+			{ index: 1, label: '', mode: null, state: null },
+			{ index: 2, label: '', mode: null, state: null },
+			{ index: 3, label: '', mode: null, state: null },
+		],
 
 		...clone<DBRundownPlaylist | undefined>(existingPlaylist),
 

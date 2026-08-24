@@ -1,4 +1,8 @@
-import { RundownPlaylistTiming, Time } from '@sofie-automation/blueprints-integration'
+import {
+	BlueprintExternalEventSubscription,
+	RundownPlaylistTiming,
+	Time,
+} from '@sofie-automation/blueprints-integration'
 import {
 	RundownId,
 	StudioId,
@@ -84,10 +88,18 @@ export interface Rundown {
 	 * User editing definitions for this rundown
 	 */
 	userEditOperations?: CoreUserEditingDefinition[]
+
+	/** Subscriptions to external device events, as declared by the blueprint */
+	externalEventSubscriptions?: BlueprintExternalEventSubscription[]
 }
 
 /** A description of where a Rundown originated from */
-export type RundownSource = RundownSourceNrcs | RundownSourceSnapshot | RundownSourceHttp | RundownSourceTesting
+export type RundownSource =
+	| RundownSourceNrcs
+	| RundownSourceSnapshot
+	| RundownSourceHttp
+	| RundownSourceTesting
+	| RundownSourceRestApi
 
 /** A description of the external NRCS source of a Rundown */
 export interface RundownSourceNrcs {
@@ -112,6 +124,11 @@ export interface RundownSourceTesting {
 	type: 'testing'
 	/** The ShowStyleVariant the Rundown is created for */
 	showStyleVariantId: ShowStyleVariantId
+}
+/** A description of the source of a Rundown which was through the new HTTP ingest API */
+export interface RundownSourceRestApi {
+	type: 'restApi'
+	resyncUrl: string
 }
 
 export function getRundownNrcsName(rundown: ReadonlyDeep<Pick<DBRundown, 'source'>> | undefined): string {

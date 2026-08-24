@@ -3,13 +3,14 @@ import { ContextInfo } from './CommonContext.js'
 import { ShowStyleUserContext } from './ShowStyleUserContext.js'
 import {
 	IBlueprintMutatablePart,
+	IBlueprintMutatablePartInstance,
 	IBlueprintPart,
 	IBlueprintPartInstance,
 	IBlueprintPiece,
 	IBlueprintPieceDB,
 	IBlueprintPieceInstance,
 	IBlueprintResolvedPieceInstance,
-	IBlueprintSegment,
+	IBlueprintSegmentDB,
 	IEventContext,
 	IOnSetAsNextContext,
 } from '@sofie-automation/blueprints-integration'
@@ -22,17 +23,21 @@ import { WatchedPackagesHelper } from './watchedPackages.js'
 import { PlayoutModel } from '../../playout/model/PlayoutModel.js'
 import { ReadonlyDeep } from 'type-fest'
 import { getCurrentTime } from '../../lib/index.js'
-import { protectString } from '@sofie-automation/corelib/dist/protectedString'
 import { BlueprintQuickLookInfo } from '@sofie-automation/blueprints-integration/dist/context/quickLoopInfo'
 import { DBPart } from '@sofie-automation/corelib/dist/dataModel/Part'
 import { selectNewPartWithOffsets } from '../../playout/moveNextPart.js'
 import { getOrderedPartsAfterPlayhead } from '../../playout/lookahead/util.js'
-import { convertPartToBlueprints } from './lib.js'
+import { convertPartToBlueprints, emitIngestOperation } from './lib.js'
+import { TTimersService } from './services/TTimersService.js'
+import type { IPlaylistTTimer } from '@sofie-automation/blueprints-integration/dist/context/tTimersContext'
+import type { RundownTTimerIndex } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/TTimers'
 
 export class OnSetAsNextContext
 	extends ShowStyleUserContext
 	implements IOnSetAsNextContext, IEventContext, IPartAndPieceInstanceActionContext
 {
+	readonly #tTimersService: TTimersService
+
 	public pendingMoveNextPart: { selectedPart: ReadonlyDeep<DBPart> | null } | undefined = undefined
 
 	constructor(
@@ -45,6 +50,7 @@ export class OnSetAsNextContext
 		public readonly manuallySelected: boolean
 	) {
 		super(contextInfo, context, showStyle, watchedPackages)
+		this.#tTimersService = TTimersService.withPlayoutModel(playoutModel, context)
 	}
 
 	public get quickLoopInfo(): BlueprintQuickLookInfo | null {
@@ -79,7 +85,7 @@ export class OnSetAsNextContext
 		return this.partAndPieceInstanceService.getResolvedPieceInstances(part)
 	}
 
-	async getSegment(segment: 'current' | 'next'): Promise<IBlueprintSegment | undefined> {
+	async getSegment(segment: 'current' | 'next'): Promise<IBlueprintSegmentDB | undefined> {
 		return this.partAndPieceInstanceService.getSegment(segment)
 	}
 
@@ -120,17 +126,15 @@ export class OnSetAsNextContext
 		pieceInstanceId: string,
 		piece: Partial<IBlueprintPiece<unknown>>
 	): Promise<IBlueprintPieceInstance<unknown>> {
-		if (protectString(pieceInstanceId) === this.playoutModel.playlist.currentPartInfo?.partInstanceId) {
-			throw new Error('Cannot update a Piece Instance from the current Part Instance')
-		}
 		return this.partAndPieceInstanceService.updatePieceInstance(pieceInstanceId, piece)
 	}
 
 	async updatePartInstance(
 		part: 'current' | 'next',
-		props: Partial<IBlueprintMutatablePart<unknown>>
+		props: Partial<IBlueprintMutatablePart<unknown>>,
+		instanceProps: Partial<IBlueprintMutatablePartInstance> = {}
 	): Promise<IBlueprintPartInstance<unknown>> {
-		return this.partAndPieceInstanceService.updatePartInstance(part, props)
+		return this.partAndPieceInstanceService.updatePartInstance(part, props, instanceProps)
 	}
 
 	async removePieceInstances(part: 'current' | 'next', pieceInstanceIds: string[]): Promise<string[]> {
@@ -160,7 +164,18 @@ export class OnSetAsNextContext
 		return !!this.pendingMoveNextPart.selectedPart
 	}
 
+	async emitIngestOperation(operation: unknown): Promise<void> {
+		await emitIngestOperation(this.jobContext, this.playoutModel, operation)
+	}
+
 	getCurrentTime(): number {
 		return getCurrentTime()
+	}
+
+	getTimer(index: RundownTTimerIndex): IPlaylistTTimer {
+		return this.#tTimersService.getTimer(index)
+	}
+	clearAllTimers(): void {
+		this.#tTimersService.clearAllTimers()
 	}
 }

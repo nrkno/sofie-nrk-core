@@ -9,7 +9,7 @@ import { MockJobContext, setupDefaultJobEnvironment } from '../../__mocks__/cont
 import { getCurrentTime } from '../../lib/index.js'
 import { queueExternalMessages } from '../handle.js'
 import { setupMockShowStyleCompound } from '../../__mocks__/presetCollections.js'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import { getRandomId, omit } from '@sofie-automation/corelib/dist/lib'
 import { ExternalMessageQueueRunner } from '../ExternalMessageQueue.js'
 import { InvalidateWorkerDataCache, WorkerDataCacheWrapper } from '../../workers/caches.js'
@@ -56,6 +56,11 @@ describe('Test external message queue static methods', () => {
 				type: PlaylistTimingType.None,
 			},
 			rundownIdsInOrder: [protectString('rundown_1')],
+			tTimers: [
+				{ index: 1, label: '', mode: null, state: null },
+				{ index: 2, label: '', mode: null, state: null },
+				{ index: 3, label: '', mode: null, state: null },
+			],
 		})
 		await context.mockCollections.Rundowns.insertOne({
 			_id: protectString('rundown_1'),
@@ -201,6 +206,11 @@ describe('Test sending messages to mocked endpoints', () => {
 				type: PlaylistTimingType.None,
 			},
 			rundownIdsInOrder: [protectString('rundown_1')],
+			tTimers: [
+				{ index: 1, label: '', mode: null, state: null },
+				{ index: 2, label: '', mode: null, state: null },
+				{ index: 3, label: '', mode: null, state: null },
+			],
 		})
 
 		const rundown = (await context.mockCollections.Rundowns.findOne(rundownId)) as DBRundown

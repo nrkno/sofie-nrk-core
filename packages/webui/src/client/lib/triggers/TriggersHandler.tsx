@@ -1,31 +1,38 @@
-import * as React from 'react'
+import type * as React from 'react'
 import { useEffect, useRef, useState } from 'react'
-import { TFunction } from 'i18next'
+import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import Sorensen from '@sofie-automation/sorensen'
 import { MeteorPubSub } from '@sofie-automation/meteor-lib/dist/api/pubsub'
 import { useSubscription, useTracker } from '../ReactMeteorData/ReactMeteorData.js'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
-import { PlayoutActions, SomeAction, SomeBlueprintTrigger, TriggerType } from '@sofie-automation/blueprints-integration'
+import type { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
+import {
+	PlayoutActions,
+	type SomeAction,
+	type SomeBlueprintTrigger,
+	TriggerType,
+} from '@sofie-automation/blueprints-integration'
 import {
 	isPreviewableAction,
-	ReactivePlaylistActionContext,
+	type ReactivePlaylistActionContext,
 	createAction as libCreateAction,
 } from '@sofie-automation/meteor-lib/dist/triggers/actionFactory'
 import { flatten } from '@sofie-automation/corelib/dist/lib'
 import { protectString } from '@sofie-automation/shared-lib/dist/lib/protectedString'
-import { IWrappedAdLib } from '@sofie-automation/meteor-lib/dist/triggers/actionFilterChainCompilers'
+import type { IWrappedAdLib } from '@sofie-automation/meteor-lib/dist/triggers/actionFilterChainCompilers'
 import { ReactiveVar } from 'meteor/reactive-var'
 import { preventDefault } from '../SorensenContext.js'
 import { getFinalKey } from './codesToKeyLabels.js'
-import { RundownViewEvents, TriggerActionEvent } from '@sofie-automation/meteor-lib/dist/triggers/RundownViewEventBus'
+import {
+	RundownViewEvents,
+	type TriggerActionEvent,
+} from '@sofie-automation/meteor-lib/dist/triggers/RundownViewEventBus'
 import { Tracker } from 'meteor/tracker'
 import { Settings } from '../../lib/Settings.js'
 import { createInMemorySyncMongoCollection } from '../../collections/lib.js'
 import { RundownPlaylists } from '../../collections/index.js'
 import { UIShowStyleBases, UITriggeredActions } from '../../ui/Collections.js'
-import { UIShowStyleBase } from '@sofie-automation/meteor-lib/dist/api/showStyles'
-import {
+import type {
 	PartId,
 	RundownId,
 	RundownPlaylistId,
@@ -33,7 +40,7 @@ import {
 	StudioId,
 	TriggeredActionId,
 } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import {
+import type {
 	MountedAdLibTrigger,
 	MountedGenericTrigger,
 	MountedHotkeyMixin,
@@ -44,6 +51,7 @@ import { catchError, useRundownViewEventBusListener } from '../lib.js'
 import { logger } from '../logging.js'
 import { CorelibPubSub } from '@sofie-automation/corelib/dist/pubsub'
 import { toTriggersComputation, toTriggersReactiveVar, UiTriggersContext } from './triggersContext.js'
+import type { UIShowStyleBase } from '@sofie-automation/corelib/src/dataModel/ShowStyleBase.js'
 
 type HotkeyTriggerListener = (e: KeyboardEvent) => void
 

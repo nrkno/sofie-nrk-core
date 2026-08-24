@@ -131,12 +131,12 @@ function updatePartInstancePlannedTimes(
  * regeneration, items will already use the timestamps persited by `updatePlannedTimingsForPieceInstances` and will not
  * be included in `infiniteObjs`.
  */
-function deNowifyInfinites(
+export function deNowifyInfinites(
 	targetNowTime: number,
 	/** A list of objects that need to be updated */
 	infiniteObjs: TimelineObjRundown[],
 	timelineObjsMap: Record<string, TimelineObjRundown>
-) {
+): void {
 	/**
 	 * Recursively look up the absolute starttime of a timeline object
 	 * taking into account its parent's times.
@@ -335,13 +335,21 @@ function preserveOrTrackInfiniteTimings(
 	// Update the timeline group
 	const startedPlayback = plannedStartedPlayback ?? pieceInstance.pieceInstance.plannedStartedPlayback
 	if (startedPlayback) {
-		const infinitePartGroupId = getInfinitePartGroupId(pieceInstance.pieceInstance._id)
-		const infinitePartGroupObj = timelineObjsMap[infinitePartGroupId]
 		const pieceControlObjectId = getPieceControlObjectId(pieceInstance.pieceInstance)
 		const pieceControlObj = timelineObjsMap[pieceControlObjectId]
 
 		// this replicates what generateCurrentInfinitePieceObjects() does
 		let pieceEnableStartOffset = 0
+		if (
+			pieceControlObj &&
+			!Array.isArray(pieceControlObj.enable) &&
+			typeof pieceControlObj.enable?.start === 'number'
+		) {
+			pieceEnableStartOffset = pieceControlObj.enable.start
+		}
+
+		const infinitePartGroupId = getInfinitePartGroupId(pieceInstance.pieceInstance._id)
+		const infinitePartGroupObj = timelineObjsMap[infinitePartGroupId]
 		if (
 			pieceControlObj &&
 			!Array.isArray(pieceControlObj.enable) &&

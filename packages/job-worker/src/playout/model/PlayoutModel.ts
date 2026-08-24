@@ -17,7 +17,8 @@ import {
 	DBRundownPlaylist,
 	QuickLoopMarker,
 	RundownHoldState,
-} from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+} from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
+import { RundownTTimer } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/TTimers'
 import { ReadonlyDeep } from 'type-fest'
 import { StudioPlayoutModelBase, StudioPlayoutModelBaseReadonly } from '../../studio/model/StudioPlayoutModel.js'
 import { DBPart } from '@sofie-automation/corelib/dist/dataModel/Part'
@@ -328,10 +329,16 @@ export interface PlayoutModel extends PlayoutModelReadonly, StudioPlayoutModelBa
 	): void
 
 	/**
-	 * Store the blueprint persistent state
+	 * Store the blueprint private persistent state
 	 * @param persistentState Blueprint owned state
 	 */
-	setBlueprintPersistentState(persistentState: unknown | undefined): void
+	setBlueprintPrivatePersistentState(persistentState: unknown | undefined): void
+
+	/**
+	 * Store the blueprint public persistent state
+	 * @param persistentState Blueprint owned state
+	 */
+	setBlueprintPublicPersistentState(persistentState: unknown | undefined): void
 
 	/**
 	 * Set a PartInstance as the nexted PartInstance
@@ -374,6 +381,12 @@ export interface PlayoutModel extends PlayoutModelReadonly, StudioPlayoutModelBa
 	 */
 	setQuickLoopMarker(type: 'start' | 'end', marker: QuickLoopMarker | null): void
 
+	/**
+	 * Update a T-timer
+	 * @param timer Timer properties
+	 */
+	updateTTimer(timer: RundownTTimer): void
+
 	calculatePartTimings(
 		fromPartInstance: PlayoutPartInstanceModel | null,
 		toPartInstance: PlayoutPartInstanceModel,
@@ -386,6 +399,12 @@ export interface PlayoutModel extends PlayoutModelReadonly, StudioPlayoutModelBa
 	 * meaning that this function is monotonic.
 	 */
 	getNowInPlayout(): Time
+
+	/**
+	 * Mark the playlist as needing a timeline update.
+	 * The timeline will be generated and published when model is ready to be saved.
+	 */
+	markTimelineNeedsUpdate(): void
 
 	/** Lifecycle */
 

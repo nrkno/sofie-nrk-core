@@ -35,6 +35,7 @@ import {
 	handleRestoreRundownsInPlaylistToDefaultOrder,
 } from '../../rundownPlaylists.js'
 import { handleGeneratePlaylistSnapshot, handleRestorePlaylistSnapshot } from '../../playout/snapshot.js'
+import { handleOnSystemSnapshotCreated } from '../../playout/snapshotHooks.js'
 import {
 	handleBlueprintFixUpConfigForStudio,
 	handleBlueprintIgnoreFixUpConfigForStudio,
@@ -42,6 +43,7 @@ import {
 	handleBlueprintValidateConfigForStudio,
 } from '../../playout/upgrade.js'
 import { handleTimelineTriggerTime, handleOnPlayoutPlaybackChanged } from '../../playout/timings/index.js'
+import { handleOnExternalEvents } from '../../playout/externalEvents.js'
 import { handleExecuteAdlibAction } from '../../playout/adlibAction.js'
 import { handleTakeNextPart } from '../../playout/take.js'
 import { handleClearQuickLoopMarkers, handleSetQuickLoopMarker } from '../../playout/quickLoopMarkers.js'
@@ -49,6 +51,18 @@ import { handleActivateAdlibTesting } from '../../playout/adlibTesting.js'
 import { handleExecuteBucketAdLibOrAction } from '../../playout/bucketAdlibJobs.js'
 import { handleSwitchRouteSet } from '../../studio/routeSet.js'
 import { handleCleanupOrphanedExpectedPackageReferences } from '../../playout/expectedPackages.js'
+import {
+	handleRecalculateTTimerProjections,
+	handleTTimerClearProjected,
+	handleTTimerPause,
+	handleTTimerRestart,
+	handleTTimerResume,
+	handleTTimerSetProjectedAnchorPart,
+	handleTTimerSetProjectedDuration,
+	handleTTimerSetProjectedTime,
+	handleTTimerStartCountdown,
+	handleTTimerStartFreeRun,
+} from '../../playout/tTimersJobs.js'
 
 type ExecutableFunction<T extends keyof StudioJobFunc> = (
 	context: JobContext,
@@ -86,6 +100,9 @@ export const studioJobHandlers: StudioJobHandlers = {
 
 	[StudioJobs.OnPlayoutPlaybackChanged]: handleOnPlayoutPlaybackChanged,
 	[StudioJobs.OnTimelineTriggerTime]: handleTimelineTriggerTime,
+	[StudioJobs.OnExternalEvents]: handleOnExternalEvents,
+
+	[StudioJobs.RecalculateTTimerProjections]: handleRecalculateTTimerProjections,
 
 	[StudioJobs.UpdateStudioBaseline]: handleUpdateStudioBaseline,
 	[StudioJobs.CleanupEmptyPlaylists]: handleRemoveEmptyPlaylists,
@@ -98,6 +115,7 @@ export const studioJobHandlers: StudioJobHandlers = {
 
 	[StudioJobs.GeneratePlaylistSnapshot]: handleGeneratePlaylistSnapshot,
 	[StudioJobs.RestorePlaylistSnapshot]: handleRestorePlaylistSnapshot,
+	[StudioJobs.OnSystemSnapshotCreated]: handleOnSystemSnapshotCreated,
 	[StudioJobs.DebugCrash]: handleDebugCrash,
 
 	[StudioJobs.BlueprintUpgradeForStudio]: handleBlueprintUpgradeForStudio,
@@ -113,4 +131,14 @@ export const studioJobHandlers: StudioJobHandlers = {
 	[StudioJobs.SwitchRouteSet]: handleSwitchRouteSet,
 
 	[StudioJobs.CleanupOrphanedExpectedPackageReferences]: handleCleanupOrphanedExpectedPackageReferences,
+
+	[StudioJobs.TTimerStartCountdown]: handleTTimerStartCountdown,
+	[StudioJobs.TTimerStartFreeRun]: handleTTimerStartFreeRun,
+	[StudioJobs.TTimerPause]: handleTTimerPause,
+	[StudioJobs.TTimerResume]: handleTTimerResume,
+	[StudioJobs.TTimerRestart]: handleTTimerRestart,
+	[StudioJobs.TTimerClearProjected]: handleTTimerClearProjected,
+	[StudioJobs.TTimerSetProjectedAnchorPart]: handleTTimerSetProjectedAnchorPart,
+	[StudioJobs.TTimerSetProjectedTime]: handleTTimerSetProjectedTime,
+	[StudioJobs.TTimerSetProjectedDuration]: handleTTimerSetProjectedDuration,
 }

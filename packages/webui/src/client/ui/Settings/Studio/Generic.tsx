@@ -1,11 +1,11 @@
 import * as React from 'react'
-import { DBStudio, IStudioSettings } from '@sofie-automation/corelib/dist/dataModel/Studio'
+import type { DBStudio } from '@sofie-automation/corelib/dist/dataModel/Studio'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faExclamationTriangle } from '@fortawesome/free-solid-svg-icons'
 import { useTranslation } from 'react-i18next'
 import { EditAttribute } from '../../../lib/EditAttribute.js'
 import { StudioBaselineStatus } from './Baseline.js'
-import { ShowStyleBaseId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import type { ShowStyleBaseId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { ShowStyleBases, Studios } from '../../../collections/index.js'
 import { useHistory } from 'react-router-dom'
 import { MeteorCall } from '../../../lib/meteorApi.js'
@@ -17,19 +17,14 @@ import {
 	LabelAndOverridesForInt,
 } from '../../../lib/Components/LabelAndOverrides.js'
 import { catchError } from '../../../lib/lib.js'
-import { ForceQuickLoopAutoNext } from '@sofie-automation/shared-lib/dist/core/model/StudioSettings'
-import {
-	applyAndValidateOverrides,
-	ObjectWithOverrides,
-	SomeObjectOverrideOp,
-} from '@sofie-automation/corelib/dist/settings/objectWithOverrides'
-import { useOverrideOpHelper, WrappedOverridableItemNormal } from '../util/OverrideOpHelper.js'
+import { ForceQuickLoopAutoNext, ShelfButtonSize } from '@sofie-automation/shared-lib/dist/core/model/StudioSettings'
+import type { SomeObjectOverrideOp } from '@sofie-automation/corelib/dist/settings/objectWithOverrides'
+import { useOverrideOpHelperForSimpleObject } from '../util/OverrideOpHelper.js'
 import { IntInputControl } from '../../../lib/Components/IntInput.js'
-import { literal } from '@sofie-automation/corelib/dist/lib'
 import { useMemo } from 'react'
 import { CheckboxControl } from '../../../lib/Components/Checkbox.js'
 import { TextInputControl } from '../../../lib/Components/TextInput.js'
-import { DropdownInputControl, DropdownInputOption } from '../../../lib/Components/DropdownInput.js'
+import { DropdownInputControl, type DropdownInputOption } from '../../../lib/Components/DropdownInput.js'
 import { useTracker } from '../../../lib/ReactMeteorData/ReactMeteorData.js'
 import Button from 'react-bootstrap/Button'
 
@@ -161,32 +156,10 @@ function StudioSettings({ studio }: { studio: DBStudio }): JSX.Element {
 		[studio._id]
 	)
 
-	const [wrappedItem, wrappedConfigObject] = useMemo(() => {
-		const prefixedOps = studio.settingsWithOverrides.overrides.map((op) => ({
-			...op,
-			// TODO: can we avoid doing this hack?
-			path: `0.${op.path}`,
-		}))
-
-		const computedValue = applyAndValidateOverrides(studio.settingsWithOverrides).obj
-
-		const wrappedItem = literal<WrappedOverridableItemNormal<IStudioSettings>>({
-			type: 'normal',
-			id: '0',
-			computed: computedValue,
-			defaults: studio.settingsWithOverrides.defaults,
-			overrideOps: prefixedOps,
-		})
-
-		const wrappedConfigObject: ObjectWithOverrides<IStudioSettings> = {
-			defaults: studio.settingsWithOverrides.defaults,
-			overrides: prefixedOps,
-		}
-
-		return [wrappedItem, wrappedConfigObject]
-	}, [studio.settingsWithOverrides])
-
-	const overrideHelper = useOverrideOpHelper(saveOverrides, wrappedConfigObject)
+	const { overrideHelper, wrappedItem } = useOverrideOpHelperForSimpleObject(
+		saveOverrides,
+		studio.settingsWithOverrides
+	)
 
 	const autoNextOptions: DropdownInputOption<ForceQuickLoopAutoNext>[] = useMemo(
 		() => [
@@ -204,6 +177,22 @@ function StudioSettings({ studio }: { studio: DBStudio }): JSX.Element {
 				name: t('Enabled on all Parts, applying QuickLoop Fallback Part Duration if needed'),
 				value: ForceQuickLoopAutoNext.ENABLED_FORCING_MIN_DURATION,
 				i: 2,
+			},
+		],
+		[t]
+	)
+
+	const shelfAdlibButtonSizeOptions: DropdownInputOption<ShelfButtonSize.COMPACT | ShelfButtonSize.LARGE>[] = useMemo(
+		() => [
+			{
+				name: t('Large'),
+				value: ShelfButtonSize.LARGE,
+				i: 0,
+			},
+			{
+				name: t('Compact'),
+				value: ShelfButtonSize.COMPACT,
+				i: 1,
 			},
 		],
 		[t]
@@ -338,6 +327,18 @@ function StudioSettings({ studio }: { studio: DBStudio }): JSX.Element {
 			>
 				{(value, handleUpdate) => <CheckboxControl value={!!value} handleUpdate={handleUpdate} />}
 			</LabelAndOverridesForCheckbox>
+
+			<LabelAndOverridesForDropdown
+				label={t('Mini shelf AdLib button size')}
+				item={wrappedItem}
+				itemKey={'shelfAdlibButtonSize'}
+				overrideHelper={overrideHelper}
+				options={shelfAdlibButtonSizeOptions}
+			>
+				{(value, handleUpdate, options) => (
+					<DropdownInputControl options={options} value={value} handleUpdate={handleUpdate} />
+				)}
+			</LabelAndOverridesForDropdown>
 
 			<LabelAndOverridesForCheckbox
 				label={t('Enable User Editing')}

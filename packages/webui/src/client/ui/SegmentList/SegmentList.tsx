@@ -1,22 +1,31 @@
-import React, { ReactNode, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import React, { type ReactNode, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import classNames from 'classnames'
-import { DBRundownPlaylist, RundownHoldState } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import {
+	type DBRundownPlaylist,
+	RundownHoldState,
+} from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import { UIStateStorage } from '../../lib/UIStateStorage.js'
-import { PartUi, PieceUi, SegmentNoteCounts, SegmentUi } from '../SegmentContainer/withResolvedSegment.js'
-import { IContextMenuContext } from '../RundownView.js'
+import type { PartUi, SegmentNoteCounts, SegmentUi } from '../SegmentContainer/withResolvedSegment.js'
+import type { IContextMenuContext } from '../RundownView.js'
 import { useCombinedRefs } from '../../lib/lib.js'
 import { literal } from '@sofie-automation/corelib/dist/lib'
 import { isPartPlayable } from '@sofie-automation/corelib/dist/dataModel/Part'
 import { LinePart } from './LinePart.js'
 import { unprotectString } from '@sofie-automation/corelib/dist/protectedString'
-import { ISourceLayerExtended } from '../../lib/RundownResolver.js'
-import { SegmentViewMode } from '../SegmentContainer/SegmentViewModes.js'
+import type { SegmentViewMode } from '../SegmentContainer/SegmentViewModes.js'
 import { SegmentListHeader } from './SegmentListHeader.js'
 import { useInView } from 'react-intersection-observer'
 import { getHeaderHeight } from '../../lib/viewPort.js'
-import { SegmentId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { NoteSeverity } from '@sofie-automation/blueprints-integration'
-import * as RundownResolver from '../../lib/RundownResolver.js'
+import type { SegmentId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import type { NoteSeverity } from '@sofie-automation/blueprints-integration'
+import type { PieceUi } from '@sofie-automation/corelib/src/dataModel/Piece.js'
+import type { ISourceLayerExtended } from '@sofie-automation/corelib/src/dataModel/ShowStyleBase.js'
+import {
+	isLoopRunning as getIsLoopRunning,
+	isQuickLoopStart as getIsQuickLoopStart,
+	isQuickLoopEnd as getIsQuickLoopEnd,
+	isEntirePlaylistLooping as getIsEntirePlaylistLooping,
+} from '@sofie-automation/corelib/src/playout/stateCacheResolver.js'
 
 interface IProps {
 	id: string
@@ -134,8 +143,8 @@ const SegmentListInner = React.forwardRef<HTMLDivElement, IProps>(function Segme
 		// if (isLivePart) currentPartIndex = index
 		// if (isNextPart) nextPartIndex = index
 
-		const isPlaylistLooping = RundownResolver.isLoopRunning(props.playlist)
-		const isEntirePlaylistLooping = RundownResolver.isEntirePlaylistLooping(props.playlist)
+		const isPlaylistLooping = getIsLoopRunning(props.playlist)
+		const isEntirePlaylistLooping = getIsEntirePlaylistLooping(props.playlist)
 
 		if (part.instance.part.invalid && part.instance.part.gap) return null
 
@@ -161,8 +170,8 @@ const SegmentListInner = React.forwardRef<HTMLDivElement, IProps>(function Segme
 				onContextMenu={props.onContextMenu}
 				isPlaylistLooping={isPlaylistLooping}
 				isEntirePlaylistLooping={isEntirePlaylistLooping}
-				isQuickLoopStart={RundownResolver.isQuickLoopStart(part.partId, props.playlist)}
-				isQuickLoopEnd={RundownResolver.isQuickLoopEnd(part.partId, props.playlist)}
+				isQuickLoopStart={getIsQuickLoopStart(part.partId, props.playlist)}
+				isQuickLoopEnd={getIsQuickLoopEnd(part.partId, props.playlist)}
 			/>
 		)
 

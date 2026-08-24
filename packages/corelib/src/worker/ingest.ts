@@ -3,6 +3,7 @@ import {
 	BucketAdLibId,
 	BucketId,
 	ExpectedPackageId,
+	PartId,
 	RundownId,
 	SegmentId,
 	ShowStyleBaseId,
@@ -19,6 +20,7 @@ import {
 } from '@sofie-automation/blueprints-integration'
 import { BucketAdLibAction } from '../dataModel/BucketAdLibAction.js'
 import { RundownSource } from '../dataModel/Rundown.js'
+import { BucketAdLib } from '../dataModel/BucketAdLibPiece.js'
 
 export enum IngestJobs {
 	/**
@@ -122,6 +124,11 @@ export enum IngestJobs {
 	 * User executed a change operation
 	 */
 	UserExecuteChangeOperation = 'userExecuteChangeOperation',
+
+	/**
+	 * Playout executed a change operation
+	 */
+	PlayoutExecuteChangeOperation = 'playoutExecuteChangeOperation',
 
 	// For now these are in this queue, but if this gets split up to be per rundown, then a single bucket queue will be needed
 	BucketItemImport = 'bucketItemImport',
@@ -242,6 +249,12 @@ export interface UserExecuteChangeOperationProps extends IngestPropsBase {
 	operation: { id: string; [key: string]: any }
 }
 
+export interface PlayoutExecuteChangeOperationProps extends IngestPropsBase {
+	segmentId: SegmentId | null
+	partId: PartId | null
+	operation: unknown
+}
+
 export interface BucketItemImportProps {
 	bucketId: BucketId
 	showStyleBaseId: ShowStyleBaseId
@@ -261,7 +274,7 @@ export interface BucketActionModifyProps {
 }
 export interface BucketPieceModifyProps {
 	pieceId: BucketAdLibId
-	props: Partial<Omit<BucketAdLibAction, '_id'>>
+	props: Partial<Omit<BucketAdLib, '_id'>>
 }
 export interface BucketRemoveAdlibPieceProps {
 	pieceId: BucketAdLibId
@@ -310,6 +323,7 @@ export type IngestJobFunc = {
 	[IngestJobs.UserRemoveRundown]: (data: UserRemoveRundownProps) => void
 	[IngestJobs.UserUnsyncRundown]: (data: UserUnsyncRundownProps) => void
 	[IngestJobs.UserExecuteChangeOperation]: (data: UserExecuteChangeOperationProps) => void
+	[IngestJobs.PlayoutExecuteChangeOperation]: (data: PlayoutExecuteChangeOperationProps) => void
 
 	[IngestJobs.BucketItemImport]: (data: BucketItemImportProps) => void
 	[IngestJobs.BucketItemRegenerate]: (data: BucketItemRegenerateProps) => void

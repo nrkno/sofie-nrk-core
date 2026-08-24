@@ -12,6 +12,7 @@ import {
 	StatusCode,
 	TSR,
 } from '@sofie-automation/blueprints-integration'
+import { ShelfButtonSize } from '@sofie-automation/shared-lib/dist/core/model/StudioSettings'
 import {
 	PeripheralDeviceType,
 	PeripheralDeviceCategory,
@@ -21,7 +22,6 @@ import {
 import { SYSTEM_ID } from '@sofie-automation/meteor-lib/dist/collections/CoreSystem'
 import * as lib from '../lib/lib'
 import { DBPart } from '@sofie-automation/corelib/dist/dataModel/Part'
-import { PartInstance } from '@sofie-automation/meteor-lib/dist/collections/PartInstances'
 import { PieceInstance } from '@sofie-automation/corelib/dist/dataModel/PieceInstance'
 import { Meteor } from 'meteor/meteor'
 import { EmptyPieceTimelineObjectsBlob } from '@sofie-automation/corelib/dist/dataModel/Piece'
@@ -76,6 +76,7 @@ import { DBSegment } from '@sofie-automation/corelib/dist/dataModel/Segment'
 import { Settings } from '../Settings'
 import { SofieIngestCacheType } from '@sofie-automation/corelib/dist/dataModel/SofieIngestDataCache'
 import { ObjectOverrideSetOp, ObjectWithOverrides } from '@sofie-automation/corelib/dist/settings/objectWithOverrides'
+import { PartInstance } from '@sofie-automation/corelib/dist/dataModel/PartInstance'
 
 describe('cronjobs', () => {
 	let env: DefaultEnvironment
@@ -458,6 +459,7 @@ describe('cronjobs', () => {
 				_id: snapshot0,
 				comment: '',
 				fileName: '',
+				longname: '',
 				name: '',
 				type: SnapshotType.DEBUG,
 				version: '',
@@ -471,6 +473,7 @@ describe('cronjobs', () => {
 				comment: '',
 				fileName: '',
 				name: '',
+				longname: '',
 				type: SnapshotType.DEBUG,
 				version: '',
 				// Very old:
@@ -507,6 +510,7 @@ describe('cronjobs', () => {
 				name: props.deviceName,
 				status: {
 					statusCode: StatusCode.GOOD,
+					statusDetails: [],
 				},
 				token: '',
 				...props,
@@ -588,12 +592,15 @@ describe('cronjobs', () => {
 					frameRate: 25,
 					mediaPreviewsUrl: '',
 					minimumTakeSpan: 1000,
+					shelfAdlibButtonSize: ShelfButtonSize.LARGE,
 				}),
 				routeSetsWithOverrides: newObjectWithOverrides({}),
 				routeSetExclusivityGroupsWithOverrides: newObjectWithOverrides({}),
 				packageContainersWithOverrides: newObjectWithOverrides({}),
-				previewContainerIds: [],
-				thumbnailContainerIds: [],
+				packageContainerSettingsWithOverrides: newObjectWithOverrides({
+					previewContainerIds: [],
+					thumbnailContainerIds: [],
+				}),
 				peripheralDeviceSettings: {
 					deviceSettings: newObjectWithOverrides({}),
 					ingestDevices: newObjectWithOverrides({}),
@@ -618,6 +625,11 @@ describe('cronjobs', () => {
 					type: PlaylistTimingType.None,
 				},
 				activationId: protectString(''),
+				tTimers: [
+					{ index: 1, label: '', mode: null, state: null },
+					{ index: 2, label: '', mode: null, state: null },
+					{ index: 3, label: '', mode: null, state: null },
+				],
 			})
 
 			return {

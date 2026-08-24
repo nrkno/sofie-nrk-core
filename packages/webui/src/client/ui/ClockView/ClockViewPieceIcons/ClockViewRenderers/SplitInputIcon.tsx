@@ -1,8 +1,8 @@
 import * as React from 'react'
-import { PieceGeneric } from '@sofie-automation/corelib/dist/dataModel/Piece'
-import { SplitsContent, SourceLayerType } from '@sofie-automation/blueprints-integration'
+import type { PieceGeneric } from '@sofie-automation/corelib/dist/dataModel/Piece'
+import { type SplitsContent, SourceLayerType } from '@sofie-automation/blueprints-integration'
+import type { ReadonlyDeep } from 'type-fest'
 import { RundownUtils } from '../../../../lib/rundown.js'
-import { ReadonlyDeep } from 'type-fest'
 
 type SplitIconPieceType = ReadonlyDeep<Omit<PieceGeneric, 'timelineObjectsString'>>
 

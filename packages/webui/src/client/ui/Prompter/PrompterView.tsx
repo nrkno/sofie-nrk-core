@@ -1,13 +1,13 @@
-import React, { PropsWithChildren } from 'react'
+import React, { createContext, type PropsWithChildren, type ReactNode, useRef } from 'react'
 import _ from 'underscore'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import type { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import ClassNames from 'classnames'
 import { Meteor } from 'meteor/meteor'
 import { parse as queryStringParse } from 'query-string'
 import { Route } from 'react-router-dom'
-import { animate, AnimationPlaybackControls } from 'motion'
+import { animate, type AnimationPlaybackControls } from 'motion'
 import {
-	Translated,
+	type Translated,
 	useGlobalDelayedTrackerUpdateState,
 	useSubscription,
 	useSubscriptionIfEnabled,
@@ -15,12 +15,11 @@ import {
 	useTracker,
 } from '../../lib/ReactMeteorData/ReactMeteorData.js'
 
-import { PartInstanceId, PieceId, RundownPlaylistId, StudioId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { Rundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
+import type { PartInstanceId, PieceId, RundownPlaylistId, StudioId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import type { Rundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
 import { CorelibPubSub } from '@sofie-automation/corelib/dist/pubsub'
 import { withTranslation } from 'react-i18next'
 import { MeteorPubSub } from '@sofie-automation/meteor-lib/dist/api/pubsub'
-import { UIStudio } from '@sofie-automation/meteor-lib/dist/api/studios'
 import { RundownPlaylistCollectionUtil } from '../../collections/rundownPlaylistUtil.js'
 import { firstIfArray } from '../../lib/lib.js'
 import { protectString } from '@sofie-automation/corelib/dist/protectedString'
@@ -32,13 +31,19 @@ import { UIStudios } from '../Collections.js'
 import { RundownTimingProvider } from '../RundownView/RundownTiming/RundownTimingProvider.js'
 import { StudioScreenSaver } from '../StudioScreenSaver/StudioScreenSaver.js'
 import { PrompterControlManager } from './controller/manager.js'
-import { OverUnderTimer } from './OverUnderTimer.js'
-import { PrompterAPI, PrompterData, PrompterDataPart } from './prompter.js'
+import { RundownStatusBar } from '../ClockView/RundownStatusBar.js'
+import { PrompterAPI, type PrompterData, type PrompterDataPart, type PrompterDataPiece } from './prompter.js'
 import { doUserAction, UserAction } from '../../lib/clientUserAction.js'
 import { MeteorCall } from '../../lib/meteorApi.js'
+import { MdDisplay } from './Formatted/MdDisplay.js'
+import type { UIStudio } from '@sofie-automation/corelib/src/dataModel/Studio.js'
+import { OverUnderChip } from '../../lib/Components/OverUnderChip.js'
 
 const DEFAULT_UPDATE_THROTTLE = 250 //ms
 const PIECE_MISSING_UPDATE_THROTTLE = 2000 //ms
+const FROZEN_UPDATE_THROTTLE = 50 //ms
+
+const PIECE_CONTINUATION_CLASS = 'continuation'
 
 interface PrompterConfig {
 	mirror?: boolean
@@ -66,11 +71,13 @@ interface PrompterConfig {
 	xbox_speedMap?: number[]
 	xbox_reverseSpeedMap?: number[]
 	xbox_triggerDeadZone?: number
+	shuttleWebHid_buttonMap?: string[]
 	marker?: 'center' | 'top' | 'bottom' | 'hide'
 	showMarker: boolean
 	showScroll: boolean
 	debug: boolean
 	showOverUnder: boolean
+	showPlaylistName: boolean
 	addBlankLine: boolean
 }
 
@@ -119,7 +126,24 @@ function asArray<T>(value: T | T[] | null): T[] {
 	}
 }
 
+interface PrompterStore {
+	isFrozen: boolean
+}
+
+type PrompterStoreRef = React.MutableRefObject<PrompterStore>
+
+const PrompterStoreContext = createContext<PrompterStoreRef | null>(null)
+
+export function PrompterStoreProvider({ children }: { children: ReactNode }): JSX.Element {
+	const storeRef = useRef<PrompterStore>({ isFrozen: false })
+
+	return <PrompterStoreContext.Provider value={storeRef}>{children}</PrompterStoreContext.Provider>
+}
+
 export class PrompterViewContent extends React.Component<Translated<IProps & ITrackedProps>, IState> {
+	static contextType = PrompterStoreContext
+	declare context: PrompterStoreRef
+
 	autoScrollPreviousPartInstanceId: PartInstanceId | null = null
 
 	configOptions: PrompterConfig
@@ -130,16 +154,15 @@ export class PrompterViewContent extends React.Component<Translated<IProps & ITr
 	private _lastAnimation: AnimationPlaybackControls | null = null
 
 	private checkWindowScroll: number | null = null
+	private _onContextMenu = (e: Event) => {
+		e.preventDefault()
+	}
 
 	constructor(props: Translated<IProps & ITrackedProps>) {
 		super(props)
 		this.state = {
 			accessRequestCallbacks: [],
 		}
-		// Disable the context menu:
-		document.addEventListener('contextmenu', (e) => {
-			e.preventDefault()
-		})
 
 		const queryParams = queryStringParse(location.search, {
 			arrayFormat: 'comma',
@@ -192,11 +215,13 @@ export class PrompterViewContent extends React.Component<Translated<IProps & ITr
 				const val = Number.parseFloat(firstIfArray(queryParams['xbox_triggerDeadZone']) as string)
 				return Number.isNaN(val) ? undefined : val
 			})(),
+			shuttleWebHid_buttonMap: asArray(queryParams['shuttleWebHid_buttonMap']),
 			marker: (firstIfArray(queryParams['marker']) as any) || undefined,
 			showMarker: queryParams['showmarker'] === undefined ? true : queryParams['showmarker'] === '1',
 			showScroll: queryParams['showscroll'] === undefined ? true : queryParams['showscroll'] === '1',
 			debug: queryParams['debug'] === undefined ? false : queryParams['debug'] === '1',
 			showOverUnder: queryParams['showoverunder'] === undefined ? true : queryParams['showoverunder'] === '1',
+			showPlaylistName: queryParams['showplaylistname'] === '1',
 			addBlankLine: queryParams['addblanklinke'] === undefined ? true : queryParams['adblankline'] === '1',
 		}
 
@@ -250,6 +275,8 @@ export class PrompterViewContent extends React.Component<Translated<IProps & ITr
 			this.configOptions.showScroll ? 'vertical-overflow-only' : 'no-overflow'
 		)
 		document.body.setAttribute('data-bs-theme', 'dark')
+		// Disable the context menu:
+		document.addEventListener('contextmenu', this._onContextMenu)
 		window.addEventListener('scroll', this.onWindowScroll)
 
 		this.triggerCheckCurrentTakeMarkers()
@@ -260,6 +287,9 @@ export class PrompterViewContent extends React.Component<Translated<IProps & ITr
 
 	componentWillUnmount(): void {
 		documentTitle.set(null)
+
+		this._lastAnimation?.stop()
+		this.context.current.isFrozen = false
 
 		const themeColor = document.head.querySelector('meta[name="theme-color"]')
 		if (themeColor) {
@@ -273,6 +303,7 @@ export class PrompterViewContent extends React.Component<Translated<IProps & ITr
 			this.configOptions.showScroll ? 'vertical-overflow-only' : 'no-overflow'
 		)
 		document.body.removeAttribute('data-bs-theme')
+		document.removeEventListener('contextmenu', this._onContextMenu)
 		window.removeEventListener('scroll', this.onWindowScroll)
 	}
 
@@ -298,7 +329,9 @@ export class PrompterViewContent extends React.Component<Translated<IProps & ITr
 		this.autoScrollPreviousPartInstanceId = playlist.currentPartInfo?.partInstanceId ?? null
 		if (playlist.currentPartInfo === null) return
 
-		this.scrollToPartInstance(playlist.currentPartInfo.partInstanceId)
+		// scrolls to a part instance, but only if it isn't showing a continuation of an infinite script piece
+		// those should not be scrolled to, because they are handled by restoreScrollAnchor
+		this.scrollToPartInstanceIfNotContinuation(playlist.currentPartInfo.partInstanceId)
 	}
 	private calculateScrollPosition() {
 		let pixelMargin = this.calculateMarginPosition()
@@ -333,9 +366,11 @@ export class PrompterViewContent extends React.Component<Translated<IProps & ITr
 		}))
 	}
 
-	scrollToPartInstance(partInstanceId: PartInstanceId): void {
+	scrollToPartInstanceIfNotContinuation(partInstanceId: PartInstanceId): void {
 		const scrollMargin = this.calculateScrollPosition()
-		const target = document.querySelector<HTMLElement>(`[data-part-instance-id="${partInstanceId}"]`)
+		const target = document.querySelector<HTMLElement>(
+			`[data-part-instance-id="${partInstanceId}"]:not(:has(+ div.${PIECE_CONTINUATION_CLASS}))`
+		)
 
 		if (!target) return
 
@@ -383,14 +418,14 @@ export class PrompterViewContent extends React.Component<Translated<IProps & ITr
 	}
 	private animateScrollTo(scrollToPosition: number) {
 		this._lastAnimation?.stop()
+		this.context.current.isFrozen = true
 		this._lastAnimation = animate(window.scrollY, scrollToPosition, {
 			duration: 0.4,
 			ease: 'easeOut',
-			onUpdate: (latest: number) =>
-				window.scrollTo({
-					top: latest,
-					behavior: 'instant',
-				}),
+			onUpdate: (latest) => window.scrollTo({ top: latest, behavior: 'instant' }),
+			onComplete: () => {
+				this.context.current.isFrozen = false
+			},
 		})
 	}
 	listAnchorPositions(startY: number, endY: number, sortDirection = 1): [number, Element][] {
@@ -422,6 +457,19 @@ export class PrompterViewContent extends React.Component<Translated<IProps & ITr
 			MeteorCall.userAction.take(e, ts, playlist._id, playlist.currentPartInfo?.partInstanceId ?? null)
 		)
 	}
+
+	executeAction(e: Event | string, actionId: string, triggerMode?: string): void {
+		const { t } = this.props
+		if (!this.props.rundownPlaylist) {
+			logger.error('No active Rundown Playlist to execute the action in')
+			return
+		}
+		const playlist = this.props.rundownPlaylist
+		doUserAction(t, e, UserAction.START_GLOBAL_ADLIB, (e, ts) =>
+			MeteorCall.userAction.executeAction(e, ts, playlist._id, null, actionId, null, triggerMode)
+		)
+	}
+
 	private onWindowScroll = () => {
 		this.triggerCheckCurrentTakeMarkers()
 	}
@@ -544,14 +592,6 @@ export class PrompterViewContent extends React.Component<Translated<IProps & ITr
 	render(): JSX.Element {
 		const { t } = this.props
 
-		const overUnderStyle: React.CSSProperties = {
-			marginTop: this.configOptions.margin ? `${this.configOptions.margin}vh` : undefined,
-			marginBottom: this.configOptions.margin ? `${this.configOptions.margin}vh` : undefined,
-			marginRight: this.configOptions.margin ? `${this.configOptions.margin}vw` : undefined,
-			marginLeft: this.configOptions.margin ? `${this.configOptions.margin}vw` : undefined,
-			fontSize: (this.configOptions.fontSize ?? 0) > 12 ? `12vmin` : undefined,
-		}
-
 		return (
 			<React.Fragment>
 				{!this.props.subsReady ? (
@@ -567,9 +607,17 @@ export class PrompterViewContent extends React.Component<Translated<IProps & ITr
 								allowTestingAdlibsToPersist={this.props.studio?.settings.allowTestingAdlibsToPersist ?? false}
 							>
 								{this.configOptions.showOverUnder && (
-									<OverUnderTimer rundownPlaylist={this.props.rundownPlaylist} style={overUnderStyle} />
+									<OverUnderChip
+										className="screen-timing-clock over-under-chip--overlay"
+										rundownPlaylist={this.props.rundownPlaylist}
+									/>
 								)}
 							</Prompter>
+							<RundownStatusBar
+								playlist={this.props.rundownPlaylist}
+								className="prompter-rundown-status-bar"
+								showPlaylistName={this.configOptions.showPlaylistName}
+							/>
 						</RundownTimingProvider>
 						{this.configOptions.debug ? (
 							<div
@@ -642,12 +690,14 @@ export function PrompterView(props: Readonly<IProps>): JSX.Element {
 	)
 
 	return (
-		<PrompterViewContentWithTranslation
-			{...props}
-			studio={studio}
-			rundownPlaylist={rundownPlaylist}
-			subsReady={allSubsReady}
-		/>
+		<PrompterStoreProvider>
+			<PrompterViewContentWithTranslation
+				{...props}
+				studio={studio}
+				rundownPlaylist={rundownPlaylist}
+				subsReady={allSubsReady}
+			/>
+		</PrompterStoreProvider>
 	)
 }
 
@@ -664,6 +714,7 @@ interface ScrollAnchor {
 	/** offset to use to scroll the anchor. null means "just scroll the anchor into view, best effort" */
 	offset: number | null
 	anchorId: string
+	continuationOfId?: string
 }
 type PrompterSnapshot = ScrollAnchor[] | null
 
@@ -722,6 +773,9 @@ const PrompterContent = withTranslation()(
 		Translated<PropsWithChildren<IPrompterProps> & IPrompterTrackedProps>,
 		{}
 	> {
+		static contextType = PrompterStoreContext
+		declare context: PrompterStoreRef
+
 		private _debounceUpdate: NodeJS.Timeout | undefined
 
 		constructor(props: Translated<PropsWithChildren<IPrompterProps> & IPrompterTrackedProps>) {
@@ -750,10 +804,9 @@ const PrompterContent = withTranslation()(
 		getScrollAnchors = (): ScrollAnchor[] => {
 			const readPosition = this.getReadPosition()
 
-			const useableTextAnchors: {
+			const useableTextAnchors: (ScrollAnchor & {
 				offset: number
-				anchorId: string
-			}[] = []
+			})[] = []
 			/** Maps anchorId -> offset */
 			const foundScrollAnchors: (ScrollAnchor & {
 				/** Positive number. How "good" the anchor is. The anchor with the lowest number will preferred later. */
@@ -775,29 +828,43 @@ const PrompterContent = withTranslation()(
 
 			// Gather anchors from any text blocks in view:
 
-			for (const textAnchor of document.querySelectorAll('.prompter .prompter-line:not(.empty)')) {
+			for (const textAnchor of document.querySelectorAll<HTMLElement>('.prompter .prompter-line:not(.empty)')) {
 				const { top, bottom } = textAnchor.getBoundingClientRect()
 
 				// Is the text block in view?
 				if (top <= readPosition && bottom > readPosition) {
-					useableTextAnchors.push({ anchorId: textAnchor.id, offset: top })
+					useableTextAnchors.push({
+						anchorId: textAnchor.id,
+						offset: top,
+						continuationOfId: textAnchor.dataset.liveContinuationOf,
+					})
 				}
 			}
 
 			// Also use scroll-anchors (Segment and Part names)
 
-			for (const scrollAnchor of document.querySelectorAll('.prompter .scroll-anchor')) {
+			for (const scrollAnchor of document.querySelectorAll<HTMLElement>('.prompter .scroll-anchor')) {
 				const { top, bottom } = scrollAnchor.getBoundingClientRect()
 
 				const distanceToReadPosition = Math.abs(top - readPosition)
 
 				if (top <= windowInnerHeight && bottom > 0) {
 					// If the anchor is in view, use the offset to keep it's position unchanged, relative to the viewport
-					foundScrollAnchors.push({ anchorId: scrollAnchor.id, distanceToReadPosition, offset: top })
+					foundScrollAnchors.push({
+						anchorId: scrollAnchor.id,
+						distanceToReadPosition,
+						offset: top,
+						continuationOfId: scrollAnchor.dataset.liveContinuationOf,
+					})
 				} else {
 					// If the anchor is not in view, set the offset to null, this will cause the view to
 					// jump so that the anchor will be in view.
-					foundScrollAnchors.push({ anchorId: scrollAnchor.id, distanceToReadPosition, offset: null })
+					foundScrollAnchors.push({
+						anchorId: scrollAnchor.id,
+						distanceToReadPosition,
+						offset: null,
+						continuationOfId: scrollAnchor.dataset.liveContinuationOf,
+					})
 				}
 			}
 
@@ -823,7 +890,19 @@ const PrompterContent = withTranslation()(
 
 			// Go through the anchors and use the first one that we find:
 			for (const scrollAnchor of scrollAnchors) {
-				const anchor = document.getElementById(scrollAnchor.anchorId)
+				// if there is a live continuation of this anchor (or anchor that this anchor continues), it should be prioritized over the actual anchor, which now likely is empty
+				let anchor = document.querySelector(
+					`[data-live-continuation-of="${scrollAnchor.continuationOfId || scrollAnchor.anchorId}"]`
+				)
+				// in case the anchor is already a continuation, but the script returned to its original part:
+				if (!anchor && scrollAnchor.continuationOfId) {
+					anchor = document.getElementById(scrollAnchor.continuationOfId)
+				}
+				// in case of a regular anchor:
+				if (!anchor && !scrollAnchor.continuationOfId) {
+					anchor = document.getElementById(scrollAnchor.anchorId)
+				}
+
 				if (!anchor) continue
 
 				const { top } = anchor.getBoundingClientRect()
@@ -859,7 +938,7 @@ const PrompterContent = withTranslation()(
 			logger.error(
 				`Read anchor could not be found after update: ${scrollAnchors
 					.slice(0, 10)
-					.map((sa) => `"${sa.anchorId}" (${sa.offset})`)
+					.map((sa) => `"${sa.anchorId}" (offset: ${sa.offset}, continuationOfId: ${sa.continuationOfId})`)
 					.join(', ')}`
 			)
 
@@ -902,26 +981,28 @@ const PrompterContent = withTranslation()(
 			const { prompterData } = this.props
 			const { prompterData: nextPrompterData } = nextProps
 
-			const currentPrompterPieces = _.flatten(
-				prompterData?.rundowns.map((rundown) =>
-					rundown.segments.map((segment) =>
-						segment.parts.map((part) =>
-							// collect all the PieceId's of all the non-empty pieces of script
-							_.compact(part.pieces.map((dataPiece) => (dataPiece.text !== '' ? dataPiece.id : null)))
+			const hasPrompterText = (piece: PrompterDataPiece) => {
+				const prompterText = piece.formattedText ?? piece.text
+				return prompterText !== undefined && prompterText !== ''
+			}
+
+			const getPrompterPieceIds = (data: PrompterData | null): PieceId[] => {
+				if (!data) return []
+
+				return _.compact(
+					data.rundowns.flatMap((rundown) =>
+						rundown.segments.flatMap((segment) =>
+							segment.parts.flatMap((part) =>
+								// collect all the PieceId's of all the non-empty pieces of script
+								part.pieces.map((dataPiece) => (hasPrompterText(dataPiece) ? dataPiece.id : null))
+							)
 						)
 					)
-				) ?? []
-			) as PieceId[]
-			const nextPrompterPieces = _.flatten(
-				nextPrompterData?.rundowns.map((rundown) =>
-					rundown.segments.map((segment) =>
-						segment.parts.map((part) =>
-							// collect all the PieceId's of all the non-empty pieces of script
-							_.compact(part.pieces.map((dataPiece) => (dataPiece.text !== '' ? dataPiece.id : null)))
-						)
-					)
-				) ?? []
-			) as PieceId[]
+				)
+			}
+
+			const currentPrompterPieces = getPrompterPieceIds(prompterData)
+			const nextPrompterPieces = getPrompterPieceIds(nextPrompterData)
 
 			// Flag for marking that a Piece is going missing during the update (was present in prompterData
 			// no longer present in nextPrompterData)
@@ -942,6 +1023,15 @@ const PrompterContent = withTranslation()(
 			clearTimeout(this._debounceUpdate)
 			this._debounceUpdate = setTimeout(() => this.forceUpdate(), delay)
 			return false
+		}
+
+		forceUpdate(callback?: () => void): void {
+			if (this.context.current.isFrozen) {
+				clearTimeout(this._debounceUpdate)
+				this._debounceUpdate = setTimeout(() => this.forceUpdate(), FROZEN_UPDATE_THROTTLE)
+				return
+			}
+			super.forceUpdate(callback)
 		}
 
 		getSnapshotBeforeUpdate(): PrompterSnapshot {
@@ -991,15 +1081,15 @@ const PrompterContent = withTranslation()(
 						return
 					}
 
-					const firstPart = segment.parts[0]
-					const firstPartStatus = this.getPartStatus(prompterData, firstPart)
+					let pieceIdToHideScript: PieceId | undefined
+					const partStatuses = segment.parts.map((part) => this.getPartStatus(prompterData, part))
 
 					lines.push(
 						<div
 							id={`segment_${segment.id}`}
 							data-obj-id={segment.id}
 							key={'segment_' + segment.id}
-							className={ClassNames('prompter-segment', 'scroll-anchor', firstPartStatus)}
+							className={ClassNames('prompter-segment', 'scroll-anchor', partStatuses[0])}
 						>
 							{segment.title || 'N/A'}
 						</div>
@@ -1007,32 +1097,70 @@ const PrompterContent = withTranslation()(
 
 					hasInsertedScript = true
 
+					for (let i = 0; i < segment.parts.length; i++) {
+						const part = segment.parts[i]
+
+						const firstPiece = part.pieces[0]
+						if (
+							firstPiece &&
+							firstPiece.continuationOf &&
+							partStatuses[i] === 'live' &&
+							firstPiece.startPartId &&
+							segment.parts.find((part) => part.id === firstPiece.startPartId)
+						) {
+							// the i-th part is live and has taken over the infinite script from the start part,
+							// therefore we need to hide the script from the start part
+							pieceIdToHideScript = firstPiece.continuationOf
+							break
+						}
+					}
+
 					for (const part of segment.parts) {
+						const partStatus = this.getPartStatus(prompterData, part)
+						const firstPiece = part.pieces[0]
+						const continuesFromPart = firstPiece?.continuationOf && firstPiece.startPartId
 						lines.push(
 							<div
 								id={`part_${part.id}`}
 								data-obj-id={segment.id + '_' + part.id}
 								data-part-instance-id={part.partInstanceId}
+								data-live-continuation-of={
+									partStatus === 'live' && continuesFromPart ? `part_${continuesFromPart}` : undefined
+								}
 								key={'part_' + part.id}
-								className={ClassNames('prompter-part', 'scroll-anchor', this.getPartStatus(prompterData, part))}
+								className={ClassNames('prompter-part', 'scroll-anchor', partStatus)}
 							>
 								{part.title || 'N/A'}
 							</div>
 						)
 
 						for (const line of part.pieces) {
+							const isFormatted = line.formattedText !== undefined
+							let text = (isFormatted ? line.formattedText : line.text) || ''
+							if (line.id === pieceIdToHideScript) {
+								text = ''
+							}
+							if (line.continuationOf && partStatus !== 'live') {
+								// if a continuation is not in a live part, it should not display its text
+								text = ''
+							}
+
 							lines.push(
 								<div
 									id={`line_${line.id}`}
 									data-obj-id={segment.id + '_' + part.id + '_' + line.id}
 									key={'line_' + part.id + '_' + segment.id + '_' + line.id}
-									className={ClassNames(
-										'prompter-line',
-										this.props.config.addBlankLine ? 'add-blank' : undefined,
-										!line.text ? 'empty' : undefined
-									)}
+									data-live-continuation-of={
+										partStatus === 'live' && line.continuationOf ? `line_${line.continuationOf}` : undefined
+									}
+									className={ClassNames('prompter-line', {
+										'add-blank': this.props.config.addBlankLine,
+										empty: !text,
+										[PIECE_CONTINUATION_CLASS]: line.continuationOf,
+										'script-text-formatted': isFormatted,
+									})}
 								>
-									{line.text || ''}
+									{isFormatted ? <MdDisplay source={text} /> : text}
 								</div>
 							)
 						}

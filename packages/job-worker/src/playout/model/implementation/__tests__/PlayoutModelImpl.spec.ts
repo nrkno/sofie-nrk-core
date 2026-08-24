@@ -1,4 +1,5 @@
 import { JSONBlobStringify, PieceLifespan, StatusCode } from '@sofie-automation/blueprints-integration'
+import { ForceQuickLoopAutoNext } from '@sofie-automation/shared-lib/dist/core/model/StudioSettings'
 import { AdLibPiece } from '@sofie-automation/corelib/dist/dataModel/AdLibPiece'
 import {
 	PartInstanceId,
@@ -14,6 +15,7 @@ import {
 } from '@sofie-automation/corelib/dist/dataModel/PeripheralDevice'
 import { EmptyPieceTimelineObjectsBlob, Piece } from '@sofie-automation/corelib/dist/dataModel/Piece'
 import { PieceInstance } from '@sofie-automation/corelib/dist/dataModel/PieceInstance'
+import { QuickLoopMarkerType } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import { DBRundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
 import { RundownBaselineAdLibItem } from '@sofie-automation/corelib/dist/dataModel/RundownBaselineAdLibPiece'
 import { DBSegment } from '@sofie-automation/corelib/dist/dataModel/Segment'
@@ -178,6 +180,76 @@ describe('PlayoutModelImpl', () => {
 			})
 		})
 	})
+
+	describe('quickLoop for locked playlist loops', () => {
+		it('keeps the quickLoop locked state on activation/reset/deactivation', async () => {
+			const rundownId = protectString('rundown01')
+			const playlistId = await context.mockCollections.RundownPlaylists.insertOne({
+				...defaultRundownPlaylist(protectString(`playlist_${rundownId}`), context.studioId),
+				quickLoop: {
+					start: { type: QuickLoopMarkerType.PLAYLIST },
+					end: { type: QuickLoopMarkerType.PLAYLIST },
+					locked: true,
+					running: false,
+					forceAutoNext: ForceQuickLoopAutoNext.DISABLED,
+				},
+			})
+
+			const playlist = await context.mockCollections.RundownPlaylists.findOne(playlistId)
+
+			const rundown: DBRundown = defaultRundown(
+				unprotectString(rundownId),
+				context.studioId,
+				null,
+				playlistId,
+				showStyleCompound._id,
+				showStyleCompound.showStyleVariantId
+			)
+			rundown._id = rundownId
+			await context.mockCollections.Rundowns.insertOne(rundown)
+
+			const peripheralDevices = [setupMockPlayoutGateway(protectString('playoutGateway0'))]
+
+			const { partInstances, groupedPieceInstances, rundowns } = await getPlayoutModelImplArugments(
+				context,
+				playlistId,
+				rundownId
+			)
+
+			if (!playlist) throw new Error('Playlist not found!')
+
+			await runWithPlaylistLock(context, playlistId, async (lock) => {
+				const model = new PlayoutModelImpl(
+					context,
+					lock,
+					playlistId,
+					peripheralDevices,
+					playlist,
+					partInstances,
+					groupedPieceInstances,
+					rundowns,
+					undefined
+				)
+
+				const activationId = model.activatePlaylist(false)
+				expect(model.playlist.quickLoop?.locked).toBe(true)
+				expect(model.playlist.quickLoop?.start?.type).toBe(QuickLoopMarkerType.PLAYLIST)
+				expect(model.playlist.quickLoop?.end?.type).toBe(QuickLoopMarkerType.PLAYLIST)
+
+				model.resetPlaylist(true)
+				expect(model.playlist.quickLoop?.locked).toBe(true)
+				expect(model.playlist.quickLoop?.start?.type).toBe(QuickLoopMarkerType.PLAYLIST)
+				expect(model.playlist.quickLoop?.end?.type).toBe(QuickLoopMarkerType.PLAYLIST)
+
+				model.deactivatePlaylist()
+				expect(model.playlist.quickLoop?.locked).toBe(true)
+				expect(model.playlist.quickLoop?.start?.type).toBe(QuickLoopMarkerType.PLAYLIST)
+				expect(model.playlist.quickLoop?.end?.type).toBe(QuickLoopMarkerType.PLAYLIST)
+				expect(model.playlist.activationId).not.toBe(activationId)
+				expect(model.playlist.currentPartInfo).toBeNull()
+			})
+		})
+	})
 })
 
 async function getPlayoutModelImplArugments(
@@ -245,6 +317,7 @@ function setupMockPlayoutGateway(id: PeripheralDeviceId): PeripheralDevice {
 		status: {
 			statusCode: StatusCode.GOOD,
 			messages: [],
+			statusDetails: [],
 		},
 		token: '',
 	}

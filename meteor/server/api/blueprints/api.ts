@@ -112,7 +112,7 @@ export async function uploadBlueprintAsset(cred: RequestCredentials, fileId: str
 	assertConnectionHasOneOfPermissions(cred, ...PERMISSIONS_FOR_MANAGE_BLUEPRINTS)
 
 	const storePath = getSystemStorePath()
-	const assetsDir = path.resolve(path.join(storePath, 'assets'))
+	const assetsDir = path.resolve(storePath, 'assets') + path.sep
 	const assetPath = path.resolve(path.join(assetsDir, fileId))
 	if (!assetPath.startsWith(assetsDir)) {
 		throw new Error('Asset name outside of asset storage path')
@@ -127,17 +127,21 @@ export async function uploadBlueprintAsset(cred: RequestCredentials, fileId: str
 	await fsp.mkdir(assetDirPath, { recursive: true })
 	await fsp.writeFile(assetPath, data)
 }
-export function retrieveBlueprintAsset(_cred: RequestCredentials, fileId: string): ReadStream {
+export async function retrieveBlueprintAsset(_cred: RequestCredentials, fileId: string): Promise<ReadStream> {
 	check(fileId, String)
 
 	const storePath = getSystemStorePath()
-	const assetsDir = path.resolve(path.join(storePath, 'assets'))
+	const assetsDir = path.resolve(storePath, 'assets') + path.sep
 	const assetPath = path.resolve(path.join(assetsDir, fileId))
 	if (!assetPath.startsWith(assetsDir)) {
 		throw new Error('Requested asset outside of asset storage path')
 	}
 
-	return createReadStream(assetPath)
+	const stream = createReadStream(assetPath)
+	return new Promise((resolve, reject) => {
+		stream.on('open', () => resolve(stream))
+		stream.on('error', (err) => reject(err))
+	})
 }
 /** Only to be called from internal functions */
 export async function internalUploadBlueprint(

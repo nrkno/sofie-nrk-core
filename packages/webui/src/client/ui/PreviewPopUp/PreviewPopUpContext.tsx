@@ -1,28 +1,34 @@
 import React, { useRef, useState } from 'react'
-import { PreviewPopUp, PreviewPopUpHandle } from './PreviewPopUp.js'
-import { Padding, Placement } from '@popperjs/core'
+import { PreviewPopUp, type PreviewPopUpHandle } from './PreviewPopUp.js'
+import type { Padding, Placement } from '@popperjs/core'
 import { PreviewPopUpContent } from './PreviewPopUpContent.js'
 import {
 	JSONBlobParse,
-	NoraPayload,
-	PieceLifespan,
-	PreviewContent,
+	type NoraPayload,
+	type PieceLifespan,
+	type PreviewContent,
 	PreviewType,
-	ScriptContent,
+	type ScriptContent,
 	SourceLayerType,
-	SplitsContent,
-	SplitsContentBoxContent,
-	SplitsContentBoxProperties,
-	TransitionContent,
-	VTContent,
+	type SplitsContent,
+	type SplitsContentBoxContent,
+	type SplitsContentBoxProperties,
+	type TransitionContent,
+	type VTContent,
 } from '@sofie-automation/blueprints-integration'
-import { ReadonlyDeep, ReadonlyObjectDeep } from 'type-fest/source/readonly-deep'
-import { PieceContentStatusObj } from '@sofie-automation/corelib/dist/dataModel/PieceContentStatus'
-import { ITranslatableMessage } from '@sofie-automation/corelib/dist/TranslatableMessage'
+import type { ReadonlyDeep, ReadonlyObjectDeep } from 'type-fest/source/readonly-deep'
+import type { PieceContentStatusObj } from '@sofie-automation/corelib/dist/dataModel/PieceContentStatus'
+import type { ITranslatableMessage } from '@sofie-automation/corelib/dist/TranslatableMessage'
 import _ from 'underscore'
-import { IAdLibListItem } from '../Shelf/AdLibListItem.js'
-import { PieceInstancePiece } from '@sofie-automation/corelib/dist/dataModel/PieceInstance'
+import type { IAdLibListItem } from '../Shelf/AdLibListItem.js'
+import type { PieceInstancePiece } from '@sofie-automation/corelib/dist/dataModel/PieceInstance'
 import { createPrivateApiPath } from '../../url.js'
+import {
+	getPieceScrubDurationMs,
+	getSplitsBoxLayoutScrubSettings,
+	type PreviewVideoContentUI,
+	type SplitsBoxLayoutScrubSettings,
+} from '../../lib/ui/splitsPreviewVideo.js'
 
 type VirtualElement = {
 	getBoundingClientRect: () => DOMRect
@@ -72,18 +78,26 @@ export function convertSourceLayerItemToPreview(
 					contents.push({
 						type: 'script',
 						script: popupPreview.preview.fullText,
+						scriptFormatted: popupPreview.preview.fullTextFormatted,
 						lastWords: popupPreview.preview.lastWords,
 						comment: popupPreview.preview.comment,
 						lastModified: popupPreview.preview.lastModified,
 					})
 					break
-				case PreviewType.Split:
+				case PreviewType.Split: {
+					const splitScrub = getSplitsBoxLayoutScrubSettings(
+						{ boxSourceConfiguration: popupPreview.preview.boxes },
+						contentStatus
+					)
 					contents.push({
 						type: 'boxLayout',
 						boxSourceConfiguration: popupPreview.preview.boxes,
+						boxPreviews: contentStatus?.boxPreviews,
+						scrub: splitScrub,
 						backgroundArtSrc: createPrivateApiPath('blueprints/assets/' + popupPreview.preview.background),
 					})
 					break
+				}
 				case PreviewType.Table:
 					contents.push({
 						type: 'data',
@@ -158,6 +172,9 @@ export function convertSourceLayerItemToPreview(
 					? {
 							type: 'video',
 							src: contentStatus.previewUrl,
+							itemDuration: getPieceScrubDurationMs(content, contentStatus),
+							seek: content.seek,
+							loop: content.loop,
 						}
 					: contentStatus?.thumbnailUrl
 						? {
@@ -271,6 +288,7 @@ export function convertSourceLayerItemToPreview(
 				{
 					type: 'script',
 					script: content.fullScript,
+					scriptFormatted: content.fullScriptFormatted,
 					firstWords: content.firstWords,
 					lastWords: content.lastWords,
 					comment: content.comment,
@@ -281,7 +299,18 @@ export function convertSourceLayerItemToPreview(
 		}
 	} else if (sourceLayerType === SourceLayerType.SPLITS) {
 		const content = item.content as SplitsContent
-		return { contents: [{ type: 'boxLayout', boxSourceConfiguration: content.boxSourceConfiguration }], options: {} }
+		const splitScrub = getSplitsBoxLayoutScrubSettings(content, contentStatus)
+		return {
+			contents: [
+				{
+					type: 'boxLayout',
+					boxSourceConfiguration: content.boxSourceConfiguration,
+					boxPreviews: contentStatus?.boxPreviews,
+					scrub: splitScrub,
+				},
+			],
+			options: {},
+		}
 	} else if (sourceLayerType === SourceLayerType.TRANSITION) {
 		const content = item.content as TransitionContent
 		if (content.preview)
@@ -296,11 +325,16 @@ export function convertSourceLayerItemToPreview(
 /* PreviewContentUI is an extension of PreviewContent with some additional types used in the UI
  * These additional types are added to support some extra UI features that are not relevant for blueprints
  */
+export type { PreviewVideoContentUI } from '../../lib/ui/splitsPreviewVideo.js'
+
 export type PreviewContentUI =
-	| PreviewContent
+	| Exclude<PreviewContent, { type: 'video' }>
+	| PreviewVideoContentUI
 	| {
 			type: 'boxLayout'
 			boxSourceConfiguration: ReadonlyDeep<(SplitsContentBoxContent & SplitsContentBoxProperties)[]>
+			boxPreviews?: ReadonlyDeep<PieceContentStatusObj['boxPreviews']>
+			scrub?: SplitsBoxLayoutScrubSettings
 			showLabels?: boolean
 			backgroundArtSrc?: string
 	  }
@@ -394,7 +428,7 @@ export function PreviewPopUpContextProvider({ children }: React.PropsWithChildre
 
 	const context: IPreviewPopUpContext = {
 		requestPreview: (anchor, content, opts) => {
-			if (opts?.time) {
+			if (typeof opts?.time === 'number') {
 				setTime(opts.time)
 			} else {
 				setTime(null)

@@ -1,6 +1,6 @@
 import { AdLibAction } from '@sofie-automation/corelib/dist/dataModel/AdlibAction'
 import { AdLibPiece } from '@sofie-automation/corelib/dist/dataModel/AdLibPiece'
-import { DBPart } from '@sofie-automation/corelib/dist/dataModel/Part'
+import { DBPart, PartInvalidReason } from '@sofie-automation/corelib/dist/dataModel/Part'
 import { DBPartInstance } from '@sofie-automation/corelib/dist/dataModel/PartInstance'
 import {
 	deserializePieceTimelineObjectsBlob,
@@ -36,6 +36,7 @@ import {
 	IBlueprintAdLibPieceDB,
 	IBlueprintConfig,
 	IBlueprintMutatablePart,
+	IBlueprintMutatablePartInstance,
 	IBlueprintPartDB,
 	IBlueprintPartInstance,
 	IBlueprintPiece,
@@ -52,11 +53,15 @@ import {
 	IBlueprintShowStyleVariant,
 	IOutputLayer,
 	ISourceLayer,
+	NoteSeverity,
 	PieceAbSessionInfo,
 	RundownPlaylistTiming,
 } from '@sofie-automation/blueprints-integration'
 import { JobContext, ProcessedShowStyleBase, ProcessedShowStyleVariant } from '../../jobs/index.js'
-import { DBRundownPlaylist, QuickLoopMarkerType } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import {
+	DBRundownPlaylist,
+	QuickLoopMarkerType,
+} from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import _ from 'underscore'
 import { BlueprintId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { wrapTranslatableMessageFromBlueprints } from '@sofie-automation/corelib/dist/TranslatableMessage'
@@ -72,6 +77,10 @@ import {
 import type { PlayoutMutatablePart } from '../../playout/model/PlayoutPartInstanceModel.js'
 import { BlueprintQuickLookInfo } from '@sofie-automation/blueprints-integration/dist/context/quickLoopInfo'
 import { IngestPartNotifyItemReady } from '@sofie-automation/shared-lib/dist/ingest/rundownStatus'
+import { PlayoutModel } from '../../playout/model/PlayoutModel.js'
+import { IngestJobs } from '@sofie-automation/corelib/dist/worker/ingest'
+import { stringifyError } from '@sofie-automation/shared-lib/dist/lib/stringifyError'
+import { logger } from '../../logging.js'
 
 /**
  * Convert an object to have all the values of all keys (including optionals) be 'true'
@@ -162,6 +171,8 @@ function convertPieceInstanceToBlueprintsInner(
 					fromHold: pieceInstance.infinite.fromHold,
 					fromPreviousPart: pieceInstance.infinite.fromPreviousPart,
 					fromPreviousPlayhead: pieceInstance.infinite.fromPreviousPlayhead,
+					infiniteInstanceId: unprotectString(pieceInstance.infinite.infiniteInstanceId),
+					infiniteInstanceIndex: pieceInstance.infinite.infiniteInstanceIndex,
 				})
 			: undefined,
 		piece: convertPieceToBlueprints(pieceInstance.piece),
@@ -211,6 +222,7 @@ export function convertPartInstanceToBlueprints(partInstance: ReadonlyDeep<DBPar
 		previousPartEndState: clone(partInstance.previousPartEndState),
 		orphaned: partInstance.orphaned,
 		blockTakeUntil: partInstance.blockTakeUntil,
+		invalidReason: partInstance.invalidReason ? clone(partInstance.invalidReason.message) : undefined,
 	}
 
 	return obj
@@ -233,6 +245,12 @@ function convertPieceGenericToBlueprintsInner(piece: ReadonlyDeep<PieceGeneric>)
 		allowDirectPlay: clone<IBlueprintPieceDB['allowDirectPlay']>(piece.allowDirectPlay),
 		expectedPackages: clone<ExpectedPackage.Any[] | undefined>(piece.expectedPackages),
 		hasSideEffects: piece.hasSideEffects,
+		userEditOperations: piece.userEditOperations
+			? translateUserEditsToBlueprint(piece.userEditOperations)
+			: undefined,
+		userEditProperties: piece.userEditProperties
+			? translateUserEditPropertiesToBlueprint(piece.userEditProperties)
+			: undefined,
 		content: {
 			...cloneObject(piece.content),
 			timelineObjects: deserializePieceTimelineObjectsBlob(piece.timelineObjectsString),
@@ -257,8 +275,6 @@ export function convertPieceToBlueprints(piece: ReadonlyDeep<PieceInstancePiece>
 		pieceType: piece.pieceType,
 		extendOnHold: piece.extendOnHold,
 		notInVision: piece.notInVision,
-		userEditOperations: translateUserEditsToBlueprint(piece.userEditOperations),
-		userEditProperties: translateUserEditPropertiesToBlueprint(piece.userEditProperties),
 		excludeDuringPartKeepalive: piece.excludeDuringPartKeepalive,
 		displayAbChannel: piece.displayAbChannel,
 	}
@@ -375,6 +391,8 @@ export function convertAdLibActionToBlueprints(action: ReadonlyDeep<AdLibAction>
 		triggerModes: clone<IBlueprintActionTriggerMode[] | undefined>(action.triggerModes), // TODO - type mismatch
 		expectedPlayoutItems: clone<ExpectedPlayoutItemGeneric[] | undefined>(action.expectedPlayoutItems),
 		expectedPackages: clone<ExpectedPackage.Any[] | undefined>(action.expectedPackages),
+		userEditOperations: translateUserEditsToBlueprint(action.userEditOperations),
+		userEditProperties: translateUserEditPropertiesToBlueprint(action.userEditProperties),
 	}
 
 	return obj
@@ -394,7 +412,9 @@ export function convertSegmentToBlueprints(segment: ReadonlyDeep<DBSegment>): IB
 		isHidden: segment.isHidden,
 		identifier: segment.identifier,
 		displayAs: segment.displayAs,
-		showShelf: segment.showShelf,
+		displayMinishelf: segment.displayMinishelf,
+		// Legacy compatibility field. This should never be set by Core.
+		showShelf: undefined,
 		segmentTiming: segment.segmentTiming,
 		userEditOperations: translateUserEditsToBlueprint(segment.userEditOperations),
 		userEditProperties: translateUserEditPropertiesToBlueprint(segment.userEditProperties),
@@ -439,6 +459,7 @@ export function convertRundownToBlueprintSegmentRundown(
 ): IBlueprintSegmentRundown {
 	const obj: Complete<IBlueprintSegmentRundown> = {
 		externalId: rundown.externalId,
+		timing: skipClone ? rundown.timing : clone<RundownPlaylistTiming>(rundown.timing),
 		privateData: skipClone ? rundown.privateData : clone(rundown.privateData),
 		publicData: skipClone ? rundown.publicData : clone(rundown.publicData),
 	}
@@ -724,6 +745,39 @@ export function convertPartialBlueprintMutablePartToCore(
 
 	return playoutUpdatePart
 }
+
+export interface PlayoutMutatablePartInstance extends Omit<IBlueprintMutatablePartInstance, 'invalidReason'> {
+	invalidReason?: PartInvalidReason
+}
+
+/**
+ * Converts a partial IBlueprintMutatablePartInstance and wraps translatable messages with blueprint namespace
+ */
+export function convertPartialBlueprintMutatablePartInstanceToCore(
+	instanceProps: Partial<IBlueprintMutatablePartInstance>,
+	blueprintId: BlueprintId
+): Partial<PlayoutMutatablePartInstance> {
+	const result: Partial<PlayoutMutatablePartInstance> = {
+		...instanceProps,
+		invalidReason: undefined,
+	}
+
+	if (instanceProps.invalidReason) {
+		result.invalidReason = {
+			message: wrapTranslatableMessageFromBlueprints(instanceProps.invalidReason, [blueprintId]),
+			severity: NoteSeverity.ERROR,
+		}
+	} else if ('invalidReason' in instanceProps) {
+		// Explicitly clearing invalidReason
+		result.invalidReason = undefined
+	} else {
+		// Not touching invalidReason at all
+		delete result.invalidReason
+	}
+
+	return result
+}
+
 export function createBlueprintQuickLoopInfo(playlist: ReadonlyDeep<DBRundownPlaylist>): BlueprintQuickLookInfo | null {
 	const playlistLoopProps = playlist.quickLoop
 	if (!playlistLoopProps) return null
@@ -732,4 +786,29 @@ export function createBlueprintQuickLoopInfo(playlist: ReadonlyDeep<DBRundownPla
 		running: playlistLoopProps.running,
 		locked: playlistLoopProps.locked,
 	}
+}
+
+export async function emitIngestOperation(
+	context: JobContext,
+	playoutModel: PlayoutModel,
+	operation: unknown
+): Promise<void> {
+	const refPartInstance = playoutModel.currentPartInstance ?? playoutModel.nextPartInstance
+	if (!refPartInstance) throw new Error('Cannot emit ingest operation when there is no current or next partInstance')
+
+	const rundown = playoutModel.getRundown(refPartInstance.partInstance.rundownId)
+	if (!rundown) throw new Error('Cannot emit ingest operation when the partInstance has no rundown')
+
+	await context
+		.queueIngestJob(IngestJobs.PlayoutExecuteChangeOperation, {
+			rundownExternalId: rundown.rundown.externalId,
+			segmentId: refPartInstance.partInstance.segmentId ?? null,
+			partId: refPartInstance.partInstance.part._id ?? null,
+			operation,
+		})
+		.catch((e) => {
+			logger.warn(`Failed to queue ingest operation: ${stringifyError(e)}`)
+
+			throw new Error('Internal error while queueing ingest operation')
+		})
 }

@@ -17,7 +17,8 @@ import {
 	QuickLoopMarker,
 	RundownHoldState,
 	SelectedPartInstance,
-} from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+} from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
+import { RundownTTimer } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/TTimers'
 import { ReadonlyDeep } from 'type-fest'
 import { JobContext } from '../../../jobs/index.js'
 import { DBPart } from '@sofie-automation/corelib/dist/dataModel/Part'
@@ -71,6 +72,16 @@ import { PieceInstanceWithTimings } from '@sofie-automation/corelib/dist/playout
 import { NotificationsModelHelper } from '../../../notifications/NotificationsModelHelper.js'
 import { getExpectedLatency } from '@sofie-automation/corelib/dist/studio/playout'
 import { ExpectedPackage } from '@sofie-automation/blueprints-integration'
+import { stringifyError } from '@sofie-automation/shared-lib/dist/lib/stringifyError'
+import {
+	getTimelineRundown,
+	flattenAndProcessTimelineObjects,
+	preserveOrReplaceNowTimesInObjects,
+	logAnyRemainingNowTimes,
+	getStudioTimeline,
+} from '../../timeline/generate.js'
+import { deNowifyMultiGatewayTimeline } from '../../timeline/multi-gateway.js'
+import { validateTTimerIndex } from '../../tTimers.js'
 
 export class PlayoutModelReadonlyImpl implements PlayoutModelReadonly {
 	public readonly playlistId: RundownPlaylistId
@@ -315,6 +326,7 @@ export class PlayoutModelImpl extends PlayoutModelReadonlyImpl implements Playou
 
 	#playlistHasChanged = false
 	#timelineHasChanged = false
+	#timelineNeedsRegeneration = false
 
 	#pendingPartInstanceTimingEvents = new Set<PartInstanceId>()
 
@@ -661,7 +673,8 @@ export class PlayoutModelImpl extends PlayoutModelReadonlyImpl implements Playou
 		delete this.playlistImpl.startedPlayback
 		delete this.playlistImpl.rundownsStartedPlayback
 		delete this.playlistImpl.segmentsStartedPlayback
-		delete this.playlistImpl.previousPersistentState
+		delete this.playlistImpl.publicPlayoutPersistentState
+		delete this.playlistImpl.privatePlayoutPersistentState
 		delete this.playlistImpl.trackedAbSessions
 		delete this.playlistImpl.queuedSegmentId
 
@@ -694,8 +707,17 @@ export class PlayoutModelImpl extends PlayoutModelReadonlyImpl implements Playou
 		}
 		this.#deferredBeforeSaveFunctions.length = 0 // clear the array
 
+		// Generate timeline if needed
+		if (this.#timelineNeedsRegeneration) {
+			await this.#regenerateTimeline()
+			this.#timelineNeedsRegeneration = false
+		}
+
 		// Prioritise the timeline for publication reasons
 		if (this.#timelineHasChanged && this.timelineImpl) {
+			// Do a fast-track for the timeline to be published faster:
+			this.context.hackPublishTimelineToFastTrack(this.timelineImpl)
+
 			await this.context.directCollections.Timelines.replace(this.timelineImpl)
 			if (!process.env.JEST_WORKER_ID) {
 				// Wait a little bit before saving the rest.
@@ -715,11 +737,11 @@ export class PlayoutModelImpl extends PlayoutModelReadonlyImpl implements Playou
 			this.#playlistHasChanged
 				? this.context.directCollections.RundownPlaylists.replace(this.playlistImpl)
 				: undefined,
-			...writePartInstancesAndPieceInstances(this.context, this.allPartInstances),
 			writeAdlibTestingSegments(this.context, this.rundownsImpl),
 			...Array.from(partInstancesByRundownId.entries()).map(async ([rundownId, partInstances]) =>
 				writeExpectedPackagesForPlayoutSources(this.context, this.playlistId, rundownId, partInstances)
 			),
+			...writePartInstancesAndPieceInstances(this.context, this.allPartInstances), // After the ExpectedPackages, as this clears the change flags
 			this.#baselineHelper.saveAllToDatabase(),
 			this.#notificationsHelper.saveAllToDatabase(),
 			this.context.saveRouteSetChanges(),
@@ -764,8 +786,13 @@ export class PlayoutModelImpl extends PlayoutModelReadonlyImpl implements Playou
 		this.#playlistHasChanged = true
 	}
 
-	setBlueprintPersistentState(persistentState: unknown | undefined): void {
-		this.playlistImpl.previousPersistentState = persistentState
+	setBlueprintPrivatePersistentState(persistentState: unknown | undefined): void {
+		this.playlistImpl.privatePlayoutPersistentState = persistentState
+
+		this.#playlistHasChanged = true
+	}
+	setBlueprintPublicPersistentState(persistentState: unknown | undefined): void {
+		this.playlistImpl.publicPlayoutPersistentState = persistentState
 
 		this.#playlistHasChanged = true
 	}
@@ -780,7 +807,8 @@ export class PlayoutModelImpl extends PlayoutModelReadonlyImpl implements Playou
 			const storedPartInstance = this.allPartInstances.get(partInstance.partInstance._id)
 			if (!storedPartInstance) throw new Error(`PartInstance being set as next was not constructed correctly`)
 			// Make sure we were given the exact same object
-			if (storedPartInstance !== partInstance) throw new Error(`PartInstance being set as next is not current`)
+			if (storedPartInstance.partInstance._id !== partInstance.partInstance._id)
+				throw new Error(`PartInstance being set as next is not current`)
 		}
 
 		if (partInstance) {
@@ -877,6 +905,13 @@ export class PlayoutModelImpl extends PlayoutModelReadonlyImpl implements Playou
 		this.#playlistHasChanged = true
 	}
 
+	updateTTimer(timer: RundownTTimer): void {
+		validateTTimerIndex(timer.index)
+
+		this.playlistImpl.tTimers[timer.index - 1] = timer
+		this.#playlistHasChanged = true
+	}
+
 	#lastMonotonicNowInPlayout = getCurrentTime()
 	getNowInPlayout(): number {
 		const nowOffsetLatency = this.getNowOffsetLatency() ?? 0
@@ -884,6 +919,10 @@ export class PlayoutModelImpl extends PlayoutModelReadonlyImpl implements Playou
 		const result = Math.max(this.#lastMonotonicNowInPlayout, targetNowTime)
 		this.#lastMonotonicNowInPlayout = result
 		return result
+	}
+
+	markTimelineNeedsUpdate(): void {
+		this.#timelineNeedsRegeneration = true
 	}
 
 	/** Notifications */
@@ -921,6 +960,40 @@ export class PlayoutModelImpl extends PlayoutModelReadonlyImpl implements Playou
 	}
 
 	/** BaseModel */
+
+	async #regenerateTimeline(): Promise<void> {
+		const span = this.context.startSpan('PlayoutModelImpl.regenerateTimeline')
+		logger.debug('Regenerating timeline...')
+
+		try {
+			const {
+				versions,
+				objs: timelineObjs,
+				timingContext: timingInfo,
+				regenerateTimelineToken,
+			} = this.playlist.activationId
+				? await getTimelineRundown(this.context, this)
+				: await getStudioTimeline(this.context, this)
+
+			flattenAndProcessTimelineObjects(this.context, timelineObjs)
+
+			preserveOrReplaceNowTimesInObjects(this, timelineObjs)
+
+			if (this.isMultiGatewayMode) {
+				deNowifyMultiGatewayTimeline(this, timelineObjs, timingInfo)
+
+				logAnyRemainingNowTimes(this.context, timelineObjs)
+			}
+
+			const timelineHash = this.setTimeline(timelineObjs, versions, regenerateTimelineToken).timelineHash
+			logger.verbose(`Timeline regeneration done, hash: "${timelineHash}"`)
+		} catch (err) {
+			logger.error(`Error regenerating timeline: ${stringifyError(err)}`)
+			throw err
+		} finally {
+			if (span) span.end()
+		}
+	}
 
 	/**
 	 * Assert that no changes should have been made to the model, will throw an Error otherwise. This can be used in

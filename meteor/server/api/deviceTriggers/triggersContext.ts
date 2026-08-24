@@ -18,7 +18,10 @@ import { PartId, StudioId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { DummyReactiveVar } from '@sofie-automation/meteor-lib/dist/triggers/reactive-var'
 import { ReactivePlaylistActionContext } from '@sofie-automation/meteor-lib/dist/triggers/actionFactory'
 import { FindOneOptions, FindOptions, MongoQuery } from '@sofie-automation/corelib/dist/mongo'
-import { DBRundownPlaylist, SelectedPartInstance } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import {
+	DBRundownPlaylist,
+	SelectedPartInstance,
+} from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import {
 	AdLibActions,
 	AdLibPieces,
@@ -38,9 +41,9 @@ export function hashSingleUseToken(token: string): string {
 	return getHash(SINGLE_USE_TOKEN_SALT + token)
 }
 
-class MeteorTriggersCollectionWrapper<DBInterface extends { _id: ProtectedString<any> }>
-	implements TriggersAsyncCollection<DBInterface>
-{
+class MeteorTriggersCollectionWrapper<
+	DBInterface extends { _id: ProtectedString<any> },
+> implements TriggersAsyncCollection<DBInterface> {
 	readonly #collection: AsyncOnlyReadOnlyMongoCollection<DBInterface>
 
 	constructor(collection: AsyncOnlyReadOnlyMongoCollection<DBInterface>) {
@@ -156,10 +159,9 @@ async function fetchInfoForSelectedPart(partInfo: SelectedPartInstance | null): 
 
 	const partInstance = (await PartInstances.findOneAsync(partInfo.partInstanceId, {
 		projection: {
-			// @ts-expect-error deep property
 			'part._id': 1,
 			segmentId: 1,
-		},
+		} as any,
 	})) as (Pick<DBPartInstance, 'segmentId'> & { part: Pick<DBPart, '_id'> }) | null
 
 	if (!partInstance) return null

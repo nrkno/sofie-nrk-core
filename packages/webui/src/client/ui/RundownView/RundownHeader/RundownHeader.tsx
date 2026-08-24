@@ -1,160 +1,94 @@
-import React, { useCallback, useContext, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import * as CoreIcon from '@nrk/core-icons/jsx'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import ClassNames from 'classnames'
-import Escape from '../../../lib/Escape'
-import Tooltip from 'rc-tooltip'
 import { NavLink } from 'react-router-dom'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
-import { Rundown, getRundownNrcsName } from '@sofie-automation/corelib/dist/dataModel/Rundown'
-import { ContextMenu, MenuItem, ContextMenuTrigger } from '@jstarpl/react-contextmenu'
-import { PieceUi } from '../../SegmentTimeline/SegmentTimelineContainer'
-import { RundownSystemStatus } from '../RundownSystemStatus'
-import { getHelpMode } from '../../../lib/localStorage'
-import { reloadRundownPlaylistClick } from '../RundownNotifier'
-import { useRundownViewEventBusListener } from '../../../lib/lib'
-import { RundownLayoutRundownHeader } from '@sofie-automation/meteor-lib/dist/collections/RundownLayouts'
-import { contextMenuHoldToDisplayTime } from '../../../lib/lib'
-import {
-	ActivateRundownPlaylistEvent,
-	DeactivateRundownPlaylistEvent,
-	IEventContext,
-	RundownViewEvents,
-} from '@sofie-automation/meteor-lib/dist/triggers/RundownViewEventBus'
-import { RundownLayoutsAPI } from '../../../lib/rundownLayouts'
-import { DBShowStyleVariant } from '@sofie-automation/corelib/dist/dataModel/ShowStyleVariant'
-import { BucketAdLibItem } from '../../Shelf/RundownViewBuckets'
-import { IAdLibListItem } from '../../Shelf/AdLibListItem'
-import { ShelfDashboardLayout } from '../../Shelf/ShelfDashboardLayout'
-import { UIStudio } from '@sofie-automation/meteor-lib/dist/api/studios'
-import { RundownId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { UIShowStyleBase } from '@sofie-automation/meteor-lib/dist/api/showStyles'
-import { UserPermissionsContext } from '../../UserPermissions'
-import * as RundownResolver from '../../../lib/RundownResolver'
+import type { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
+import type { Rundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
 import Navbar from 'react-bootstrap/Navbar'
-import { WarningDisplay } from '../WarningDisplay'
-import { TimingDisplay } from './TimingDisplay'
-import { checkRundownTimes, useRundownPlaylistOperations } from './useRundownPlaylistOperations'
+import { RundownContextMenu, RundownHeaderContextMenuTrigger, RundownHamburgerButton } from './RundownContextMenu'
+import { TimeOfDay } from '../RundownTiming/TimeOfDay'
+import { RundownHeaderPartRemaining, RundownHeaderSegmentBudget } from '../RundownHeader/CurrentPartOrSegmentRemaining'
+import { RundownHeaderTimers } from './RundownHeaderTimers'
+
+import { PlaylistTiming } from '@sofie-automation/corelib/dist/playout/rundownTiming'
+import { useTiming } from '../RundownTiming/withTiming'
+import { RundownHeaderTimingDisplay } from './RundownHeaderTimingDisplay'
+import { RundownHeaderPlannedStart } from './RundownHeaderPlannedStart'
+import { RundownHeaderDurations } from './RundownHeaderDurations'
+import { RundownHeaderExpectedEnd } from './RundownHeaderExpectedEnd'
+import { HeaderFreezeFrameIcon } from './HeaderFreezeFrameIcon'
+import './RundownHeader.scss'
+import type { UIStudio } from '@sofie-automation/corelib/src/dataModel/Studio'
 
 interface IRundownHeaderProps {
 	playlist: DBRundownPlaylist
-	showStyleBase: UIShowStyleBase
-	showStyleVariant: DBShowStyleVariant
 	currentRundown: Rundown | undefined
 	studio: UIStudio
-	rundownIds: RundownId[]
 	firstRundown: Rundown | undefined
-	onActivate?: (isRehearsal: boolean) => void
-	inActiveRundownView?: boolean
-	layout: RundownLayoutRundownHeader | undefined
+	rundownCount: number
+	lockView?: boolean
 }
 
 export function RundownHeader({
 	playlist,
-	showStyleBase,
-	showStyleVariant,
-	currentRundown,
 	studio,
-	rundownIds,
 	firstRundown,
-	inActiveRundownView,
-	layout,
+	currentRundown,
+	rundownCount,
+	lockView,
 }: IRundownHeaderProps): JSX.Element {
 	const { t } = useTranslation()
+	const timingDurations = useTiming()
+	const [isMenuOpen, setIsMenuOpen] = useState(false)
+	const [isContextMenuOpen, setIsContextMenuOpen] = useState(false)
+	// User's explicit toggle preference; defaults to false (show advanced)
+	const [userPrefersSimplified, setUserPrefersSimplified] = useState(false)
 
-	const userPermissions = useContext(UserPermissionsContext)
+	const expectedStart = PlaylistTiming.getExpectedStart(playlist.timing)
+	const expectedEnd = PlaylistTiming.getExpectedEnd(playlist.timing)
+	const expectedDuration = PlaylistTiming.getExpectedDuration(playlist.timing)
 
-	const [selectedPiece, setSelectedPiece] = useState<BucketAdLibItem | IAdLibListItem | PieceUi | undefined>(undefined)
-	const [shouldQueueAdlibs, setShouldQueueAdlibs] = useState(false)
+	const hasSimple = !!(expectedStart || expectedDuration || expectedEnd)
 
-	const operations = useRundownPlaylistOperations()
+	// Fallback duration for untimed playlists
+	const fallbackDuration = PlaylistTiming.isPlaylistTimingNone(playlist.timing)
+		? Object.values<number>(timingDurations.partExpectedDurations || {}).reduce((a, b) => a + b, 0)
+		: undefined
 
-	const eventActivate = useCallback(
-		(e: ActivateRundownPlaylistEvent) => {
-			if (e.rehearsal) {
-				operations.activateRehearsal(e.context)
-			} else {
-				operations.activate(e.context)
-			}
-		},
-		[operations]
+	const hasAdvanced = !!(
+		playlist.startedPlayback ||
+		expectedStart ||
+		timingDurations.remainingPlaylistDuration ||
+		fallbackDuration
 	)
-	const eventDeactivate = useCallback(
-		(e: DeactivateRundownPlaylistEvent) => operations.deactivate(e.context),
-		[operations]
-	)
-	const eventResync = useCallback((e: IEventContext) => operations.reloadRundownPlaylist(e.context), [operations])
-	const eventTake = useCallback((e: IEventContext) => operations.take(e.context), [operations])
-	const eventResetRundownPlaylist = useCallback((e: IEventContext) => operations.resetRundown(e.context), [operations])
-	const eventCreateSnapshot = useCallback((e: IEventContext) => operations.takeRundownSnapshot(e.context), [operations])
 
-	useRundownViewEventBusListener(RundownViewEvents.ACTIVATE_RUNDOWN_PLAYLIST, eventActivate)
-	useRundownViewEventBusListener(RundownViewEvents.DEACTIVATE_RUNDOWN_PLAYLIST, eventDeactivate)
-	useRundownViewEventBusListener(RundownViewEvents.RESYNC_RUNDOWN_PLAYLIST, eventResync)
-	useRundownViewEventBusListener(RundownViewEvents.TAKE, eventTake)
-	useRundownViewEventBusListener(RundownViewEvents.RESET_RUNDOWN_PLAYLIST, eventResetRundownPlaylist)
-	useRundownViewEventBusListener(RundownViewEvents.CREATE_SNAPSHOT_FOR_DEBUG, eventCreateSnapshot)
+	const canToggle = hasSimple && hasAdvanced
 
-	useEffect(() => {
-		reloadRundownPlaylistClick.set(operations.reloadRundownPlaylist)
-	}, [operations.reloadRundownPlaylist])
+	// When toggling is available, respect the user's preference; otherwise show whichever mode has data
+	const simplified = canToggle ? userPrefersSimplified : hasSimple
 
-	const canClearQuickLoop =
-		!!studio.settings.enableQuickLoop &&
-		!RundownResolver.isLoopLocked(playlist) &&
-		RundownResolver.isAnyLoopMarkerDefined(playlist)
+	const toggleSimplified = useCallback(() => {
+		if (canToggle) {
+			setUserPrefersSimplified((s) => !s)
+		}
+	}, [canToggle])
 
-	const rundownTimesInfo = checkRundownTimes(playlist.timing)
+	const onMenuClose = useCallback(() => setIsMenuOpen(false), [setIsMenuOpen])
 
 	return (
 		<>
-			<Escape to="document">
-				<ContextMenu id="rundown-context-menu">
-					<div className="react-contextmenu-label">{playlist && playlist.name}</div>
-					{userPermissions.studio ? (
-						<React.Fragment>
-							{!(playlist.activationId && playlist.rehearsal) ? (
-								!rundownTimesInfo.shouldHaveStarted && !playlist.activationId ? (
-									<MenuItem onClick={operations.activateRehearsal}>
-										{t('Prepare Studio and Activate (Rehearsal)')}
-									</MenuItem>
-								) : (
-									<MenuItem onClick={operations.activateRehearsal}>{t('Activate (Rehearsal)')}</MenuItem>
-								)
-							) : (
-								<MenuItem onClick={operations.activate}>{t('Activate (On-Air)')}</MenuItem>
-							)}
-							{rundownTimesInfo.willShortlyStart && !playlist.activationId && (
-								<MenuItem onClick={operations.activate}>{t('Activate (On-Air)')}</MenuItem>
-							)}
-							{playlist.activationId ? <MenuItem onClick={operations.deactivate}>{t('Deactivate')}</MenuItem> : null}
-							{studio.settings.allowAdlibTestingSegment && playlist.activationId ? (
-								<MenuItem onClick={operations.activateAdlibTesting}>{t('AdLib Testing')}</MenuItem>
-							) : null}
-							{playlist.activationId ? <MenuItem onClick={operations.take}>{t('Take')}</MenuItem> : null}
-							{studio.settings.allowHold && playlist.activationId ? (
-								<MenuItem onClick={operations.hold}>{t('Hold')}</MenuItem>
-							) : null}
-							{playlist.activationId && canClearQuickLoop ? (
-								<MenuItem onClick={operations.clearQuickLoop}>{t('Clear QuickLoop')}</MenuItem>
-							) : null}
-							{!(playlist.activationId && !playlist.rehearsal && !studio.settings.allowRundownResetOnAir) ? (
-								<MenuItem onClick={operations.resetRundown}>{t('Reset Rundown')}</MenuItem>
-							) : null}
-							<MenuItem onClick={operations.reloadRundownPlaylist}>
-								{t('Reload {{nrcsName}} Data', {
-									nrcsName: getRundownNrcsName(firstRundown),
-								})}
-							</MenuItem>
-							<MenuItem onClick={operations.takeRundownSnapshot}>{t('Store Snapshot')}</MenuItem>
-						</React.Fragment>
-					) : (
-						<React.Fragment>
-							<MenuItem>{t('No actions available')}</MenuItem>
-						</React.Fragment>
-					)}
-				</ContextMenu>
-			</Escape>
+			<RundownContextMenu
+				playlist={playlist}
+				studio={studio}
+				firstRundown={firstRundown}
+				lockView={lockView}
+				onShow={() => setIsContextMenuOpen(true)}
+				onHide={() => {
+					setIsMenuOpen(false)
+					setIsContextMenuOpen(false)
+				}}
+			/>
 			<Navbar
 				data-bs-theme="dark"
 				fixed="top"
@@ -165,66 +99,79 @@ export function RundownHeader({
 					rehearsal: playlist.rehearsal,
 				})}
 			>
-				<ContextMenuTrigger
-					id="rundown-context-menu"
-					attributes={{
-						className: 'flex-col col-timing horizontal-align-center',
-					}}
-					holdToDisplay={contextMenuHoldToDisplayTime()}
-				>
-					<WarningDisplay
-						studioMode={userPermissions.studio}
-						inActiveRundownView={inActiveRundownView}
-						playlist={playlist}
-						oneMinuteBeforeAction={(e, noResetOnActivate) =>
-							noResetOnActivate ? operations.activateRundown(e) : operations.resetAndActivateRundown(e)
-						}
-					/>
-					<div className="header-row flex-row first-row super-dark">
-						<div className="flex-col left horizontal-align-left">
-							<div className="badge-sofie mt-4 mb-3 mx-4">
-								<Tooltip
-									overlay={t('Add ?studio=1 to the URL to enter studio mode')}
-									visible={getHelpMode() && !userPermissions.studio}
-									placement="bottom"
-								>
-									<div className="media-elem me-2 sofie-logo" />
-								</Tooltip>
+				<RundownHeaderContextMenuTrigger>
+					<div className="rundown-header__content">
+						<div className="rundown-header__left">
+							<RundownHamburgerButton
+								isOpen={isMenuOpen}
+								disabled={isContextMenuOpen && !isMenuOpen}
+								onOpen={() => setIsMenuOpen(true)}
+								onClose={onMenuClose}
+							/>
+							<div className="rundown-header__left-context-menu-wrapper">
+								<div className="rundown-header__onair-wrapper">
+									{playlist.currentPartInfo && (
+										<div className="rundown-header__onair">
+											<RundownHeaderSegmentBudget
+												currentPartInstanceId={playlist.currentPartInfo.partInstanceId}
+												label={t('Seg. Budg.')}
+											/>
+											<span className="rundown-header__timers-onair-remaining">
+												<span className="rundown-header__timers-onair-remaining__label">{t('On Air')}</span>
+												<RundownHeaderPartRemaining
+													currentPartInstanceId={playlist.currentPartInfo.partInstanceId}
+													heavyClassName="overtime"
+												/>
+												<HeaderFreezeFrameIcon partInstanceId={playlist.currentPartInfo.partInstanceId} />
+											</span>
+										</div>
+									)}
+								</div>
+								<RundownHeaderTimers tTimers={playlist.tTimers} />
 							</div>
 						</div>
-						{layout && RundownLayoutsAPI.isDashboardLayout(layout) ? (
-							<ShelfDashboardLayout
-								rundownLayout={layout}
-								playlist={playlist}
-								showStyleBase={showStyleBase}
-								showStyleVariant={showStyleVariant}
-								studio={studio}
-								studioMode={userPermissions.studio}
-								shouldQueue={shouldQueueAdlibs}
-								onChangeQueueAdLib={setShouldQueueAdlibs}
-								selectedPiece={selectedPiece}
-								onSelectPiece={setSelectedPiece}
-							/>
-						) : (
-							<>
-								<TimingDisplay
-									rundownPlaylist={playlist}
-									currentRundown={currentRundown}
-									rundownCount={rundownIds.length}
-									layout={layout}
-								/>
-								<RundownSystemStatus studioId={studio._id} playlistId={playlist._id} firstRundown={firstRundown} />
-							</>
-						)}
-						<div className="flex-col right horizontal-align-right">
-							<div className="links close">
-								<NavLink to="/rundowns" title={t('Exit')}>
-									<CoreIcon.NrkClose />
-								</NavLink>
+
+						<div className="rundown-header__clocks">
+							<div className="rundown-header__clocks-clock-group">
+								<div className="rundown-header__clocks-top-row">
+									<RundownHeaderTimingDisplay playlist={playlist} />
+									<TimeOfDay className="rundown-header__clocks-time-now" />
+								</div>
+								<div className="rundown-header__clocks-playlist-name">
+									{rundownCount > 1 ? (
+										<span className="playlist-name">{playlist.name}</span>
+									) : (
+										<span className="rundown-name">{(currentRundown ?? firstRundown)?.name}</span>
+									)}
+								</div>
 							</div>
+						</div>
+
+						<div className="rundown-header__right">
+							<button
+								className={ClassNames('rundown-header__show-timers', {
+									'rundown-header__show-timers--simplified': simplified,
+									'rundown-header__show-timers--disabled': !canToggle,
+								})}
+								type="button"
+								onClick={toggleSimplified}
+							>
+								<RundownHeaderPlannedStart playlist={playlist} simplified={simplified} />
+								<RundownHeaderDurations playlist={playlist} simplified={simplified} />
+								<RundownHeaderExpectedEnd playlist={playlist} simplified={simplified} />
+							</button>
+							{lockView ? (
+								<span className="rundown-header__close-btn rundown-header__close-btn--placeholder" aria-hidden="true">
+									<FontAwesomeIcon icon="close" size="xl" />
+								</span>
+							) : (
+								<NavLink to="/" title={t('Exit')} aria-label={t('Exit')} className="rundown-header__close-btn">
+									<FontAwesomeIcon icon="close" size="xl" />
+								</NavLink>
+							)}
 						</div>
 					</div>
-				</ContextMenuTrigger>
+				</RundownHeaderContextMenuTrigger>
 			</Navbar>
 		</>
 	)

@@ -55,7 +55,7 @@ import {
 	DEFAULT_FALLBACK_PART_DURATION,
 } from '@sofie-automation/shared-lib/dist/core/constants'
 import { Bucket } from '@sofie-automation/corelib/dist/dataModel/Bucket'
-import { ForceQuickLoopAutoNext } from '@sofie-automation/shared-lib/dist/core/model/StudioSettings'
+import { ForceQuickLoopAutoNext, ShelfButtonSize } from '@sofie-automation/shared-lib/dist/core/model/StudioSettings'
 import { PlaylistSnapshotOptions, SystemSnapshotOptions } from '@sofie-automation/meteor-lib/dist/api/shapshot'
 
 /*
@@ -359,8 +359,10 @@ export async function buildStudioFromResolved({
 		_rundownVersionHash: '',
 		routeSetExclusivityGroupsWithOverrides: wrapDefaultObject({}),
 		packageContainersWithOverrides: wrapDefaultObject({}),
-		previewContainerIds: [],
-		thumbnailContainerIds: [],
+		packageContainerSettingsWithOverrides: wrapDefaultObject({
+			previewContainerIds: [],
+			thumbnailContainerIds: [],
+		}),
 		peripheralDeviceSettings: {
 			deviceSettings: wrapDefaultObject({}),
 			playoutDevices: wrapDefaultObject({}),
@@ -422,6 +424,7 @@ export function studioSettingsFrom(apiStudioSettings: APIStudioSettings): Comple
 		allowPieceDirectPlay: apiStudioSettings.allowPieceDirectPlay ?? true, // Backwards compatible
 		enableBuckets: apiStudioSettings.enableBuckets ?? true, // Backwards compatible
 		enableEvaluationForm: apiStudioSettings.enableEvaluationForm ?? true, // Backwards compatible
+		shelfAdlibButtonSize: apiStudioSettings.shelfAdlibButtonSize ?? ShelfButtonSize.LARGE,
 		mockPieceContentStatus: apiStudioSettings.mockPieceContentStatus,
 		rundownGlobalPiecesPrepareTime: apiStudioSettings.rundownGlobalPiecesPrepareTime,
 	}
@@ -450,6 +453,7 @@ export function APIStudioSettingsFrom(settings: IStudioSettings): Complete<APISt
 		allowPieceDirectPlay: settings.allowPieceDirectPlay,
 		enableBuckets: settings.enableBuckets,
 		enableEvaluationForm: settings.enableEvaluationForm,
+		shelfAdlibButtonSize: settings.shelfAdlibButtonSize,
 		mockPieceContentStatus: settings.mockPieceContentStatus,
 		rundownGlobalPiecesPrepareTime: settings.rundownGlobalPiecesPrepareTime,
 	}
@@ -754,4 +758,55 @@ export function playlistSnapshotOptionsFrom(options: APIPlaylistSnapshotOptions)
 		withArchivedDocuments: !!options.withArchivedDocuments,
 		withTimeline: !!options.withTimeline,
 	}
+}
+
+export async function validateAPIRundownPayload(
+	blueprintId: BlueprintId | undefined,
+	rundownPayload: unknown
+): Promise<string[] | undefined> {
+	const blueprint = await getBlueprint(blueprintId, BlueprintManifestType.STUDIO)
+	const blueprintManifest = evalBlueprint(blueprint) as StudioBlueprintManifest
+
+	if (typeof blueprintManifest.validateRundownPayloadFromAPI !== 'function') {
+		logger.info(`Blueprint ${blueprintManifest.blueprintId} does not support rundown payload validation`)
+		return []
+	}
+
+	const blueprintContext = new CommonContext('validateAPIRundownPayload', `blueprint:${blueprint._id}`)
+
+	return blueprintManifest.validateRundownPayloadFromAPI(blueprintContext, rundownPayload)
+}
+
+export async function validateAPISegmentPayload(
+	blueprintId: BlueprintId | undefined,
+	segmentPayload: unknown
+): Promise<string[] | undefined> {
+	const blueprint = await getBlueprint(blueprintId, BlueprintManifestType.STUDIO)
+	const blueprintManifest = evalBlueprint(blueprint) as StudioBlueprintManifest
+
+	if (typeof blueprintManifest.validateSegmentPayloadFromAPI !== 'function') {
+		logger.info(`Blueprint ${blueprintManifest.blueprintId} does not support segment payload validation`)
+		return []
+	}
+
+	const blueprintContext = new CommonContext('validateAPISegmentPayload', `blueprint:${blueprint._id}`)
+
+	return blueprintManifest.validateSegmentPayloadFromAPI(blueprintContext, segmentPayload)
+}
+
+export async function validateAPIPartPayload(
+	blueprintId: BlueprintId | undefined,
+	partPayload: unknown
+): Promise<string[] | undefined> {
+	const blueprint = await getBlueprint(blueprintId, BlueprintManifestType.STUDIO)
+	const blueprintManifest = evalBlueprint(blueprint) as StudioBlueprintManifest
+
+	if (typeof blueprintManifest.validatePartPayloadFromAPI !== 'function') {
+		logger.info(`Blueprint ${blueprintManifest.blueprintId} does not support part payload validation`)
+		return []
+	}
+
+	const blueprintContext = new CommonContext('validateAPIPartPayload', `blueprint:${blueprint._id}`)
+
+	return blueprintManifest.validatePartPayloadFromAPI(blueprintContext, partPayload)
 }

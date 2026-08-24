@@ -39,13 +39,13 @@ import { Blueprint } from '@sofie-automation/corelib/dist/dataModel/Blueprint'
 import { ICoreSystem, SYSTEM_ID } from '@sofie-automation/meteor-lib/dist/collections/CoreSystem'
 import { stripVersion } from '../../server/systemStatus/semverUtils'
 import { internalUploadBlueprint } from '../../server/api/blueprints/api'
-import { literal, getRandomId, getRandomString, Complete, normalizeArray } from '@sofie-automation/corelib/dist/lib'
+import { literal, getRandomId, getRandomString, normalizeArray } from '@sofie-automation/corelib/dist/lib'
 import { protectString, unprotectString } from '@sofie-automation/corelib/dist/protectedString'
 import { DBRundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
 import { DBSegment } from '@sofie-automation/corelib/dist/dataModel/Segment'
 import { DBPart } from '@sofie-automation/corelib/dist/dataModel/Part'
 import { EmptyPieceTimelineObjectsBlob, Piece } from '@sofie-automation/corelib/dist/dataModel/Piece'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import { RundownBaselineAdLibItem } from '@sofie-automation/corelib/dist/dataModel/RundownBaselineAdLibPiece'
 import { AdLibPiece } from '@sofie-automation/corelib/dist/dataModel/AdLibPiece'
 import { restartRandomId } from '../random'
@@ -59,7 +59,6 @@ import {
 	applyAndValidateOverrides,
 	wrapDefaultObject,
 } from '@sofie-automation/corelib/dist/settings/objectWithOverrides'
-import { UIShowStyleBase } from '@sofie-automation/meteor-lib/dist/api/showStyles'
 import {
 	BlueprintId,
 	RundownId,
@@ -128,6 +127,7 @@ export async function setupMockPeripheralDevice(
 		created: 1234,
 		status: {
 			statusCode: StatusCode.GOOD,
+			statusDetails: [],
 		},
 		lastSeen: 1234,
 		lastConnected: 1234,
@@ -887,19 +887,4 @@ export async function setupMockWorker(doc?: Partial<WorkerStatus>): Promise<{
 	await WorkerThreadStatuses.insertAsync(workerThreadStatus1)
 
 	return { worker, workerThreadStatuses: [workerThreadStatus0, workerThreadStatus1] }
-}
-
-// const studioBlueprint
-// const showStyleBlueprint
-// const showStyleVariant
-
-export function convertToUIShowStyleBase(showStyleBase: DBShowStyleBase): UIShowStyleBase {
-	return literal<Complete<UIShowStyleBase>>({
-		_id: showStyleBase._id,
-		name: showStyleBase.name,
-		hotkeyLegend: showStyleBase.hotkeyLegend,
-		sourceLayers: applyAndValidateOverrides(showStyleBase.sourceLayersWithOverrides).obj,
-		outputLayers: applyAndValidateOverrides(showStyleBase.outputLayersWithOverrides).obj,
-		abChannelDisplay: showStyleBase.abChannelDisplay,
-	})
 }

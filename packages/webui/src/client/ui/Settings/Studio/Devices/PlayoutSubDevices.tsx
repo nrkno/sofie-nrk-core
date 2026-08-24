@@ -1,18 +1,22 @@
 import { useCallback, useMemo } from 'react'
 import { Studios } from '../../../../collections/index.js'
-import { StudioId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import type { StudioId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { useTracker } from '../../../../lib/ReactMeteorData/ReactMeteorData.js'
-import { PeripheralDevice, PeripheralDeviceCategory } from '@sofie-automation/corelib/dist/dataModel/PeripheralDevice'
+import {
+	type PeripheralDevice,
+	PeripheralDeviceCategory,
+} from '@sofie-automation/corelib/dist/dataModel/PeripheralDevice'
 import { getHelpMode } from '../../../../lib/localStorage.js'
 import Tooltip from 'rc-tooltip'
 import { useTranslation } from 'react-i18next'
 import { getAllCurrentAndDeletedItemsFromOverrides, useOverrideOpHelper } from '../../util/OverrideOpHelper.js'
 import {
-	ObjectOverrideSetOp,
-	SomeObjectOverrideOp,
+	type ObjectOverrideSetOp,
+	type ObjectWithOverrides,
+	type SomeObjectOverrideOp,
 	wrapDefaultObject,
 } from '@sofie-automation/corelib/dist/settings/objectWithOverrides'
-import { StudioPlayoutDevice } from '@sofie-automation/corelib/dist/dataModel/Studio'
+import type { StudioPlayoutDevice } from '@sofie-automation/corelib/dist/dataModel/Studio'
 import { faPlus } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { TSR } from '@sofie-automation/blueprints-integration'
@@ -44,7 +48,7 @@ export function StudioPlayoutSubDevices({
 		[studio?._id]
 	)
 
-	const baseSettings = useMemo(
+	const baseSettings = useMemo<ObjectWithOverrides<Record<string, StudioPlayoutDevice>>>(
 		() => studio?.peripheralDeviceSettings?.playoutDevices ?? wrapDefaultObject({}),
 		[studio?.peripheralDeviceSettings?.playoutDevices]
 	)
