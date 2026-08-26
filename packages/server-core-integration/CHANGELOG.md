@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.52.19-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.18-nrk...v1.52.19-nrk) (2026-08-26)
+
+
+### Features
+
+* kubernetes restart ([f71ae74](https://github.com/Sofie-Automation/sofie-core/commit/f71ae74375d315b156ea515039ce5c960c761190))
+
+
+
+
+
 ## [1.52.18-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.17-nrk...v1.52.18-nrk) (2026-04-17)
 
 **Note:** Version bump only for package @sofie-automation/server-core-integration

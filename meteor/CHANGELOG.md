@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.52.19-nrk](///compare/v1.52.18-nrk...v1.52.19-nrk) (2026-08-26)
+
+
+### Features
+
+* **AfterBroadcastForm:** change EvaluationInfoBubble background color c96639b
+* kubernetes restart f71ae74
+* **mos-gateway:** move synchronous updateDevices out of init 25066ec
+* **TSR:** use nightly TSR 765587f
+
+
+### Bug Fixes
+
+* ensure _initMosConnections() is run before setupObservers() during MosHandler.init() e670bbb
+* offset resolvedEndCap when laying on the timeline a255a06
+* support upstream TSR c8be593
+
 ### [1.52.18-nrk](///compare/v1.52.17-nrk...v1.52.18-nrk) (2026-04-17)
 
 ### [1.52.17-nrk](///compare/v1.52.16-nrk...v1.52.17-nrk) (2026-04-10)
