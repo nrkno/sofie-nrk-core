@@ -191,16 +191,20 @@ body.no-overflow {
 	left: 0;
 	bottom: 0;
 	right: 0;
-	background: linear-gradient(
-			-45deg,
-			$color-status-fatal 33%,
-			transparent 33%,
-			transparent 66%,
-			$color-status-fatal 66%
-		),
-		linear-gradient(-45deg, $color-status-fatal 33%, transparent 33%, transparent 66%, $color-status-fatal 66%),
-		linear-gradient(-45deg, $color-status-fatal 33%, transparent 33%, transparent 66%, $color-status-fatal 66%),
-		linear-gradient(-45deg, $color-status-fatal 33%, transparent 33%, transparent 66%, $color-status-fatal 66%);
+	background:
+		linear-gradient(45deg, $color-status-fatal 33%, transparent 33%, transparent 66%, $color-status-fatal 66%),
+		// Top border
+		linear-gradient(45deg, $color-status-fatal 33%, transparent 33%, transparent 66%, $color-status-fatal 66%),
+		// Bottom border
+		linear-gradient(45deg, $color-status-fatal 33%, transparent 33%, transparent 66%, $color-status-fatal 66%),
+		// Left border
+		linear-gradient(
+				45deg,
+				$color-status-fatal 33%,
+				transparent 33%,
+				transparent 66%,
+				$color-status-fatal 66%
+			); // Right border
 	background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
 	background-size:
 		30px 8px,
@@ -845,7 +849,9 @@ svg.icon {
 		}
 		.segment-timeline__part {
 			.segment-timeline__part__invalid-cover {
-				background-image: repeating-linear-gradient(
+				mix-blend-mode: color-burn;
+				background-image:
+					repeating-linear-gradient(
 						45deg,
 						var(--invalid-reason-color-transparent) 0%,
 						var(--invalid-reason-color-transparent) 5px,
@@ -1145,7 +1151,8 @@ svg.icon {
 						left: 2px;
 						right: 2px;
 						z-index: 3;
-						background: repeating-linear-gradient(
+						background:
+							repeating-linear-gradient(
 								45deg,
 								var(--invalid-reason-color-opaque) 0,
 								var(--invalid-reason-color-opaque) 5px,
@@ -1327,7 +1334,9 @@ svg.icon {
 				right: 1px;
 				z-index: 10;
 				pointer-events: all;
-				background-image: repeating-linear-gradient(
+				mix-blend-mode: color-burn;
+				background-image:
+					repeating-linear-gradient(
 						45deg,
 						var(--invalid-reason-color-transparent) 0%,
 						var(--invalid-reason-color-transparent) 5px,
@@ -2862,8 +2871,7 @@ svg.icon {
 	&.segment-timeline__mini-inspector--sub-inspector {
 		transform: none;
 		bottom: 100%;
-		width: 100%;
-		max-width: 480px;
+		width: 26em;
 	}
 
 	&.segment-timeline__mini-inspector--sub-inspector.segment-timeline__mini-inspector--sub-inspector-flipped {
@@ -3085,9 +3093,11 @@ svg.icon {
 		> .video-preview,
 		> .thumbnail {
 			display: block;
-			width: 480px;
-			height: 270px; 
-			background: #000;
+			/*
+			width: 414px;
+			height: 233px;
+			*/
+			@include checkerboard-background;
 		}
 
 		> .segment-timeline__mini-inspector__warnings {
@@ -3242,6 +3252,7 @@ svg.icon {
 	}
 	.mini-inspector__full-text {
 		font-weight: 300;
+		max-width: 400px;
 		display: inline-block;
 		white-space: normal;
 		width: auto;

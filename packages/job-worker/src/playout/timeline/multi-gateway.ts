@@ -351,14 +351,6 @@ function preserveOrTrackInfiniteTimings(
 		const infinitePartGroupId = getInfinitePartGroupId(pieceInstance.pieceInstance._id)
 		const infinitePartGroupObj = timelineObjsMap[infinitePartGroupId]
 		if (
-			pieceControlObj &&
-			!Array.isArray(pieceControlObj.enable) &&
-			typeof pieceControlObj.enable?.start === 'number'
-		) {
-			pieceEnableStartOffset = pieceControlObj.enable.start
-		}
-
-		if (
 			infinitePartGroupObj &&
 			!Array.isArray(infinitePartGroupObj.enable) &&
 			typeof infinitePartGroupObj.enable.start === 'string'

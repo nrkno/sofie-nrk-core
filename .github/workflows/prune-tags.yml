@@ -10,9 +10,9 @@ on:
         description: Regex of tags to ignore
       simulation:
         type: boolean
-        description: Simulate a run (don't delete tags)  
+        description: Simulate a run (don't delete tags)
   schedule:
-    - cron: '0 0 * * 0'
+    - cron: "0 0 * * 0"
 
 permissions:
   contents: write
@@ -28,7 +28,7 @@ jobs:
       - name: Checkout repo with all tags
         uses: actions/checkout@v7
         with:
-          fetch-depth: 0    
+          fetch-depth: 0
 
       - name: Prune tags (scheduled)
         if: github.event_name == 'schedule'
@@ -44,4 +44,4 @@ jobs:
         with:
           older-than: ${{ github.event.inputs.older-than }}
           ignore: ${{ github.event.inputs.ignore }}
-          simulation: ${{ github.event.inputs.simulation }}       
+          simulation: ${{ github.event.inputs.simulation }}
