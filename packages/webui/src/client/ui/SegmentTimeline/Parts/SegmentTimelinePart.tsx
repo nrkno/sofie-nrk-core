@@ -3,7 +3,7 @@ import _ from 'underscore'
 import { withTranslation, type WithTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import ClassNames from 'classnames'
-import type { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
+import type { RundownViewPlaylist } from '../../../lib/rundownPlaylistProjection.js'
 import type { SegmentUi, PartUi, IOutputLayerUi } from '../SegmentTimelineContainer.js'
 import {
 	TimingDataResolution,
@@ -65,7 +65,7 @@ export const BREAKPOINT_TOO_SMALL_FOR_DISPLAY = 6
 
 interface IProps {
 	segment: SegmentUi
-	playlist: DBRundownPlaylist
+	playlist: RundownViewPlaylist
 	studio: UIStudio
 	part: PartUi
 	timeToPixelRatio: number
@@ -163,7 +163,7 @@ export class SegmentTimelinePartClass extends React.Component<Translated<WithTim
 		nextProps: Readonly<IProps & RundownTiming.InjectedROTimingProps>,
 		state: Readonly<IState>
 	): Partial<IState> {
-		const isPrevious = nextProps.playlist.previousPartInfo?.partInstanceId === nextProps.part.instance._id
+		const isPrevious = nextProps.playlist.previousPartsInfo?.[0]?.partInstanceId === nextProps.part.instance._id
 		const isLive = nextProps.playlist.currentPartInfo?.partInstanceId === nextProps.part.instance._id
 		const isNext = nextProps.playlist.nextPartInfo?.partInstanceId === nextProps.part.instance._id
 
@@ -495,7 +495,6 @@ export class SegmentTimelinePartClass extends React.Component<Translated<WithTim
 								sourceLayers={sourceLayers}
 								segment={this.props.segment}
 								part={part}
-								playlist={this.props.playlist}
 								studio={this.props.studio}
 								startsAt={SegmentTimelinePartClass.getPartStartsAt(this.props) || this.props.part.startsAt || 0}
 								duration={

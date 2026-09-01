@@ -60,17 +60,12 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version-file: ".node-version"
-      - uses: ./.github/actions/setup-meteor
       - name: Prepare Environment
         run: |
           corepack enable
 
           yarn config set cacheFolder /home/runner/publish-docs-cache
           yarn install
-
-          # setup zodern:types. No linters are setup, so this simply installs the packages
-          yarn meteor lint
-
           cd packages
           yarn build:all
         env:
@@ -148,16 +143,12 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version-file: ".node-version"
-      - uses: ./.github/actions/setup-meteor
       - name: Prepare Environment
         run: |
           corepack enable
 
           yarn config set cacheFolder /home/runner/lint-core-cache
           yarn
-
-          # setup zodern:types. No linters are setup, so this simply installs the packages
-          yarn meteor lint
         env:
           CI: true
       - name: Bump version
@@ -271,9 +262,11 @@ jobs:
 
           yarn lerna publish from-package --tag-version-prefix='' --dist-tag $NPM_TAG --yes
 
-          NEW_VERSION=$(node -p "require('./lerna.json').version")
+          LERNA_VERSION=$(node -p "require('./lerna.json').version")
+          NEW_VERSION=$(node -p "require('./shared-lib/package.json').version")
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "**Published:** $NEW_VERSION as $NPM_TAG" >> $GITHUB_STEP_SUMMARY
+          echo "**Published:** $LERNA_VERSION as $NPM_TAG" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** $NEW_VERSION" >> $GITHUB_STEP_SUMMARY
         env:
           NPM_CONFIG_PROVENANCE: true
           CI: true

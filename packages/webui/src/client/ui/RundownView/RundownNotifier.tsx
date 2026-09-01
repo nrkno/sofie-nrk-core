@@ -45,11 +45,13 @@ import { RundownPlaylistCollectionUtil } from '../../collections/rundownPlaylist
 import { logger } from '../../lib/logging.js'
 import { CorelibPubSub } from '@sofie-automation/corelib/dist/pubsub'
 import { UserPermissionsContext, type UserPermissions } from '../UserPermissions.js'
+import { statusCodeToString } from '../Status/StatusCodePill.js'
 import { assertNever } from '@sofie-automation/corelib/dist/lib'
 import { DBNotificationTargetType } from '@sofie-automation/corelib/dist/dataModel/Notifications'
 import type { UIPieceContentStatus } from '@sofie-automation/corelib/dist/dataModel/PieceContentStatus'
 import type { UIStudio } from '@sofie-automation/corelib/src/dataModel/Studio.js'
 import type { PartInstance } from '@sofie-automation/corelib/src/dataModel/PartInstance.js'
+import type { DBRundownPlaylist } from '@sofie-automation/corelib/src/dataModel/RundownPlaylist/RundownPlaylist.js'
 
 export const onRONotificationClick = new ReactiveVar<((e: RONotificationEvent) => void) | undefined>(undefined)
 export const reloadRundownPlaylistClick = new ReactiveVar<((e: any) => void) | undefined>(undefined)
@@ -202,7 +204,9 @@ class RundownViewNotifier extends WithManagedTracker {
 		this.autorun(() => {
 			const newNoteIds: Array<string> = []
 
-			const playlist = RundownPlaylists.findOne(playlistId)
+			const playlist = RundownPlaylists.findOne(playlistId, { projection: { _id: 1, notes: 1 } }) as
+				| Pick<DBRundownPlaylist, '_id' | 'notes'>
+				| undefined
 			const rundowns = rRundowns.get()
 
 			if (playlist?.notes) {
@@ -807,7 +811,10 @@ class RundownViewNotifier extends WithManagedTracker {
 		if (!device.connected) {
 			return t('Device {{deviceName}} is disconnected', { deviceName: device.name })
 		}
-		return `${device.name}: ` + (device.status.statusDetails?.map((d) => d.message) || ['']).join(', ')
+		const messages = device.status.statusDetails?.map((d) => d.message) ?? []
+		// A device can report a bad status with no messages, so don't render an empty notification:
+		if (messages.length === 0) return `${device.name}: ${statusCodeToString(t, device.status.statusCode)}`
+		return `${device.name}: ${messages.join(', ')}`
 	}
 }
 
