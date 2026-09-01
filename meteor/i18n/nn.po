@@ -5,8 +5,8 @@ msgstr ""
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1)\n"
-"POT-Creation-Date: 2026-08-05T10:52:43.663Z\n"
-"PO-Revision-Date: 2026-08-05T10:52:43.663Z\n"
+"POT-Creation-Date: 2026-09-01T13:05:55.787Z\n"
+"PO-Revision-Date: 2026-09-01T13:05:55.787Z\n"
 "Language: nn\n"
 
 msgid " The index of the Atem media/clip banks"
@@ -351,6 +351,9 @@ msgstr ""
 
 msgid "All steps"
 msgstr "Alle steg"
+
+msgid "Allow any certificate"
+msgstr ""
 
 msgid "Allow direct playing pieces"
 msgstr ""
@@ -1308,6 +1311,9 @@ msgstr "Deaktivert"
 msgid "Disabling next Piece"
 msgstr ""
 
+msgid "Discard"
+msgstr ""
+
 msgid "Disconnected"
 msgstr "Fråkopla"
 
@@ -1649,6 +1655,12 @@ msgstr "Omstart av CasparCG på \"{{deviceName}}\" feila: {{errorMessage}}"
 msgid "Failed to restart device: \"{{deviceName}}\": {{errorMessage}}"
 msgstr "Kunne ikkje starta \"{{deviceName}}\" om att: {{errorMessage}}"
 
+msgid "Failed to save assignment"
+msgstr ""
+
+msgid "Failed to save assignment: {{errorMessage}}"
+msgstr ""
+
 msgid "Failed to update blueprints: {{errorMessage}}"
 msgstr "Oppdatering av blueprints feila: {{errorMessage}}"
 
@@ -1761,6 +1773,15 @@ msgid "Frame Rate"
 msgstr "Framerate"
 
 msgid "From"
+msgstr ""
+
+msgid "FTP Base Path"
+msgstr ""
+
+msgid "FTP password"
+msgstr ""
+
+msgid "FTP username"
 msgstr ""
 
 msgid "Full System Snapshot"
@@ -1876,6 +1897,12 @@ msgstr ""
 
 msgid "Hold"
 msgstr "Hold"
+
+msgid "Host address"
+msgstr ""
+
+msgid "Host port"
+msgstr ""
 
 msgid "Hostname or IP address of the Atem"
 msgstr ""
@@ -3516,6 +3543,9 @@ msgstr ""
 msgid "Server {{id}}"
 msgstr ""
 
+msgid "Server host address"
+msgstr ""
+
 msgid "Server ID"
 msgstr "Server-id"
 
@@ -3524,6 +3554,12 @@ msgid ""
 "clip-searches are zone-wide. If set, clip-searches are limited to that "
 "server."
 msgstr "Server-id (Må droppast for kjelder, sidan klippsøk skjer i heile sona.)"
+
+msgid "Server port"
+msgstr ""
+
+msgid "Server Type"
+msgstr ""
 
 msgid "Service {{service}} unavailable: {{reason}}"
 msgstr ""
@@ -4579,6 +4615,9 @@ msgstr "Åtvaringar"
 
 msgid "Warnings During Migration"
 msgstr "Åtvaringar under migrering"
+
+msgid "What FTP protocol to use"
+msgstr ""
 
 msgid "What type of bank"
 msgstr ""
