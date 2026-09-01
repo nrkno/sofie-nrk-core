@@ -3,6 +3,39 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.52.19-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.18-nrk...v1.52.19-nrk) (2026-08-26)
+
+
+### Bug Fixes
+
+* support upstream TSR ([c8be593](https://github.com/Sofie-Automation/sofie-core/commit/c8be593e03d4a55815db40d28eccd026591de6df))
+
+
+### Features
+
+* kubernetes restart ([f71ae74](https://github.com/Sofie-Automation/sofie-core/commit/f71ae74375d315b156ea515039ce5c960c761190))
+* **TSR:** use nightly TSR ([765587f](https://github.com/Sofie-Automation/sofie-core/commit/765587f4a6d14bb415a7027e16904c132884adb1))
+
+
+
+
+
+## [1.52.18-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.17-nrk...v1.52.18-nrk) (2026-04-17)
+
+**Note:** Version bump only for package playout-gateway
+
+
+
+
+
+## [1.52.17-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.16-nrk...v1.52.17-nrk) (2026-04-10)
+
+**Note:** Version bump only for package playout-gateway
+
+
+
+
+
 ## [1.52.16-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.15-nrk...v1.52.16-nrk) (2026-03-02)
 
 

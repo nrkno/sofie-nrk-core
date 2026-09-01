@@ -3,6 +3,39 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.52.19-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.18-nrk...v1.52.19-nrk) (2026-08-26)
+
+
+### Bug Fixes
+
+* ensure _initMosConnections() is run before setupObservers() during MosHandler.init() ([e670bbb](https://github.com/Sofie-Automation/sofie-core/commit/e670bbb9e5126ed51a805f75f4043bdaec3276bd))
+
+
+### Features
+
+* kubernetes restart ([f71ae74](https://github.com/Sofie-Automation/sofie-core/commit/f71ae74375d315b156ea515039ce5c960c761190))
+* **mos-gateway:** move synchronous updateDevices out of init ([25066ec](https://github.com/Sofie-Automation/sofie-core/commit/25066ec8ecd9d143e3b57a0cd2d53e0f3c2121bc))
+
+
+
+
+
+## [1.52.18-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.17-nrk...v1.52.18-nrk) (2026-04-17)
+
+**Note:** Version bump only for package mos-gateway
+
+
+
+
+
+## [1.52.17-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.16-nrk...v1.52.17-nrk) (2026-04-10)
+
+**Note:** Version bump only for package mos-gateway
+
+
+
+
+
 ## [1.52.16-nrk](https://github.com/Sofie-Automation/sofie-core/compare/v1.52.15-nrk...v1.52.16-nrk) (2026-03-02)
 
 **Note:** Version bump only for package mos-gateway
