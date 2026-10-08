@@ -24,7 +24,7 @@ updates:
     # Only create security updates
     open-pull-requests-limit: 0
     reviewers:
-      - "@Sofie-Automation/maintainers"
+      - "@nrkno/sofieteam"
 
   - package-ecosystem: "github-actions"
     # Workflow files stored in the
@@ -33,4 +33,4 @@ updates:
     schedule:
       interval: "weekly"
     reviewers:
-      - "@Sofie-Automation/operations"
+      - "@nrkno/sofie-ops"

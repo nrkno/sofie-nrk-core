@@ -5601,7 +5601,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@npmcli/package-json@npm:7.0.2, @npmcli/package-json@npm:^7.0.0":
+"@npmcli/package-json@npm:7.0.2":
   version: 7.0.2
   resolution: "@npmcli/package-json@npm:7.0.2"
   dependencies:
@@ -5637,6 +5637,21 @@ __metadata:
     proc-log: "npm:^4.0.0"
     semver: "npm:^7.5.3"
   checksum: 10/304a819b93f79a6e0e56cb371961a66d2db72142e310d545ecbbbe4d917025a30601aa8e63a5f0cc28f0fe281c116bdaf79b334619b105a1d027a2b769ecd137
+  languageName: node
+  linkType: hard
+
+"@npmcli/package-json@npm:^7.0.0":
+  version: 7.0.1
+  resolution: "@npmcli/package-json@npm:7.0.1"
+  dependencies:
+    "@npmcli/git": "npm:^7.0.0"
+    glob: "npm:^11.0.3"
+    hosted-git-info: "npm:^9.0.0"
+    json-parse-even-better-errors: "npm:^4.0.0"
+    proc-log: "npm:^5.0.0"
+    semver: "npm:^7.5.3"
+    validate-npm-package-license: "npm:^3.0.4"
+  checksum: 10/be69096e889ebd3b832de24c56be17784ba00529af5f16d8092c0e911ac29acaf18ba86792e791a15f0681366ffd923a696b0b0f3840b1e68407909273c23e3e
   languageName: node
   linkType: hard
 
