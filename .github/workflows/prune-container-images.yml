@@ -16,4 +16,5 @@ jobs:
     with:
       dry-run: true
       prune-untagged: true
+      keep-younger-than: 90
       package-name: sofie-nrk-core-${{ matrix.repo }}
