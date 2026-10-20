@@ -14,7 +14,6 @@ jobs:
       matrix:
         repo: [server-core, playout-gateway, mos-gateway]
     with:
-      runners: "['arc-felles-prod']"
       dry-run: true
       prune-untagged: true
       package-name: sofie-nrk-core-${{ matrix.repo }}
