@@ -8,12 +8,13 @@ on:
 jobs:
   prune-container-images-sofie:
     if: ${{ github.repository_owner == 'nrkno' }}
-    uses: Sofie-Automation/sofie-github-workflows/.github/workflows/prune-container-images.yml@change-prune-action
+    uses: nrkno/sofie-nrk-github-workflows/.github/workflows/prune-container-images.yml@508f81564e6233f30ae776f63f19f7976b05669f # main
     strategy:
       max-parallel: 1
       matrix:
         repo: [server-core, playout-gateway, mos-gateway]
     with:
+      runners: "['arc-felles-prod']"
       dry-run: true
       prune-untagged: true
       package-name: sofie-nrk-core-${{ matrix.repo }}
