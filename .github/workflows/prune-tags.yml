@@ -14,6 +14,9 @@ on:
   schedule:
     - cron: "0 0 * * 0"
 
+permissions:
+  contents: write
+
 jobs:
   prune-tags:
     if: ${{ github.repository_owner == 'nrkno' }}
@@ -29,7 +32,7 @@ jobs:
 
       - name: Prune tags (scheduled)
         if: github.event_name == 'schedule'
-        uses: Sofie-Automation/sofie-github-workflows/.github/actions/tag-pruner@tag-pruner-v1
+        uses: Sofie-Automation/sofie-github-workflows/.github/actions/tag-pruner@14985a26fd070e35479dfcdde49dd6eeaa669f33 # tag-pruner-v1
         with:
           older-than: 30
           ignore: v[0-9]+\.[0-9]+\.[0-9]+.*
@@ -37,7 +40,7 @@ jobs:
 
       - name: Prune tags (manual)
         if: github.event_name == 'workflow_dispatch'
-        uses: Sofie-Automation/sofie-github-workflows/.github/actions/tag-pruner@tag-pruner-v1
+        uses: Sofie-Automation/sofie-github-workflows/.github/actions/tag-pruner@14985a26fd070e35479dfcdde49dd6eeaa669f33 # tag-pruner-v1
         with:
           older-than: ${{ github.event.inputs.older-than }}
           ignore: ${{ github.event.inputs.ignore }}
