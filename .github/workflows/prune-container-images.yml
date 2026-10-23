@@ -5,6 +5,9 @@ on:
   schedule:
     - cron: "12 14 * * *"
 
+permissions:
+  packages: write
+
 jobs:
   prune-container-images-sofie:
     if: ${{ github.repository_owner == 'nrkno' }}
