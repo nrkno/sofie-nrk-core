@@ -7483,11 +7483,11 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@sofie-automation/blueprints-integration@npm:26.9.2, @sofie-automation/blueprints-integration@workspace:packages/blueprints-integration":
+"@sofie-automation/blueprints-integration@npm:26.9.3, @sofie-automation/blueprints-integration@workspace:packages/blueprints-integration":
   version: 0.0.0-use.local
   resolution: "@sofie-automation/blueprints-integration@workspace:packages/blueprints-integration"
   dependencies:
-    "@sofie-automation/shared-lib": "npm:26.9.2"
+    "@sofie-automation/shared-lib": "npm:26.9.3"
     tslib: "npm:^2.8.1"
     type-fest: "npm:^4.41.0"
   languageName: unknown
@@ -7520,12 +7520,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@sofie-automation/corelib@npm:26.9.2, @sofie-automation/corelib@workspace:packages/corelib":
+"@sofie-automation/corelib@npm:26.9.3, @sofie-automation/corelib@workspace:packages/corelib":
   version: 0.0.0-use.local
   resolution: "@sofie-automation/corelib@workspace:packages/corelib"
   dependencies:
-    "@sofie-automation/blueprints-integration": "npm:26.9.2"
-    "@sofie-automation/shared-lib": "npm:26.9.2"
+    "@sofie-automation/blueprints-integration": "npm:26.9.3"
+    "@sofie-automation/shared-lib": "npm:26.9.3"
     ejson: "npm:^2.2.3"
     fast-clone: "npm:^1.5.13"
     i18next: "npm:^26.3.6"
@@ -7553,14 +7553,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@sofie-automation/job-worker@npm:26.9.2, @sofie-automation/job-worker@workspace:packages/job-worker":
+"@sofie-automation/job-worker@npm:26.9.3, @sofie-automation/job-worker@workspace:packages/job-worker":
   version: 0.0.0-use.local
   resolution: "@sofie-automation/job-worker@workspace:packages/job-worker"
   dependencies:
     "@slack/webhook": "npm:^7.2.0"
-    "@sofie-automation/blueprints-integration": "npm:26.9.2"
-    "@sofie-automation/corelib": "npm:26.9.2"
-    "@sofie-automation/shared-lib": "npm:26.9.2"
+    "@sofie-automation/blueprints-integration": "npm:26.9.3"
+    "@sofie-automation/corelib": "npm:26.9.3"
+    "@sofie-automation/shared-lib": "npm:26.9.3"
     amqplib: "npm:0.10.5"
     chrono-node: "npm:^2.9.1"
     deepmerge: "npm:^4.3.1"
@@ -7579,7 +7579,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@sofie-automation/live-status-gateway-api@npm:26.9.2, @sofie-automation/live-status-gateway-api@workspace:packages/live-status-gateway-api":
+"@sofie-automation/live-status-gateway-api@npm:26.9.3, @sofie-automation/live-status-gateway-api@workspace:packages/live-status-gateway-api":
   version: 0.0.0-use.local
   resolution: "@sofie-automation/live-status-gateway-api@workspace:packages/live-status-gateway-api"
   dependencies:
@@ -7595,14 +7595,14 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@sofie-automation/meteor-lib@npm:26.9.2, @sofie-automation/meteor-lib@workspace:packages/meteor-lib":
+"@sofie-automation/meteor-lib@npm:26.9.3, @sofie-automation/meteor-lib@workspace:packages/meteor-lib":
   version: 0.0.0-use.local
   resolution: "@sofie-automation/meteor-lib@workspace:packages/meteor-lib"
   dependencies:
     "@mos-connection/helper": "npm:^5.0.0"
-    "@sofie-automation/blueprints-integration": "npm:26.9.2"
-    "@sofie-automation/corelib": "npm:26.9.2"
-    "@sofie-automation/shared-lib": "npm:26.9.2"
+    "@sofie-automation/blueprints-integration": "npm:26.9.3"
+    "@sofie-automation/corelib": "npm:26.9.3"
+    "@sofie-automation/shared-lib": "npm:26.9.3"
     "@types/deep-extend": "npm:^0.6.2"
     "@types/semver": "npm:^7.7.1"
     "@types/underscore": "npm:^1.13.0"
@@ -7629,13 +7629,13 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@sofie-automation/server-core-integration@npm:26.9.2, @sofie-automation/server-core-integration@workspace:packages/server-core-integration":
+"@sofie-automation/server-core-integration@npm:26.9.3, @sofie-automation/server-core-integration@workspace:packages/server-core-integration":
   version: 0.0.0-use.local
   resolution: "@sofie-automation/server-core-integration@workspace:packages/server-core-integration"
   dependencies:
     "@koa/router": "npm:^15.7.0"
     "@kubernetes/client-node": "npm:^0.22.3"
-    "@sofie-automation/shared-lib": "npm:26.9.2"
+    "@sofie-automation/shared-lib": "npm:26.9.3"
     "@types/koa": "npm:^3.0.3"
     "@types/ws": "npm:^8.18.1"
     ejson: "npm:^2.2.3"
@@ -7647,7 +7647,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@sofie-automation/shared-lib@npm:26.9.2, @sofie-automation/shared-lib@workspace:packages/shared-lib":
+"@sofie-automation/shared-lib@npm:26.9.3, @sofie-automation/shared-lib@workspace:packages/shared-lib":
   version: 0.0.0-use.local
   resolution: "@sofie-automation/shared-lib@workspace:packages/shared-lib"
   dependencies:
@@ -7668,12 +7668,12 @@ __metadata:
     "@mos-connection/helper": "npm:^5.0.0"
     "@shopify/jest-koa-mocks": "npm:^5.3.1"
     "@slack/webhook": "npm:^7.2.0"
-    "@sofie-automation/blueprints-integration": "npm:26.9.2"
-    "@sofie-automation/corelib": "npm:26.9.2"
-    "@sofie-automation/job-worker": "npm:26.9.2"
-    "@sofie-automation/meteor-lib": "npm:26.9.2"
-    "@sofie-automation/server-core-integration": "npm:26.9.2"
-    "@sofie-automation/shared-lib": "npm:26.9.2"
+    "@sofie-automation/blueprints-integration": "npm:26.9.3"
+    "@sofie-automation/corelib": "npm:26.9.3"
+    "@sofie-automation/job-worker": "npm:26.9.3"
+    "@sofie-automation/meteor-lib": "npm:26.9.3"
+    "@sofie-automation/server-core-integration": "npm:26.9.3"
+    "@sofie-automation/shared-lib": "npm:26.9.3"
     "@types/deep-extend": "npm:^0.6.2"
     "@types/koa": "npm:^3.0.3"
     "@types/koa-bodyparser": "npm:^4.3.13"
@@ -7736,10 +7736,10 @@ __metadata:
     "@fortawesome/react-fontawesome": "npm:^3.5.0"
     "@jstarpl/react-contextmenu": "npm:^2.15.3"
     "@popperjs/core": "npm:^2.11.8"
-    "@sofie-automation/blueprints-integration": "npm:26.9.2"
-    "@sofie-automation/corelib": "npm:26.9.2"
-    "@sofie-automation/meteor-lib": "npm:26.9.2"
-    "@sofie-automation/shared-lib": "npm:26.9.2"
+    "@sofie-automation/blueprints-integration": "npm:26.9.3"
+    "@sofie-automation/corelib": "npm:26.9.3"
+    "@sofie-automation/meteor-lib": "npm:26.9.3"
+    "@sofie-automation/shared-lib": "npm:26.9.3"
     "@sofie-automation/sorensen": "npm:^1.5.11"
     "@testing-library/dom": "npm:^10.4.1"
     "@testing-library/jest-dom": "npm:^6.9.1"
@@ -21162,11 +21162,11 @@ asn1@evs-broadcast/node-asn1:
   version: 0.0.0-use.local
   resolution: "live-status-gateway@workspace:packages/live-status-gateway"
   dependencies:
-    "@sofie-automation/blueprints-integration": "npm:26.9.2"
-    "@sofie-automation/corelib": "npm:26.9.2"
-    "@sofie-automation/live-status-gateway-api": "npm:26.9.2"
-    "@sofie-automation/server-core-integration": "npm:26.9.2"
-    "@sofie-automation/shared-lib": "npm:26.9.2"
+    "@sofie-automation/blueprints-integration": "npm:26.9.3"
+    "@sofie-automation/corelib": "npm:26.9.3"
+    "@sofie-automation/live-status-gateway-api": "npm:26.9.3"
+    "@sofie-automation/server-core-integration": "npm:26.9.3"
+    "@sofie-automation/shared-lib": "npm:26.9.3"
     debug: "npm:^4.4.3"
     fast-clone: "npm:^1.5.13"
     influx: "npm:^5.12.0"
@@ -23459,8 +23459,8 @@ asn1@evs-broadcast/node-asn1:
   resolution: "mos-gateway@workspace:packages/mos-gateway"
   dependencies:
     "@mos-connection/connector": "npm:^5.0.0"
-    "@sofie-automation/server-core-integration": "npm:26.9.2"
-    "@sofie-automation/shared-lib": "npm:26.9.2"
+    "@sofie-automation/server-core-integration": "npm:26.9.3"
+    "@sofie-automation/shared-lib": "npm:26.9.3"
     tslib: "npm:^2.8.1"
     type-fest: "npm:^4.41.0"
     underscore: "npm:^1.13.8"
@@ -26004,8 +26004,8 @@ asn1@evs-broadcast/node-asn1:
   version: 0.0.0-use.local
   resolution: "playout-gateway@workspace:packages/playout-gateway"
   dependencies:
-    "@sofie-automation/server-core-integration": "npm:26.9.2"
-    "@sofie-automation/shared-lib": "npm:26.9.2"
+    "@sofie-automation/server-core-integration": "npm:26.9.3"
+    "@sofie-automation/shared-lib": "npm:26.9.3"
     debug: "npm:^4.4.3"
     influx: "npm:^5.12.0"
     timeline-state-resolver: "npm:10.0.0"
