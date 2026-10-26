@@ -1,6 +1,6 @@
 {
 	"name": "@sofie-automation/sofie-core",
-	"version": "26.9.2",
+	"version": "26.9.3",
 	"private": true,
 	"license": "MIT",
 	"engines": {
@@ -31,11 +31,11 @@
 		"@koa/router": "^15.7.0",
 		"@mos-connection/helper": "^5.0.0",
 		"@slack/webhook": "^7.2.0",
-		"@sofie-automation/blueprints-integration": "26.9.2",
-		"@sofie-automation/corelib": "26.9.2",
-		"@sofie-automation/job-worker": "26.9.2",
-		"@sofie-automation/meteor-lib": "26.9.2",
-		"@sofie-automation/shared-lib": "26.9.2",
+		"@sofie-automation/blueprints-integration": "26.9.3",
+		"@sofie-automation/corelib": "26.9.3",
+		"@sofie-automation/job-worker": "26.9.3",
+		"@sofie-automation/meteor-lib": "26.9.3",
+		"@sofie-automation/shared-lib": "26.9.3",
 		"bcrypt": "^6.0.0",
 		"deep-extend": "0.6.0",
 		"deepmerge": "^4.3.1",
@@ -65,7 +65,7 @@
 	},
 	"devDependencies": {
 		"@shopify/jest-koa-mocks": "^5.3.1",
-		"@sofie-automation/server-core-integration": "26.9.2",
+		"@sofie-automation/server-core-integration": "26.9.3",
 		"@types/deep-extend": "^0.6.2",
 		"@types/koa": "^3.0.3",
 		"@types/koa-bodyparser": "^4.3.13",
