@@ -613,18 +613,16 @@ const SCRIPTS: readonly Script[] = [
 		},
 	},
 	// Activated at 11:59:00; A1 taken 5 s late, A2 after 12 s, A3 after 13 s
-	...EVERY_GATEWAY.map(
-		(gateway): Script => ({
-			name: `the first takes of a show, ${gateway.description}`,
-			gateway,
-			play: async (show) => {
-				await show.activate('11:59:00')
-				await show.take('12:00:05')
-				await show.take('12:00:17')
-				await show.take('12:00:30')
-			},
-		})
-	),
+	...EVERY_GATEWAY.map((gateway): Script => ({
+		name: `the first takes of a show, ${gateway.description}`,
+		gateway,
+		play: async (show) => {
+			await show.activate('11:59:00')
+			await show.take('12:00:05')
+			await show.take('12:00:17')
+			await show.take('12:00:30')
+		},
+	})),
 	{
 		name: 'set next forward, skipping a segment',
 		gateway: NO_GATEWAY,
@@ -663,18 +661,16 @@ const SCRIPTS: readonly Script[] = [
 		},
 	},
 	// A1 taken at 12:00:05; A2 set to play from 0:05 in, and taken at 12:00:12
-	...EVERY_GATEWAY.map(
-		(gateway): Script => ({
-			name: `playing a part from a point inside it, ${gateway.description}`,
-			gateway,
-			play: async (show) => {
-				await show.activate('11:59:00')
-				await show.take('12:00:05')
-				await show.setNext('12:00:09', 'A2', { from: length('0:05') })
-				await show.take('12:00:12')
-			},
-		})
-	),
+	...EVERY_GATEWAY.map((gateway): Script => ({
+		name: `playing a part from a point inside it, ${gateway.description}`,
+		gateway,
+		play: async (show) => {
+			await show.activate('11:59:00')
+			await show.take('12:00:05')
+			await show.setNext('12:00:09', 'A2', { from: length('0:05') })
+			await show.take('12:00:12')
+		},
+	})),
 	{
 		name: `auto-next from A1, ${GATEWAY_CONFIRMING_AT_ONCE.description}`,
 		gateway: GATEWAY_CONFIRMING_AT_ONCE,

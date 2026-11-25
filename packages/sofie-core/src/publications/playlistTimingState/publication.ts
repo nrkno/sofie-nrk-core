@@ -254,20 +254,17 @@ function computeTimingState(
 			segmentId,
 			...values,
 		})),
-		partDocs: Array.from(
-			partStates.values(),
-			({ partInstance, values }): PartTimingStateDoc => ({
-				_id: getPartTimingStateDocId(partInstance.part._id),
-				type: 'part',
-				playlistId,
-				segmentId: partInstance.segmentId,
-				partId: partInstance.part._id,
-				// a temporary instance wraps a Part that has never been played, so it has no PartInstance
-				// identity to report
-				partInstanceId: partInstance.isTemporary ? undefined : partInstance._id,
-				...values,
-			})
-		),
+		partDocs: Array.from(partStates.values(), ({ partInstance, values }): PartTimingStateDoc => ({
+			_id: getPartTimingStateDocId(partInstance.part._id),
+			type: 'part',
+			playlistId,
+			segmentId: partInstance.segmentId,
+			partId: partInstance.part._id,
+			// a temporary instance wraps a Part that has never been played, so it has no PartInstance
+			// identity to report
+			partInstanceId: partInstance.isTemporary ? undefined : partInstance._id,
+			...values,
+		})),
 	}
 }
 

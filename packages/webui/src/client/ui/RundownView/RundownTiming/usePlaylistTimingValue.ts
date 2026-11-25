@@ -510,8 +510,7 @@ function useTimerStateValue(
 	state: TimerState | undefined,
 	mode: TimerValueMode,
 	options:
-		| Pick<UsePlaylistTimingValueOptions, 'tickResolution' | 'tickResolutionWhileHolding' | 'drawnAs'>
-		| undefined
+		Pick<UsePlaylistTimingValueOptions, 'tickResolution' | 'tickResolutionWhileHolding' | 'drawnAs'> | undefined
 ): number | null {
 	const tickResolution = options?.tickResolution ?? TimingTickResolution.Synced
 	const tickResolutionWhileHolding = options?.tickResolutionWhileHolding ?? tickResolution
