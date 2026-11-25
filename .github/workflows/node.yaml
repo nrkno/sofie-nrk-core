@@ -209,7 +209,7 @@ jobs:
       # Dockerhub push
       - name: Get the Docker tag for DockerHub
         id: dockerhub-tag
-        if: steps.check-build-and-push.outputs.enable == 'true'
+        if: github.repository_owner == 'Sofie-Automation' && steps.check-build-and-push.outputs.enable == 'true'
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: |
@@ -352,7 +352,7 @@ jobs:
       # Dockerhub push
       - name: Get the Docker tag for DockerHub
         id: dockerhub-tag
-        if: steps.check-build-and-push.outputs.enable == 'true'
+        if: github.repository_owner == 'Sofie-Automation' && steps.check-build-and-push.outputs.enable == 'true'
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: |
@@ -363,13 +363,13 @@ jobs:
             type=ref,event=tag
             type=raw,value=latest,enable={{is_default_branch}}
       - name: Login to DockerHub
-        if: steps.check-build-and-push.outputs.enable == 'true' && steps.dockerhub.outputs.dockerhub-publish == '1'
+        if: github.repository_owner == 'Sofie-Automation' && steps.check-build-and-push.outputs.enable == 'true' && steps.dockerhub.outputs.dockerhub-publish == '1'
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Build and push to DockerHub
-        if: steps.check-build-and-push.outputs.enable == 'true' && steps.dockerhub.outputs.dockerhub-publish == '1'
+        if: github.repository_owner == 'Sofie-Automation' && steps.check-build-and-push.outputs.enable == 'true' && steps.dockerhub.outputs.dockerhub-publish == '1'
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
