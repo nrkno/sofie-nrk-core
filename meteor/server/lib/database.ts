@@ -1,10 +1,15 @@
-import { Meteor } from 'meteor/meteor'
-import type { AnyBulkWriteOperation } from 'mongodb'
 import _ from 'underscore'
-import { DBObj, normalizeArrayToMap, ProtectedString, deleteAllUndefinedProperties } from '../../lib/lib'
-import { MongoQuery } from '@sofie-automation/corelib/dist/mongo'
+import { normalizeArrayToMap, deleteAllUndefinedProperties } from '@sofie-automation/corelib/dist/lib'
+import { ProtectedString } from '@sofie-automation/corelib/dist/protectedString'
+import { MongoBulkWriteOperation, MongoQuery } from '@sofie-automation/corelib/dist/mongo'
 import { profiler } from '../api/profiler'
 import { AsyncOnlyMongoCollection } from '../collections/collection'
+import { SofieError } from '@sofie-automation/corelib/dist/error'
+
+export interface DBObj {
+	_id: ProtectedString<any>
+	[key: string]: any
+}
 
 export interface Changes {
 	added: number
@@ -104,7 +109,7 @@ async function savePreparedChanges<DBInterface extends DBObj>(
 	const newObjIds = new Set<DBInterface['_id']>()
 	const checkInsertId = (id: DBInterface['_id']) => {
 		if (newObjIds.has(id)) {
-			throw new Meteor.Error(
+			throw new SofieError(
 				500,
 				`savePreparedChanges into collection "${(collection as any)._name}": Duplicate identifier "${id}"`
 			)
@@ -112,7 +117,7 @@ async function savePreparedChanges<DBInterface extends DBObj>(
 		newObjIds.add(id)
 	}
 
-	const updates: AnyBulkWriteOperation<DBInterface>[] = []
+	const updates: MongoBulkWriteOperation<DBInterface>[] = []
 	const removedDocs: DBInterface['_id'][] = []
 
 	_.each(preparedChanges.changed || [], (oUpdate) => {
@@ -208,7 +213,7 @@ function saveIntoBase<DBInterface extends DBObj>(
 	const newObjIds = new Set<DBInterface['_id']>()
 	_.each(newData, (o) => {
 		if (newObjIds.has(o._id)) {
-			throw new Meteor.Error(
+			throw new SofieError(
 				500,
 				`saveIntoBase into collection "${collectionName}": Duplicate identifier _id: "${o._id}"`
 			)

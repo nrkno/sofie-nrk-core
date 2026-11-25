@@ -1,7 +1,7 @@
 import { DBPart } from '@sofie-automation/corelib/dist/dataModel/Part'
 import { DBSegment } from '@sofie-automation/corelib/dist/dataModel/Segment'
 import { Piece } from '@sofie-automation/corelib/dist/dataModel/Piece'
-import { ReactiveCacheCollection } from '../../lib/ReactiveCacheCollection'
+import { InMemoryMongoCollection } from '@sofie-automation/corelib/dist/memoryCollection'
 import { DBShowStyleBase, SourceLayers } from '@sofie-automation/corelib/dist/dataModel/ShowStyleBase'
 import { literal } from '@sofie-automation/corelib/dist/lib'
 import { MongoFieldSpecifierOnesStrict } from '@sofie-automation/corelib/dist/mongo'
@@ -13,6 +13,7 @@ import { RundownBaselineAdLibAction } from '@sofie-automation/corelib/dist/dataM
 import { BlueprintId, ShowStyleBaseId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { PieceInstance } from '@sofie-automation/corelib/dist/dataModel/PieceInstance'
 import { DBPartInstance } from '@sofie-automation/corelib/dist/dataModel/PartInstance'
+import { Blueprint } from '@sofie-automation/corelib/dist/dataModel/Blueprint'
 
 export interface SourceLayersDoc {
 	_id: ShowStyleBaseId
@@ -63,7 +64,7 @@ export const partInstanceFieldSpecifier = literal<
 	part: 1, // This could be stricter, but this is unlikely to be changed once the PartInstance is created
 })
 
-export type PieceInstanceFields = '_id' | 'rundownId' | 'partInstanceId' | 'piece'
+export type PieceInstanceFields = '_id' | 'rundownId' | 'partInstanceId' | 'piece' | 'infinite'
 export const pieceInstanceFieldSpecifier = literal<
 	MongoFieldSpecifierOnesStrict<Pick<PieceInstance, PieceInstanceFields>>
 >({
@@ -71,6 +72,7 @@ export const pieceInstanceFieldSpecifier = literal<
 	rundownId: 1,
 	partInstanceId: 1,
 	piece: 1, // This could be stricter, but this is unlikely to be changed once the PieceInstance is created
+	infinite: 1, // This could be stricter, but this is temporary and should never change once set
 })
 
 export type AdLibPieceFields =
@@ -115,35 +117,43 @@ export const showStyleBaseFieldSpecifier = literal<
 	sourceLayersWithOverrides: 1,
 })
 
+export type BlueprintFields = '_id' | 'packageStatusMessages'
+export const blueprintFieldSpecifier = literal<MongoFieldSpecifierOnesStrict<Pick<Blueprint, BlueprintFields>>>({
+	_id: 1,
+	packageStatusMessages: 1,
+})
+
 export interface ContentCache {
-	Rundowns: ReactiveCacheCollection<Pick<Rundown, RundownFields>>
-	Segments: ReactiveCacheCollection<Pick<DBSegment, SegmentFields>>
-	Parts: ReactiveCacheCollection<Pick<DBPart, PartFields>>
-	Pieces: ReactiveCacheCollection<Pick<Piece, PieceFields>>
-	PartInstances: ReactiveCacheCollection<Pick<DBPartInstance, PartInstanceFields>>
-	PieceInstances: ReactiveCacheCollection<Pick<PieceInstance, PieceInstanceFields>>
-	AdLibPieces: ReactiveCacheCollection<Pick<AdLibPiece, AdLibPieceFields>>
-	AdLibActions: ReactiveCacheCollection<Pick<AdLibAction, AdLibActionFields>>
-	BaselineAdLibPieces: ReactiveCacheCollection<Pick<RundownBaselineAdLibItem, AdLibPieceFields>>
-	BaselineAdLibActions: ReactiveCacheCollection<Pick<RundownBaselineAdLibAction, AdLibActionFields>>
-	ShowStyleSourceLayers: ReactiveCacheCollection<SourceLayersDoc>
+	Rundowns: InMemoryMongoCollection<Pick<Rundown, RundownFields>>
+	Segments: InMemoryMongoCollection<Pick<DBSegment, SegmentFields>>
+	Parts: InMemoryMongoCollection<Pick<DBPart, PartFields>>
+	Pieces: InMemoryMongoCollection<Pick<Piece, PieceFields>>
+	PartInstances: InMemoryMongoCollection<Pick<DBPartInstance, PartInstanceFields>>
+	PieceInstances: InMemoryMongoCollection<Pick<PieceInstance, PieceInstanceFields>>
+	AdLibPieces: InMemoryMongoCollection<Pick<AdLibPiece, AdLibPieceFields>>
+	AdLibActions: InMemoryMongoCollection<Pick<AdLibAction, AdLibActionFields>>
+	BaselineAdLibPieces: InMemoryMongoCollection<Pick<RundownBaselineAdLibItem, AdLibPieceFields>>
+	BaselineAdLibActions: InMemoryMongoCollection<Pick<RundownBaselineAdLibAction, AdLibActionFields>>
+	ShowStyleSourceLayers: InMemoryMongoCollection<SourceLayersDoc>
+	Blueprints: InMemoryMongoCollection<Pick<Blueprint, BlueprintFields>>
 }
 
 export function createReactiveContentCache(): ContentCache {
 	const cache: ContentCache = {
-		Rundowns: new ReactiveCacheCollection<Pick<Rundown, RundownFields>>('rundowns'),
-		Segments: new ReactiveCacheCollection<Pick<DBSegment, SegmentFields>>('segments'),
-		Parts: new ReactiveCacheCollection<Pick<DBPart, PartFields>>('parts'),
-		Pieces: new ReactiveCacheCollection<Pick<Piece, PieceFields>>('pieces'),
-		PartInstances: new ReactiveCacheCollection<Pick<DBPartInstance, PartInstanceFields>>('partInstances'),
-		PieceInstances: new ReactiveCacheCollection<Pick<PieceInstance, PieceInstanceFields>>('pieceInstances'),
-		AdLibPieces: new ReactiveCacheCollection<Pick<AdLibPiece, AdLibPieceFields>>('adlibPieces'),
-		AdLibActions: new ReactiveCacheCollection<Pick<AdLibAction, AdLibActionFields>>('adlibActions'),
-		BaselineAdLibPieces: new ReactiveCacheCollection<Pick<AdLibPiece, AdLibPieceFields>>('baselineAdlibPieces'),
-		BaselineAdLibActions: new ReactiveCacheCollection<Pick<RundownBaselineAdLibAction, AdLibActionFields>>(
+		Rundowns: new InMemoryMongoCollection<Pick<Rundown, RundownFields>>('rundowns'),
+		Segments: new InMemoryMongoCollection<Pick<DBSegment, SegmentFields>>('segments'),
+		Parts: new InMemoryMongoCollection<Pick<DBPart, PartFields>>('parts'),
+		Pieces: new InMemoryMongoCollection<Pick<Piece, PieceFields>>('pieces'),
+		PartInstances: new InMemoryMongoCollection<Pick<DBPartInstance, PartInstanceFields>>('partInstances'),
+		PieceInstances: new InMemoryMongoCollection<Pick<PieceInstance, PieceInstanceFields>>('pieceInstances'),
+		AdLibPieces: new InMemoryMongoCollection<Pick<AdLibPiece, AdLibPieceFields>>('adlibPieces'),
+		AdLibActions: new InMemoryMongoCollection<Pick<AdLibAction, AdLibActionFields>>('adlibActions'),
+		BaselineAdLibPieces: new InMemoryMongoCollection<Pick<AdLibPiece, AdLibPieceFields>>('baselineAdlibPieces'),
+		BaselineAdLibActions: new InMemoryMongoCollection<Pick<RundownBaselineAdLibAction, AdLibActionFields>>(
 			'baselineAdlibActions'
 		),
-		ShowStyleSourceLayers: new ReactiveCacheCollection<SourceLayersDoc>('sourceLayers'),
+		ShowStyleSourceLayers: new InMemoryMongoCollection<SourceLayersDoc>('sourceLayers'),
+		Blueprints: new InMemoryMongoCollection<Pick<Blueprint, BlueprintFields>>('blueprints'),
 	}
 
 	return cache

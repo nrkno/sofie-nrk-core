@@ -1,22 +1,17 @@
-import { Meteor } from 'meteor/meteor'
-import { check, Match } from '../../lib/check'
-import { meteorPublish, AutoFillSelector } from './lib'
-import { MeteorPubSub } from '../../lib/api/pubsub'
-import { getActiveRoutes, getRoutedMappings } from '../../lib/collections/Studios'
-import { PeripheralDeviceReadAccess } from '../security/peripheralDevice'
+import { z } from 'zod'
+import { check, zAnyArray } from '../lib/check'
+import { MeteorPubSub } from '@sofie-automation/meteor-lib/dist/api/pubsub'
+import { getActiveRoutes, getRoutedMappings } from '@sofie-automation/meteor-lib/dist/collections/Studios'
 import { ExternalMessageQueueObj } from '@sofie-automation/corelib/dist/dataModel/ExternalMessageQueue'
-import { StudioReadAccess } from '../security/studio'
-import { OrganizationReadAccess } from '../security/organization'
-import { NoSecurityReadAccess } from '../security/noSecurity'
 import {
 	CustomPublish,
-	meteorCustomPublish,
+	SetupObserversResult,
 	setUpOptimizedObserverArray,
 	TriggerUpdate,
 } from '../lib/customPublication'
-import { literal } from '../../lib/lib'
+import { literal } from '@sofie-automation/corelib/dist/lib'
 import { ReadonlyDeep } from 'type-fest'
-import { FindOptions } from '../../lib/collections/lib'
+import { FindOptions } from '@sofie-automation/meteor-lib/dist/collections/lib'
 import { applyAndValidateOverrides } from '@sofie-automation/corelib/dist/settings/objectWithOverrides'
 import { PeripheralDeviceId, StudioId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import {
@@ -25,7 +20,6 @@ import {
 	ExternalMessageQueue,
 	PackageContainerStatuses,
 	PackageInfos,
-	PeripheralDevices,
 	Studios,
 } from '../collections'
 import { MongoQuery } from '@sofie-automation/corelib/dist/mongo'
@@ -36,126 +30,129 @@ import {
 	PeripheralDevicePubSub,
 	PeripheralDevicePubSubCollectionsNames,
 } from '@sofie-automation/shared-lib/dist/pubsub/peripheralDevice'
+import { triggerWriteAccessBecauseNoCheckNecessary } from '../security/securityVerify'
+import { checkAccessAndGetPeripheralDevice } from '../security/check'
+import { assertConnectionHasOneOfPermissions } from '../security/auth'
+import { fetchStudioIds } from '../optimizations'
+import type { PublicationRegistry } from '../publicationRegistry'
+import { SofieError } from '@sofie-automation/corelib/dist/error'
 
-meteorPublish(CorelibPubSub.studios, async function (studioIds: StudioId[] | null, token: string | undefined) {
-	check(studioIds, Match.Maybe(Array))
+export function registerStudioPublications(registry: PublicationRegistry): void {
+	registry.publish(
+		CorelibPubSub.studios,
+		async (_context, studioIds: StudioId[] | null, _token: string | undefined) => {
+			check(studioIds, zAnyArray.nullish())
 
-	// If values were provided, they must have values
-	if (studioIds && studioIds.length === 0) return null
+			triggerWriteAccessBecauseNoCheckNecessary()
 
-	const { cred, selector } = await AutoFillSelector.organizationId<DBStudio>(this.userId, {}, token)
+			// If values were provided, they must have values
+			if (studioIds && studioIds.length === 0) return null
 
-	// Add the requested filter
-	if (studioIds) selector._id = { $in: studioIds }
+			// Add the requested filter
+			const selector: MongoQuery<DBStudio> = {}
+			if (studioIds) selector._id = { $in: studioIds }
 
-	if (
-		!cred ||
-		NoSecurityReadAccess.any() ||
-		(selector._id && (await StudioReadAccess.studio(selector._id, cred))) ||
-		(selector.organizationId && (await OrganizationReadAccess.organizationContent(selector.organizationId, cred)))
-	) {
-		return Studios.findWithCursor(selector)
-	}
-	return null
-})
-
-meteorPublish(
-	CorelibPubSub.externalMessageQueue,
-	async function (selector: MongoQuery<ExternalMessageQueueObj>, token: string | undefined) {
-		if (!selector) throw new Meteor.Error(400, 'selector argument missing')
-		const modifier: FindOptions<ExternalMessageQueueObj> = {
-			fields: {},
+			return Studios.findWithCursor(selector)
 		}
-		if (await StudioReadAccess.studioContent(selector.studioId, { userId: this.userId, token })) {
+	)
+
+	registry.publish(
+		CorelibPubSub.externalMessageQueue,
+		async (_context, selector: MongoQuery<ExternalMessageQueueObj>, _token: string | undefined) => {
+			triggerWriteAccessBecauseNoCheckNecessary()
+
+			if (!selector) throw new SofieError(400, 'selector argument missing')
+			const modifier: FindOptions<ExternalMessageQueueObj> = {
+				fields: {},
+			}
+
 			return ExternalMessageQueue.findWithCursor(selector, modifier)
 		}
-		return null
-	}
-)
+	)
 
-meteorPublish(CorelibPubSub.expectedPackages, async function (studioIds: StudioId[], token: string | undefined) {
-	// Note: This differs from the expected packages sent to the Package Manager, instead @see PubSub.expectedPackagesForDevice
-	check(studioIds, Array)
+	registry.publish(
+		CorelibPubSub.expectedPackages,
+		async (_context, studioIds: StudioId[], _token: string | undefined) => {
+			// Note: This differs from the expected packages sent to the Package Manager, instead @see PubSub.expectedPackagesForDevice
+			check(studioIds, zAnyArray)
 
-	if (studioIds.length === 0) return null
+			triggerWriteAccessBecauseNoCheckNecessary()
 
-	if (await StudioReadAccess.studioContent(studioIds, { userId: this.userId, token })) {
-		return ExpectedPackages.findWithCursor({
-			studioId: { $in: studioIds },
-		})
-	}
-	return null
-})
-meteorPublish(
-	CorelibPubSub.expectedPackageWorkStatuses,
-	async function (studioIds: StudioId[], token: string | undefined) {
-		check(studioIds, Array)
+			if (studioIds.length === 0) return null
 
-		if (studioIds.length === 0) return null
+			return ExpectedPackages.findWithCursor({
+				studioId: { $in: studioIds },
+			})
+		}
+	)
+	registry.publish(
+		CorelibPubSub.expectedPackageWorkStatuses,
+		async (_context, studioIds: StudioId[], _token: string | undefined) => {
+			check(studioIds, zAnyArray)
+			triggerWriteAccessBecauseNoCheckNecessary()
 
-		if (await StudioReadAccess.studioContent(studioIds, { userId: this.userId, token })) {
+			if (studioIds.length === 0) return null
+
 			return ExpectedPackageWorkStatuses.findWithCursor({
 				studioId: { $in: studioIds },
 			})
 		}
-		return null
-	}
-)
-meteorPublish(
-	CorelibPubSub.packageContainerStatuses,
-	async function (studioIds: StudioId[], token: string | undefined) {
-		check(studioIds, Array)
+	)
+	registry.publish(
+		CorelibPubSub.packageContainerStatuses,
+		async (_context, studioIds: StudioId[], _token: string | undefined) => {
+			check(studioIds, zAnyArray)
 
-		if (studioIds.length === 0) return null
+			triggerWriteAccessBecauseNoCheckNecessary()
 
-		if (await StudioReadAccess.studioContent(studioIds, { userId: this.userId, token })) {
+			if (studioIds.length === 0) return null
+
 			return PackageContainerStatuses.findWithCursor({
 				studioId: { $in: studioIds },
 			})
 		}
-		return null
-	}
-)
+	)
 
-meteorPublish(CorelibPubSub.packageInfos, async function (deviceId: PeripheralDeviceId, token: string | undefined) {
-	if (!deviceId) throw new Meteor.Error(400, 'deviceId argument missing')
+	registry.publish(
+		CorelibPubSub.packageInfos,
+		async (_context, deviceId: PeripheralDeviceId, _token: string | undefined) => {
+			check(deviceId, z.string())
 
-	if (await PeripheralDeviceReadAccess.peripheralDeviceContent(deviceId, { userId: this.userId, token })) {
-		return PackageInfos.findWithCursor({ deviceId })
-	}
-	return null
-})
+			triggerWriteAccessBecauseNoCheckNecessary()
 
-meteorCustomPublish(
-	PeripheralDevicePubSub.mappingsForDevice,
-	PeripheralDevicePubSubCollectionsNames.studioMappings,
-	async function (pub, deviceId: PeripheralDeviceId, token: string | undefined) {
-		check(deviceId, String)
+			return PackageInfos.findWithCursor({ deviceId })
+		}
+	)
 
-		if (await PeripheralDeviceReadAccess.peripheralDeviceContent(deviceId, { userId: this.userId, token })) {
-			const peripheralDevice = await PeripheralDevices.findOneAsync(deviceId)
+	registry.customPublish(
+		PeripheralDevicePubSub.mappingsForDevice,
+		PeripheralDevicePubSubCollectionsNames.studioMappings,
+		async (context, pub, deviceId: PeripheralDeviceId, token: string | undefined) => {
+			check(deviceId, z.string())
 
-			if (!peripheralDevice) throw new Meteor.Error('PeripheralDevice "' + deviceId + '" not found')
+			const peripheralDevice = await checkAccessAndGetPeripheralDevice(deviceId, token, context)
 
-			const studioId = peripheralDevice.studioId
+			const studioId = peripheralDevice.studioAndConfigId?.studioId
 			if (!studioId) return
 
 			await createObserverForMappingsPublication(pub, studioId)
 		}
-	}
-)
+	)
 
-meteorCustomPublish(
-	MeteorPubSub.mappingsForStudio,
-	PeripheralDevicePubSubCollectionsNames.studioMappings,
-	async function (pub, studioId: StudioId, token: string | undefined) {
-		check(studioId, String)
+	registry.customPublish(
+		MeteorPubSub.mappingsForStudio,
+		PeripheralDevicePubSubCollectionsNames.studioMappings,
+		async (context, pub) => {
+			assertConnectionHasOneOfPermissions(context.connection, 'testing')
 
-		if (await StudioReadAccess.studio(studioId, { userId: this.userId, token })) {
-			await createObserverForMappingsPublication(pub, studioId)
+			// Find the first studioId. There should only be one, but we don't know what it will be
+			const studioIds = await fetchStudioIds({})
+			if (studioIds.length < 1) throw new Error('No studios found')
+
+			await createObserverForMappingsPublication(pub, studioIds[0])
 		}
-	}
-)
+	)
+}
 
 interface RoutedMappingsArgs {
 	readonly studioId: StudioId
@@ -170,7 +167,7 @@ interface RoutedMappingsUpdateProps {
 async function setupMappingsPublicationObservers(
 	args: ReadonlyDeep<RoutedMappingsArgs>,
 	triggerUpdate: TriggerUpdate<RoutedMappingsUpdateProps>
-): Promise<Meteor.LiveQueryHandle[]> {
+): Promise<SetupObserversResult> {
 	// Set up observers:
 	return [
 		Studios.observeChanges(
@@ -181,7 +178,7 @@ async function setupMappingsPublicationObservers(
 				removed: () => triggerUpdate({ invalidateStudio: true }),
 			},
 			{
-				fields: {
+				projection: {
 					// It should be enough to watch the mappingsHash, since that should change whenever there is a
 					// change to the mappings or the routes
 					mappingsHash: 1,
@@ -202,7 +199,7 @@ async function manipulateMappingsPublicationData(
 	const studio = await Studios.findOneAsync(args.studioId)
 	if (!studio) return []
 
-	const routes = getActiveRoutes(studio.routeSets)
+	const routes = getActiveRoutes(applyAndValidateOverrides(studio.routeSetsWithOverrides).obj)
 	const rawMappings = applyAndValidateOverrides(studio.mappingsWithOverrides)
 	const routedMappings = getRoutedMappings(rawMappings.obj, routes)
 

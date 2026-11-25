@@ -1,20 +1,17 @@
 import * as v8 from 'node:v8'
 import { Readable } from 'stream'
-import { Meteor } from 'meteor/meteor'
 import Koa from 'koa'
 import KoaRouter from '@koa/router'
-import { fixValidPath } from '../../lib/lib'
+import { fixValidPath } from '../lib/lib'
+import { sleep } from '../lib/lib'
 import { stringifyError } from '@sofie-automation/shared-lib/dist/lib/stringifyError'
 import { logger } from '../logging'
-import { Settings } from '../../lib/Settings'
-import { Credentials } from '../security/lib/credentials'
-import { SystemWriteAccess } from '../security/system'
-import { sleep } from '@sofie-automation/corelib/dist/lib'
+import { assertConnectionHasOneOfPermissions, RequestCredentials } from '../security/auth'
+import { SofieError } from '@sofie-automation/corelib/dist/error'
 
-async function retrieveHeapSnapshot(cred0: Credentials): Promise<Readable> {
-	if (Settings.enableUserAccounts) {
-		await SystemWriteAccess.coreSystem(cred0)
-	}
+async function retrieveHeapSnapshot(cred: RequestCredentials): Promise<Readable> {
+	assertConnectionHasOneOfPermissions(cred, 'developer')
+
 	logger.warn('Taking heap snapshot, expect system to be unresponsive for a few seconds..')
 	await sleep(100) // Allow the logger to catch up before continuing..
 
@@ -42,7 +39,7 @@ async function handleKoaResponse(ctx: Koa.ParameterizedContext, snapshotFcn: () 
 		// ctx.response.body = JSON.stringify(snapshot, null, 4)
 	} catch (e) {
 		ctx.response.type = 'text/plain'
-		ctx.response.status = e instanceof Meteor.Error && typeof e.error === 'number' ? e.error : 500
+		ctx.response.status = e instanceof SofieError ? e.error : 500
 		ctx.response.body = 'Error: ' + stringifyError(e)
 
 		if (ctx.response.status !== 404) {
@@ -51,19 +48,9 @@ async function handleKoaResponse(ctx: Koa.ParameterizedContext, snapshotFcn: () 
 	}
 }
 
-// For backwards compatibility:
-if (!Settings.enableUserAccounts) {
-	// Retrieve heap snapshot:
-	heapSnapshotPrivateApiRouter.get('/retrieve', async (ctx) => {
-		return handleKoaResponse(ctx, async () => {
-			return retrieveHeapSnapshot({ userId: null })
-		})
-	})
-}
-
 // Retrieve heap snapshot:
-heapSnapshotPrivateApiRouter.get('/:token/retrieve', async (ctx) => {
+heapSnapshotPrivateApiRouter.get('/retrieve', async (ctx) => {
 	return handleKoaResponse(ctx, async () => {
-		return retrieveHeapSnapshot({ userId: null, token: ctx.params.token })
+		return retrieveHeapSnapshot(ctx)
 	})
 })

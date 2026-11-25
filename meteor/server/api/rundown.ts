@@ -1,44 +1,47 @@
-import * as _ from 'underscore'
-import { check } from '../../lib/check'
+import { z } from 'zod'
+import _ from 'underscore'
+import { check } from '../lib/check'
 import { logger } from '../logging'
-import { registerClassToMeteorMethods } from '../methods'
-import { NewRundownAPI, RundownAPIMethods } from '../../lib/api/rundown'
+import { NewRundownAPI } from '@sofie-automation/meteor-lib/dist/api/rundown'
 import { DBShowStyleVariant } from '@sofie-automation/corelib/dist/dataModel/ShowStyleVariant'
 import { DBShowStyleBase } from '@sofie-automation/corelib/dist/dataModel/ShowStyleBase'
 import { PackageInfo } from '../coreSystem'
 import { IngestActions } from './ingest/actions'
-import { ReloadRundownPlaylistResponse, TriggerReloadDataResponse } from '../../lib/api/userActions'
-import { MethodContextAPI, MethodContext } from '../../lib/api/methods'
-import { StudioContentWriteAccess } from '../security/studio'
+import {
+	ReloadRundownPlaylistResponse,
+	TriggerReloadDataResponse,
+} from '@sofie-automation/meteor-lib/dist/api/userActions'
+import { MethodContextAPI, MethodContext } from './methodContext'
 import { runIngestOperation } from './ingest/lib'
 import { IngestJobs } from '@sofie-automation/corelib/dist/worker/ingest'
-import { VerifiedRundownContentAccess, VerifiedRundownPlaylistContentAccess } from './lib'
+import { VerifiedRundownForUserAction, VerifiedRundownPlaylistForUserAction } from '../security/check'
 import { Blueprint } from '@sofie-automation/corelib/dist/dataModel/Blueprint'
 import { DBStudio } from '@sofie-automation/corelib/dist/dataModel/Studio'
 import { RundownPlaylistId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { Blueprints, Rundowns, ShowStyleBases, ShowStyleVariants, Studios } from '../collections'
+import { triggerWriteAccessBecauseNoCheckNecessary } from '../security/securityVerify'
 
 export namespace ServerRundownAPI {
 	/** Remove an individual rundown */
-	export async function removeRundown(access: VerifiedRundownContentAccess): Promise<void> {
-		await runIngestOperation(access.rundown.studioId, IngestJobs.UserRemoveRundown, {
-			rundownId: access.rundown._id,
+	export async function removeRundown(rundown: VerifiedRundownForUserAction): Promise<void> {
+		await runIngestOperation(rundown.studioId, IngestJobs.UserRemoveRundown, {
+			rundownId: rundown._id,
 			force: true,
 		})
 	}
 
-	export async function unsyncRundown(access: VerifiedRundownContentAccess): Promise<void> {
-		await runIngestOperation(access.rundown.studioId, IngestJobs.UserUnsyncRundown, {
-			rundownId: access.rundown._id,
+	export async function unsyncRundown(rundown: VerifiedRundownForUserAction): Promise<void> {
+		await runIngestOperation(rundown.studioId, IngestJobs.UserUnsyncRundown, {
+			rundownId: rundown._id,
 		})
 	}
 	/** Resync all rundowns in a rundownPlaylist */
 	export async function resyncRundownPlaylist(
-		access: VerifiedRundownPlaylistContentAccess
+		playlist: VerifiedRundownPlaylistForUserAction
 	): Promise<ReloadRundownPlaylistResponse> {
-		logger.info('resyncRundownPlaylist ' + access.playlist._id)
+		logger.info('resyncRundownPlaylist ' + playlist._id)
 
-		const rundowns = await Rundowns.findFetchAsync({ playlistId: access.playlist._id })
+		const rundowns = await Rundowns.findFetchAsync({ playlistId: playlist._id })
 		const responses = await Promise.all(
 			rundowns.map(async (rundown) => {
 				return {
@@ -53,23 +56,22 @@ export namespace ServerRundownAPI {
 		}
 	}
 
-	export async function resyncRundown(access: VerifiedRundownContentAccess): Promise<TriggerReloadDataResponse> {
-		return IngestActions.reloadRundown(access.rundown)
+	export async function resyncRundown(rundown: VerifiedRundownForUserAction): Promise<TriggerReloadDataResponse> {
+		return IngestActions.reloadRundown(rundown)
 	}
 }
 
 export namespace ClientRundownAPI {
 	export async function rundownPlaylistNeedsResync(
-		context: MethodContext,
+		_context: MethodContext,
 		playlistId: RundownPlaylistId
 	): Promise<string[]> {
-		check(playlistId, String)
-		const access = await StudioContentWriteAccess.rundownPlaylist(context, playlistId)
-		const playlist = access.playlist
+		check(playlistId, z.string())
+		triggerWriteAccessBecauseNoCheckNecessary()
 
 		const rundowns = await Rundowns.findFetchAsync(
 			{
-				playlistId: playlist._id,
+				playlistId: playlistId,
 			},
 			{
 				sort: { _id: 1 },
@@ -83,7 +85,7 @@ export namespace ClientRundownAPI {
 				if (rundown.importVersions.core !== PackageInfo.version) return 'coreVersion'
 
 				const showStyleVariant = (await ShowStyleVariants.findOneAsync(rundown.showStyleVariantId, {
-					fields: {
+					projection: {
 						_id: 1,
 						_rundownVersionHash: 1,
 					},
@@ -93,7 +95,7 @@ export namespace ClientRundownAPI {
 					return 'showStyleVariant'
 
 				const showStyleBase = (await ShowStyleBases.findOneAsync(rundown.showStyleBaseId, {
-					fields: {
+					projection: {
 						_id: 1,
 						_rundownVersionHash: 1,
 						blueprintId: 1,
@@ -104,22 +106,24 @@ export namespace ClientRundownAPI {
 					return 'showStyleBase'
 
 				const blueprint = (await Blueprints.findOneAsync(showStyleBase.blueprintId, {
-					fields: {
+					projection: {
 						_id: 1,
-						blueprintVersion: 1,
+						blueprintHash: 1,
 					},
-				})) as Pick<Blueprint, '_id' | 'blueprintVersion'>
-				if (!blueprint.blueprintVersion) return 'missing blueprint'
-				if (rundown.importVersions.blueprint !== (blueprint.blueprintVersion || 0)) return 'blueprint'
+				})) as Pick<Blueprint, '_id' | 'blueprintHash'>
+				if (!blueprint.blueprintHash) return 'missing blueprint'
+				if (rundown.importVersions.blueprint !== blueprint.blueprintHash) return 'blueprint'
 
 				const studio = (await Studios.findOneAsync(rundown.studioId, {
-					fields: {
+					projection: {
 						_id: 1,
 						_rundownVersionHash: 1,
 					},
 				})) as Pick<DBStudio, '_id' | '_rundownVersionHash'>
 				if (!studio) return 'missing studio'
 				if (rundown.importVersions.studio !== (studio._rundownVersionHash || 0)) return 'studio'
+
+				return undefined // no errors
 			})
 		)
 
@@ -127,9 +131,8 @@ export namespace ClientRundownAPI {
 	}
 }
 
-class ServerRundownAPIClass extends MethodContextAPI implements NewRundownAPI {
-	async rundownPlaylistNeedsResync(playlistId: RundownPlaylistId) {
+export class ServerRundownAPIClass extends MethodContextAPI implements NewRundownAPI {
+	async rundownPlaylistNeedsResync(playlistId: RundownPlaylistId): Promise<string[]> {
 		return ClientRundownAPI.rundownPlaylistNeedsResync(this, playlistId)
 	}
 }
-registerClassToMeteorMethods(RundownAPIMethods, ServerRundownAPIClass, false)

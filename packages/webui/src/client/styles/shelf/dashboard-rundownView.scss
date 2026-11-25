@@ -1,0 +1,24 @@
+@import './rundownViewShelfAdlibSizeToggle';
+
+.segment-timeline + .rundown-view-shelf {
+	padding: 12px 0 0 0;
+}
+
+.rundown-view-shelf.dashboard-panel {
+	background: rgba(0, 0, 0, 0.3);
+	border: 1px solid rgba(0, 0, 0, 0.1);
+	margin: -11px 0.8em 0 178px;
+	border-radius: 0 0 11px 11px;
+	z-index: 0;
+	box-shadow: 7px 6px 15px 0px rgba(0, 0, 0, 0.2);
+	display: flex;
+	.dashboard-panel__panel {
+		flex-wrap: wrap;
+		margin: -11px 0 0 0;
+		padding: 11px 2px 2px 0;
+		overflow: unset;
+		.dashboard-panel__panel__button {
+			z-index: 3;
+		}
+	}
+}

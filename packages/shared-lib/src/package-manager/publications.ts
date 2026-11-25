@@ -1,6 +1,7 @@
-import { ExpectedPackage, PackageContainer, PackageContainerOnPackage } from './package'
-import { PeripheralDeviceId, PieceInstanceId, RundownId, RundownPlaylistId } from '../core/model/Ids'
-import { ProtectedString } from '../lib/protectedString'
+import type { ExpectedPackage, PackageContainer, PackageContainerOnPackage } from './package.js'
+import type { ExpectedPackageId, PeripheralDeviceId, RundownId, RundownPlaylistId } from '../core/model/Ids.js'
+import type { ProtectedString } from '../lib/protectedString.js'
+import type { ReadonlyDeep } from 'type-fest'
 
 export interface PackageManagerPlayoutContext {
 	_id: PeripheralDeviceId
@@ -27,18 +28,21 @@ export interface PackageManagerPackageContainers {
 
 export type PackageManagerExpectedPackageId = ProtectedString<'PackageManagerExpectedPackage'>
 
-export type PackageManagerExpectedPackageBase = ExpectedPackage.Base & { rundownId?: RundownId }
+export type PackageManagerExpectedPackageBase = ReadonlyDeep<Omit<ExpectedPackage.Base, '_id'>> & {
+	_id: ExpectedPackageId
+
+	/** The ID of the rundown this package is associated with, if any */
+	rundownId: RundownId | undefined
+}
 
 export interface PackageManagerExpectedPackage {
 	/** Unique id of the expectedPackage */
 	_id: PackageManagerExpectedPackageId
 
 	expectedPackage: PackageManagerExpectedPackageBase
-	/** Lower should be done first */
-	priority: number
+	/** Lower should be done first. If not set, the priority is considered as low priority */
+	priority: number | null
 	sources: PackageContainerOnPackage[]
 	targets: PackageContainerOnPackage[]
 	playoutDeviceId: PeripheralDeviceId
-
-	pieceInstanceId: PieceInstanceId | null
 }

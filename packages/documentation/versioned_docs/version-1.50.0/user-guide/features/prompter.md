@@ -28,7 +28,7 @@ The prompter UI can be configured using query parameters:
 | `showmarker`    | 0 / 1  | If the marker is not set to "hide", control if the marker is hidden or not                                                                                          | `1`     |
 | `showscroll`    | 0 / 1  | Whether the scroll bar should be shown                                                                                                                              | `1`     |
 | `followtake`    | 0 / 1  | Whether the prompter should automatically scroll to current segment when the operator TAKE:s it                                                                     | `1`     |
-| `showoverunder`    | 0 / 1  | The timer in the top-right of the prompter, showing the overtime/undertime of the current show.                                                                     | `1`     |
+| `showoverunder` | 0 / 1  | The timer in the top-right of the prompter, showing the overtime/undertime of the current show.                                                                     | `1`     |
 | `debug`         | 0 / 1  | Whether to display a debug box showing controller input values and the calculated speed the prompter is currently scrolling at. Used to tweak speedMaps and ranges. | `0`     |
 
 Example: [http://127.0.0.1/prompter/studio0/?mode=mouse&followtake=0&fontsize=20](http://127.0.0.1/prompter/studio0/?mode=mouse&followtake=0&fontsize=20)
@@ -37,9 +37,9 @@ Example: [http://127.0.0.1/prompter/studio0/?mode=mouse&followtake=0&fontsize=20
 
 The prompter can be controlled by different types of controllers. The control mode is set by a query parameter, like so: `?mode=mouse`.
 
-| Query parameter         | Description                                                                                                                                                                                                                                 |
-| :---------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Default                 | Controlled by both mouse and keyboard                                                                                                                                                                                                       |
+| Query parameter         | Description                                                                                                                                                                                                                                    |
+| :---------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Default                 | Controlled by both mouse and keyboard                                                                                                                                                                                                          |
 | `?mode=mouse`           | Controlled by mouse only. [See configuration details](prompter.md#control-using-mouse-scroll-wheel)                                                                                                                                            |
 | `?mode=keyboard`        | Controlled by keyboard only. [See configuration details](prompter.md#control-using-keyboard)                                                                                                                                                   |
 | `?mode=shuttlekeyboard` | Controlled by a Contour Design ShuttleXpress, X-keys Jog and Shuttle or any compatible, configured as keyboard-ish device. [See configuration details](prompter.md#control-using-contour-shuttlexpress-or-x-keys)                              |
@@ -53,8 +53,8 @@ The prompter can be controlled in multiple ways when using the scroll wheel:
 | Query parameter             | Description                                                                                                                                                                              |
 | :-------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `?controlmode=normal`       | Scrolling of the mouse works as "normal scrolling"                                                                                                                                       |
-| `?controlmode=speed`        | Scrolling of the mouse changes the speed of scolling. Left-click to toggle, right-click to rewind                                                                                        |
-| `?controlmode=smoothscroll` | Scrolling the mouse wheel starts continous scrolling. Small speed adjustments can then be made by nudging the scroll wheel. Stop the scrolling by making a "larger scroll" on the wheel. |
+| `?controlmode=speed`        | Scrolling of the mouse changes the speed of scrolling. Left-click to toggle, right-click to rewind                                                                                        |
+| `?controlmode=smoothscroll` | Scrolling the mouse wheel starts continuous scrolling. Small speed adjustments can then be made by nudging the scroll wheel. Stop the scrolling by making a "larger scroll" on the wheel. |
 
 has several operating modes, described further below. All modes are intended to be controlled by a computer mouse or similar, such as a presenter tool.
 
@@ -71,7 +71,7 @@ Keyboard control is intended to be used when having a "keyboard"-device, such as
 
 #### Control using Contour ShuttleXpress or X-keys \(_?mode=shuttlekeyboard_\)
 
-This mode is intended to be used when having a Contour ShuttleXpress or X-keys device, configured to work as a keyboard device. These devices have jog/shuttle wheels, and their software/firmware allow them to map scroll movement to keystrokes from any key-combination. Since we only listen for key combinations, it effectively means that any device outputing keystrokes will work in this mode.
+This mode is intended to be used when having a Contour ShuttleXpress or X-keys device, configured to work as a keyboard device. These devices have jog/shuttle wheels, and their software/firmware allow them to map scroll movement to keystrokes from any key-combination. Since we only listen for key combinations, it effectively means that any device outputting keystrokes will work in this mode.
 
 | Query parameter    | Type             | Description                                                                                                                                                                                                                                                                                  | Default                    |
 | :----------------- | :--------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------- |
@@ -117,7 +117,7 @@ If you want to use traditional analogue pedals with 5 volt TRS connection, a con
 - `pedal_rangeNeutralMax` has to be greater than `pedal_rangeNeutralMin`
 - `pedal_rangeFwdMax` has to be greater than `pedal_rangeNeutralMax`
 
-![Yamaha FC7 mapped for both a forward \(80-127\) and backwards \(0-35\) range.](/img/docs/main/features/yamaha-fc7.jpg)
+![Yamaha FC7 mapped for both a forward (80-127) and backwards (0-35) range.](/img/docs/main/features/yamaha-fc7.jpg)
 
 The default values allow for both going forwards and backwards. This matches the _Yamaha FC7_ expression pedal. The default values create a forward-range from 80-127, a neutral zone from 35-80 and a reverse-range from 0-35.
 
@@ -130,7 +130,7 @@ Any movement within forward range will map to the `pedal_speedMap` with interpol
 | _"I can't rest my foot without it starting to run"_                                       | Increase `pedal_rangeNeutralMax`                                                                                                                                                                                                           |
 | _"I have to push too far before it starts moving"_                                        | Decrease `pedal_rangeNeutralMax`                                                                                                                                                                                                           |
 | _"It starts out fine, but runs too fast if I push too hard"_                              | Add more weight to the lower part of the `pedal_speedMap` by adding more low values early in the map, compared to the large numbers in the end.                                                                                            |
-| _"I have to go too far back to reverse"_                                                  | Increse `pedal_rangeNeutralMin`                                                                                                                                                                                                            |
+| _"I have to go too far back to reverse"_                                                  | Increase `pedal_rangeNeutralMin`                                                                                                                                                                                                            |
 | _"As I find a good speed, it varies a bit in speed up/down even if I hold my foot still"_ | Use `?debug=1` to see what speed is calculated in the position the presenter wants to rest the foot in. Add more of that number in a sequence in the `pedal_speedMap` to flatten out the speed curve, i.e. `[1, 2, 3, 4, 4, 4, 4, 5, ...]` |
 
 **Note:** The default values are set up to work with the _Yamaha FC7_ expression pedal, and will probably not be good for pedals with one continuous linear range from fully released to fully depressed. A suggested configuration for such pedals \(i.e. the _Mission Engineering EP-1_\) will be like:
@@ -163,7 +163,7 @@ The Joycons can operate in 3 modes, the L-stick, the R-stick or both L+R sticks 
 - `joycon_rangeNeutralMax` has to be greater than `joycon_rangeNeutralMin`
 - `joycon_rangeFwdMax` has to be greater than `joycon_rangeNeutralMax`
 
-![Nintendo Swith Joycons](/img/docs/main/features/nintendo-switch-joycons.jpg)
+![Nintendo Switch Joycons](/img/docs/main/features/nintendo-switch-joycons.jpg)
 
 You can turn on `?debug=1` to see how your input maps to an output.
 

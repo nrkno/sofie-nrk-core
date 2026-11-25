@@ -1,18 +1,19 @@
-import { MeteorCall } from '../../../../lib/api/methods'
+import { UserActionAPIMethods } from '@sofie-automation/meteor-lib/dist/api/userActions'
+import { ServerUserActionAPI } from '../../userActions'
 import {
 	PeripheralDevice,
 	PeripheralDeviceCategory,
 	PeripheralDeviceType,
 	PERIPHERAL_SUBTYPE_PROCESS,
 } from '@sofie-automation/corelib/dist/dataModel/PeripheralDevice'
-import { getCurrentTime, protectString } from '../../../../lib/lib'
+import { protectString } from '@sofie-automation/shared-lib/dist/lib/protectedString'
+import { getCurrentTime } from '../../../lib/lib'
 import {
 	DefaultEnvironment,
 	setupDefaultStudioEnvironment,
 	setupMockPeripheralDevice,
 } from '../../../../__mocks__/helpers/database'
 import '../../../../__mocks__/_extendJest'
-import { testInFiber } from '../../../../__mocks__/helpers/jest'
 import { Studios } from '../../../collections'
 import { JSONBlobStringify } from '@sofie-automation/shared-lib/dist/lib/JSONBlob'
 import {
@@ -22,8 +23,9 @@ import {
 import { literal } from '@sofie-automation/shared-lib/dist/lib/lib'
 import { StudioPlayoutDevice } from '@sofie-automation/corelib/dist/dataModel/Studio'
 import { DBStudio } from '@sofie-automation/corelib/dist/dataModel/Studio'
+import { makeMeteorCallForTest } from '../../../../__mocks__/helpers/methods'
 
-require('../../userActions') // include in order to create the Meteor methods needed
+const MeteorCall = makeMeteorCallForTest({ methods: UserActionAPIMethods, class: ServerUserActionAPI })
 
 describe('User Actions - Disable Peripheral SubDevice', () => {
 	let env: DefaultEnvironment
@@ -31,16 +33,13 @@ describe('User Actions - Disable Peripheral SubDevice', () => {
 	const mockSubDeviceId = 'mockSubDevice0'
 
 	beforeEach(async () => {
-		const organizationId = null
-		env = await setupDefaultStudioEnvironment(organizationId)
+		env = await setupDefaultStudioEnvironment()
 		pDevice = await setupMockPeripheralDevice(
 			PeripheralDeviceCategory.PLAYOUT,
 			PeripheralDeviceType.PLAYOUT,
 			PERIPHERAL_SUBTYPE_PROCESS,
 			env.studio,
 			{
-				organizationId,
-				settings: {},
 				configManifest: {
 					deviceConfigSchema: JSONBlobStringify({}), // unused
 					subdeviceManifest: {
@@ -84,7 +83,7 @@ describe('User Actions - Disable Peripheral SubDevice', () => {
 
 		jest.resetAllMocks()
 	})
-	testInFiber('disable existing subDevice', async () => {
+	test('disable existing subDevice', async () => {
 		await expect(
 			MeteorCall.userAction.disablePeripheralSubDevice('e', getCurrentTime(), pDevice._id, mockSubDeviceId, true)
 		).resolves.toMatchObject({
@@ -96,7 +95,7 @@ describe('User Actions - Disable Peripheral SubDevice', () => {
 		const playoutDevices = applyAndValidateOverrides(studio.peripheralDeviceSettings.playoutDevices).obj
 		expect(playoutDevices[mockSubDeviceId].options.disable).toBe(true)
 	})
-	testInFiber('enable existing subDevice', async () => {
+	test('enable existing subDevice', async () => {
 		{
 			await expect(
 				MeteorCall.userAction.disablePeripheralSubDevice(
@@ -135,7 +134,7 @@ describe('User Actions - Disable Peripheral SubDevice', () => {
 			expect(playoutDevices[mockSubDeviceId].options.disable).toBe(false)
 		}
 	})
-	testInFiber('edit missing subDevice throws an error', async () => {
+	test('edit missing subDevice throws an error', async () => {
 		await expect(
 			MeteorCall.userAction.disablePeripheralSubDevice(
 				'e',
@@ -146,7 +145,7 @@ describe('User Actions - Disable Peripheral SubDevice', () => {
 			)
 		).resolves.toMatchUserRawError(/is not configured/)
 	})
-	testInFiber('edit missing device throws an error', async () => {
+	test('edit missing device throws an error', async () => {
 		await expect(
 			MeteorCall.userAction.disablePeripheralSubDevice(
 				'e',
@@ -157,15 +156,13 @@ describe('User Actions - Disable Peripheral SubDevice', () => {
 			)
 		).resolves.toMatchUserRawError(/not found/)
 	})
-	testInFiber("edit device that doesn't support the disable property throws an error", async () => {
+	test("edit device that doesn't support the disable property throws an error", async () => {
 		const pDeviceUnsupported = await setupMockPeripheralDevice(
 			PeripheralDeviceCategory.PLAYOUT,
 			PeripheralDeviceType.PLAYOUT,
 			PERIPHERAL_SUBTYPE_PROCESS,
 			env.studio,
 			{
-				organizationId: null,
-				settings: {},
 				configManifest: {
 					deviceConfigSchema: JSONBlobStringify({}), // unused
 					subdeviceManifest: {

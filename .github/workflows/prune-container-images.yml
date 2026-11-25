@@ -8,10 +8,15 @@ on:
 permissions:
   packages: write
 
+permissions:
+  contents: read
+  packages: write
+  
 jobs:
-  prune-container-images-sofie:
+  prune-container-images:
     if: ${{ github.repository_owner == 'nrkno' }}
-    uses: nrkno/sofie-nrk-github-workflows/.github/workflows/prune-container-images.yml@508f81564e6233f30ae776f63f19f7976b05669f # main
+    
+    uses: nrkno/sofie-nrk-github-workflows/.github/workflows/prune-container-images.yml@main
     strategy:
       max-parallel: 1
       matrix:

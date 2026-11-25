@@ -1,15 +1,19 @@
 import '../../../../__mocks__/_extendJest'
-import { testInFiber } from '../../../../__mocks__/helpers/jest'
 import { setupDefaultStudioEnvironment } from '../../../../__mocks__/helpers/database'
-import { hashSingleUseToken } from '../../../../lib/api/userActions'
-import { getCurrentTime } from '../../../../lib/lib'
-import { MeteorCall } from '../../../../lib/api/methods'
-import { ClientAPI } from '../../../../lib/api/client'
+import { hashSingleUseToken } from '../../deviceTriggers/triggersContext'
+import { getCurrentTime, sleep } from '../../../lib/lib'
+import { UserActionAPIMethods } from '@sofie-automation/meteor-lib/dist/api/userActions'
+import { ServerUserActionAPI } from '../../userActions'
+import { SystemAPIMethods } from '@sofie-automation/meteor-lib/dist/api/system'
+import { SystemAPIClass } from '../../system'
+import { ClientAPI } from '@sofie-automation/meteor-lib/dist/api/client'
 import { UserActionsLog } from '../../../collections'
+import { makeMeteorCallForTest } from '../../../../__mocks__/helpers/methods'
 
-require('../../system') // include so that we can call generateSingleUseToken()
-require('../../client') // include in order to create the Meteor methods needed
-require('../../userActions') // include in order to create the Meteor methods needed
+const MeteorCall = makeMeteorCallForTest([
+	{ methods: UserActionAPIMethods, class: ServerUserActionAPI },
+	{ methods: SystemAPIMethods, class: SystemAPIClass },
+])
 
 describe('User Actions - General', () => {
 	beforeEach(async () => {
@@ -18,7 +22,7 @@ describe('User Actions - General', () => {
 		await setupDefaultStudioEnvironment()
 	})
 
-	testInFiber('Restart Core', async () => {
+	test('Restart Core', async () => {
 		jest.useFakeTimers()
 
 		// Generate restart token
@@ -47,10 +51,11 @@ describe('User Actions - General', () => {
 		jest.useRealTimers()
 	})
 
-	testInFiber('GUI Status', async () => {
+	test('GUI Status', async () => {
 		await expect(MeteorCall.userAction.guiFocused('click', getCurrentTime())).resolves.toMatchObject({
 			success: 200,
 		})
+		await sleep(0)
 		const logs0 = await UserActionsLog.findFetchAsync({
 			method: 'guiFocused',
 		})
@@ -62,6 +67,7 @@ describe('User Actions - General', () => {
 		await expect(MeteorCall.userAction.guiBlurred('click', getCurrentTime())).resolves.toMatchObject({
 			success: 200,
 		})
+		await sleep(0)
 		const logs1 = await UserActionsLog.findFetchAsync({
 			method: 'guiBlurred',
 		})

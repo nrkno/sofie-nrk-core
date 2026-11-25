@@ -1,15 +1,15 @@
-import { RundownPlaylistId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { PeripheralDevice } from '@sofie-automation/corelib/dist/dataModel/PeripheralDevice'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
-import {
+import type { RundownPlaylistId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import type { PeripheralDevice } from '@sofie-automation/corelib/dist/dataModel/PeripheralDevice'
+import type { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
+import type {
 	TimelineComplete,
 	TimelineCompleteGenerationVersions,
 	TimelineObjGeneric,
 } from '@sofie-automation/corelib/dist/dataModel/Timeline'
-import { BaseModel } from '../../modelBase'
-import { ReadonlyDeep } from 'type-fest'
-import { ExpectedPackageDBFromStudioBaselineObjects } from '@sofie-automation/corelib/dist/dataModel/ExpectedPackages'
-import { ExpectedPlayoutItemStudio } from '@sofie-automation/corelib/dist/dataModel/ExpectedPlayoutItem'
+import type { BaseModel } from '../../modelBase.js'
+import type { ReadonlyDeep } from 'type-fest'
+import type { ExpectedPlayoutItemStudio } from '@sofie-automation/corelib/dist/dataModel/ExpectedPlayoutItem'
+import type { ExpectedPackage } from '@sofie-automation/blueprints-integration'
 
 export interface StudioPlayoutModelBaseReadonly {
 	/**
@@ -26,6 +26,8 @@ export interface StudioPlayoutModelBaseReadonly {
 	 * Whether this Studio is operating in multi-gateway mode
 	 */
 	readonly isMultiGatewayMode: boolean
+
+	readonly multiGatewayNowSafeLatency: number | undefined
 }
 
 export interface StudioPlayoutModelBase extends StudioPlayoutModelBaseReadonly {
@@ -33,7 +35,7 @@ export interface StudioPlayoutModelBase extends StudioPlayoutModelBaseReadonly {
 	 * Update the ExpectedPackages for the StudioBaseline of the current Studio
 	 * @param packages ExpectedPackages to store
 	 */
-	setExpectedPackagesForStudioBaseline(packages: ExpectedPackageDBFromStudioBaselineObjects[]): void
+	setExpectedPackagesForStudioBaseline(packages: ExpectedPackage.Any[]): void
 	/**
 	 * Update the ExpectedPlayoutItems for the StudioBaseline of the current Studio
 	 * @param playoutItems ExpectedPlayoutItems to store
@@ -47,7 +49,8 @@ export interface StudioPlayoutModelBase extends StudioPlayoutModelBaseReadonly {
 	 */
 	setTimeline(
 		timelineObjs: TimelineObjGeneric[],
-		generationVersions: TimelineCompleteGenerationVersions
+		generationVersions: TimelineCompleteGenerationVersions,
+		regenerateTimelineToken: string | undefined
 	): ReadonlyDeep<TimelineComplete>
 }
 
@@ -68,4 +71,18 @@ export interface StudioPlayoutModel extends StudioPlayoutModelBase, BaseModel {
 	 * @param excludeRundownPlaylistId Ignore a given RundownPlaylist, useful to see if any other RundownPlaylists are active
 	 */
 	getActiveRundownPlaylists(excludeRundownPlaylistId?: RundownPlaylistId): ReadonlyDeep<DBRundownPlaylist[]>
+
+	/**
+	 * Update the active state of a RouteSet
+	 * @param routeSetId The RouteSet to update
+	 * @param isActive The new active state of the RouteSet
+	 * @returns Whether the change may affect timeline generation
+	 */
+	switchRouteSet(routeSetId: string, isActive: boolean | 'toggle'): boolean
+
+	/**
+	 * Mark the studio as needing a timeline update.
+	 * The timeline will be generated and published when model is ready to be saved.
+	 */
+	markTimelineNeedsUpdate(): void
 }

@@ -1,5 +1,9 @@
-import { ProtectedString, protectString, unprotectString } from '@sofie-automation/shared-lib/dist/lib/protectedString'
-import type { DDPConnector } from './ddpConnector'
+import {
+	type ProtectedString,
+	protectString,
+	unprotectString,
+} from '@sofie-automation/shared-lib/dist/lib/protectedString.js'
+import type { DDPConnector } from './ddpConnector.js'
 
 export type SubscriptionId = ProtectedString<'SubscriptionId'>
 
@@ -18,7 +22,11 @@ export class SubscriptionsHelper<PubSubTypes> {
 	>()
 	readonly #otherSubscriptions = new Set<SubscriptionId>()
 
-	constructor(private readonly emitError: (err: string) => void, ddp: DDPConnector, deviceToken: string) {
+	constructor(
+		private readonly emitError: (err: string) => void,
+		ddp: DDPConnector,
+		deviceToken: string
+	) {
 		this.#ddp = ddp
 		this.#deviceToken = deviceToken
 	}
@@ -40,7 +48,7 @@ export class SubscriptionsHelper<PubSubTypes> {
 		const orgError = new Error()
 		return new Promise((resolve, reject) => {
 			if (!this.#ddp.ddpClient) {
-				reject('subscribe: DDP client is not initialized')
+				reject(new Error('subscribe: DDP client is not initialized'))
 				return
 			}
 			try {
@@ -63,7 +71,7 @@ export class SubscriptionsHelper<PubSubTypes> {
 					unprotectString(existingSubscriptionId)
 				)
 			} catch (e) {
-				reject(e)
+				reject(e instanceof Error ? e : new Error('subscribe failed: ' + e))
 			}
 		})
 	}

@@ -1,20 +1,21 @@
+import { z } from 'zod'
 import { PeripheralDeviceId, StudioId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { DBRundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import { literal } from '@sofie-automation/corelib/dist/lib'
 import { MongoFieldSpecifierOnesStrict } from '@sofie-automation/corelib/dist/mongo'
 import { PackageManagerPlayoutContext } from '@sofie-automation/shared-lib/dist/package-manager/publications'
-import { check } from 'meteor/check'
-import { Meteor } from 'meteor/meteor'
+import { check } from '../../lib/check'
 import { ReadonlyDeep } from 'type-fest'
-import { PeripheralDevices, RundownPlaylists, Rundowns } from '../../collections'
-import { meteorCustomPublish, setUpOptimizedObserverArray, TriggerUpdate } from '../../lib/customPublication'
+import { RundownPlaylists, Rundowns } from '../../collections'
+import { SetupObserversResult, setUpOptimizedObserverArray, TriggerUpdate } from '../../lib/customPublication'
+import type { PublicationRegistry } from '../../publicationRegistry'
 import { logger } from '../../logging'
-import { PeripheralDeviceReadAccess } from '../../security/peripheralDevice'
 import {
 	PeripheralDevicePubSub,
 	PeripheralDevicePubSubCollectionsNames,
 } from '@sofie-automation/shared-lib/dist/pubsub/peripheralDevice'
+import { checkAccessAndGetPeripheralDevice } from '../../security/check'
 
 export type RundownPlaylistCompact = Pick<DBRundownPlaylist, '_id' | 'activationId' | 'rehearsal' | 'rundownIdsInOrder'>
 const rundownPlaylistFieldSpecifier = literal<MongoFieldSpecifierOnesStrict<RundownPlaylistCompact>>({
@@ -36,7 +37,7 @@ type PackageManagerPlayoutContextState = Record<string, never>
 async function setupExpectedPackagesPublicationObservers(
 	args: ReadonlyDeep<PackageManagerPlayoutContextArgs>,
 	triggerUpdate: TriggerUpdate<PackageManagerPlayoutContextUpdateProps>
-): Promise<Meteor.LiveQueryHandle[]> {
+): Promise<SetupObserversResult> {
 	// Set up observers:
 	return [
 		RundownPlaylists.observeChanges(
@@ -49,7 +50,7 @@ async function setupExpectedPackagesPublicationObservers(
 				removed: () => triggerUpdate({}),
 			},
 			{
-				fields: rundownPlaylistFieldSpecifier,
+				projection: rundownPlaylistFieldSpecifier,
 			}
 		),
 	]
@@ -69,7 +70,7 @@ async function manipulateExpectedPackagesPublicationData(
 			studioId: args.studioId,
 			activationId: { $exists: true },
 		},
-		{ fields: rundownPlaylistFieldSpecifier }
+		{ projection: rundownPlaylistFieldSpecifier }
 	)) as RundownPlaylistCompact | undefined
 
 	const activeRundowns = activePlaylist
@@ -78,9 +79,9 @@ async function manipulateExpectedPackagesPublicationData(
 					playlistId: activePlaylist._id,
 				},
 				{
-					fields: { _id: 1 },
+					projection: { _id: 1 },
 				}
-		  )) as Pick<DBRundown, '_id'>[])
+			)) as Pick<DBRundown, '_id'>[])
 		: []
 
 	return literal<PackageManagerPlayoutContext[]>([
@@ -91,7 +92,7 @@ async function manipulateExpectedPackagesPublicationData(
 						_id: activePlaylist._id,
 						active: !!activePlaylist.activationId,
 						rehearsal: !!activePlaylist.rehearsal,
-				  }
+					}
 				: null,
 			activeRundowns: activeRundowns.map((rundown) => {
 				return {
@@ -103,21 +104,19 @@ async function manipulateExpectedPackagesPublicationData(
 	])
 }
 
-meteorCustomPublish(
-	PeripheralDevicePubSub.packageManagerPlayoutContext,
-	PeripheralDevicePubSubCollectionsNames.packageManagerPlayoutContext,
-	async function (pub, deviceId: PeripheralDeviceId, token: string | undefined) {
-		check(deviceId, String)
+export function registerPlayoutContextPublications(registry: PublicationRegistry): void {
+	registry.customPublish(
+		PeripheralDevicePubSub.packageManagerPlayoutContext,
+		PeripheralDevicePubSubCollectionsNames.packageManagerPlayoutContext,
+		async (context, pub, deviceId: PeripheralDeviceId, token: string | undefined) => {
+			check(deviceId, z.string())
 
-		if (await PeripheralDeviceReadAccess.peripheralDeviceContent(deviceId, { userId: this.userId, token })) {
-			const peripheralDevice = await PeripheralDevices.findOneAsync(deviceId)
+			const peripheralDevice = await checkAccessAndGetPeripheralDevice(deviceId, token, context)
 
-			if (!peripheralDevice) throw new Meteor.Error('PeripheralDevice "' + deviceId + '" not found')
-
-			const studioId = peripheralDevice.studioId
+			const studioId = peripheralDevice.studioAndConfigId?.studioId
 			if (!studioId) {
 				logger.warn(`Pub.packageManagerPlayoutContext: device "${peripheralDevice._id}" has no studioId`)
-				return this.ready()
+				return context.ready()
 			}
 
 			await setUpOptimizedObserverArray<
@@ -133,8 +132,6 @@ meteorCustomPublish(
 				pub,
 				500 // ms, wait this time before sending an update
 			)
-		} else {
-			logger.warn(`Pub.packageManagerPlayoutContext: Not allowed: "${deviceId}"`)
 		}
-	}
-)
+	)
+}

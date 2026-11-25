@@ -11,7 +11,7 @@ sidebar_position: 1
 ### Sofie Core
 
 **Sofie&nbsp;Core** is a web server which handle business logic and serves the web GUI.  
-It is a [NodeJS](https://nodejs.org/) process backed up by a [MongoDB](https://www.mongodb.com/) database and based on the framework [Meteor](http://meteor.com/).  
+It is a [NodeJS](https://nodejs.org/) process backed up by a [MongoDB](https://www.mongodb.com/) database and based on the framework [Meteor](http://meteor.com/).
 
 ### Gateways
 
@@ -87,13 +87,11 @@ An AdLib isn't added to the Part in the GUI until it starts playing, instead you
 
 Being a web-based system, Sofie has a number of customisable, user-facing web [views](features/sofie-views.mdx) used for control and monitoring.
 
-
-
 ## Blueprints
 
 Blueprints are plug-ins that run in Sofie&nbsp;Core. They interpret the data coming in from the rundowns and transform them into a rich set of playable elements \(Segments, Parts, AdLibs etc\).
 
-The blueprints are webpacked javascript bundles which are uploaded into Sofie via the GUI. They are custom-made and changes depending on the show style, type of input data \(NRCS\) and the types of controlled devices. A generic [blueprint that works with spreadsheets is available here](https://github.com/SuperFlyTV/sofie-demo-blueprints).
+The blueprints are webpacked JavaScript bundles which are uploaded into Sofie via the GUI. They are custom-made and changes depending on the show style, type of input data \(NRCS\) and the types of controlled devices. A generic [blueprint that works with spreadsheets is available here](https://github.com/SuperFlyTV/sofie-demo-blueprints).
 
 When [Sofie&nbsp;Core](#sofie-core) calls upon a Blueprint, it returns a JavaScript object containing methods callable by Sofie&nbsp;Core. These methods will be called by Sofie&nbsp;Core in different situations, depending on the method.  
 Documentation on these interfaces are available in the [Blueprints integration](https://www.npmjs.com/package/@sofie-automation/blueprints-integration) library.
@@ -134,7 +132,7 @@ The [Playout Gateway](../for-developers/libraries.md) picks up the timeline from
 
 The Sofie system is made to work with a modern web- and IT-based approach in mind. Therefore, the Sofie&nbsp;Core can be run either on-site, or in an off-site cloud.
 
-![Sofie&nbsp;Core can run in the cloud](/img/docs/main/features/sofie-web-architecture.png)
+![Sofie Core can run in the cloud](/img/docs/main/features/sofie-web-architecture.png)
 
 One drawback of running in a cloud over the public internet is the - sometimes unpredictable - latency. The Timeline overcomes this by moving all the immediate control of the playout devices to the Playout Gateway, which is intended to run on a local network, close to the hardware it controls.  
 This also gives the system a simple way of load-balancing - since the number of web-clients or load on Sofie&nbsp;Core won't affect the playout.

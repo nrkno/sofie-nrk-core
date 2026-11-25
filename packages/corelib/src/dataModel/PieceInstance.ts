@@ -1,5 +1,5 @@
 import { Time } from '@sofie-automation/blueprints-integration'
-import { protectString } from '../protectedString'
+import { protectString } from '../protectedString.js'
 import {
 	PieceInstanceInfiniteId,
 	RundownPlaylistActivationId,
@@ -7,9 +7,10 @@ import {
 	RundownId,
 	PartInstanceId,
 	PieceId,
-} from './Ids'
-import { Piece } from './Piece'
-import { omit } from '../lib'
+	ExpectedPackageId,
+} from './Ids.js'
+import { Piece } from './Piece.js'
+import { omit } from '../lib.js'
 import { ReadonlyDeep } from 'type-fest'
 
 export type PieceInstancePiece = Omit<Piece, 'startRundownId' | 'startSegmentId'>
@@ -34,7 +35,7 @@ export interface PieceInstance {
 	_id: PieceInstanceId
 	/** The rundown this piece belongs to */
 	rundownId: RundownId
-	/** The part instace this piece belongs to */
+	/** The part instance this piece belongs to. */
 	partInstanceId: PartInstanceId
 
 	/** Whether this PieceInstance is a temprorary wrapping of a Piece */
@@ -60,16 +61,14 @@ export interface PieceInstance {
 	/** If this piece has been insterted during run of rundown (such as adLibs), then this is set to the timestamp it was inserted */
 	dynamicallyInserted?: Time
 
+	/** If this piece's lifespan has been changed to infinite during run of the rundown (adLib action, onTake, ...), then this is set to the timestamp it was changed */
+	dynamicallyConvertedToInfinite?: Time
+
 	/** This is set when the duration needs to be overriden from some user action */
-	userDuration?:
-		| {
-				/** The time relative to the part (milliseconds since start of part) */
-				endRelativeToPart: number
-		  }
-		| {
-				/** The time relative to 'now' (ms since 'now') */
-				endRelativeToNow: number
-		  }
+	userDuration?: {
+		/** The time relative to the part (milliseconds since start of part) */
+		endRelativeToPart: number
+	}
 
 	/** The time the system started playback of this part, undefined if not yet played back (milliseconds since epoch) */
 	reportedStartedPlayback?: Time
@@ -79,6 +78,13 @@ export interface PieceInstance {
 	reportedStoppedPlayback?: Time
 	plannedStartedPlayback?: Time
 	plannedStoppedPlayback?: Time
+
+	/**
+	 * The IDs of ExpectedPackages that are needed for this PieceInstance
+	 * This matches the data on `this.piece.expectedPackages`, resolved to the full database IDs
+	 * Future: This should replace the expectedPackages on Piece entirely
+	 */
+	neededExpectedPackageIds?: ExpectedPackageId[]
 }
 
 export interface ResolvedPieceInstance {

@@ -2,6 +2,7 @@ import {
 	CoreConnection,
 	CoreOptions,
 	DDPConnectorOptions,
+	DDPTLSOptions,
 	Observer,
 	PeripheralDeviceAPI,
 	PeripheralDeviceCommand,
@@ -10,15 +11,17 @@ import {
 	stringifyError,
 	PeripheralDevicePubSub,
 	PeripheralDevicePubSubCollectionsNames,
+	ICoreHandler,
+	KubernetesRestarter,
 } from '@sofie-automation/server-core-integration'
 import * as Winston from 'winston'
 
 import { IMOSDevice } from '@mos-connection/connector'
-import { MosHandler } from './mosHandler'
-import { DeviceConfig } from './connector'
-import { MOS_DEVICE_CONFIG_MANIFEST } from './configManifest'
-import { getVersions } from './versions'
-import { CoreMosDeviceHandler } from './CoreMosDeviceHandler'
+import { MosHandler } from './mosHandler.js'
+import { DeviceConfig } from './connector.js'
+import { MOS_DEVICE_CONFIG_MANIFEST } from './configManifest.js'
+import { getVersions } from './versions.js'
+import { CoreMosDeviceHandler, CoreMosDeviceHandlerOptions } from './CoreMosDeviceHandler.js'
 import { PeripheralDeviceCommandId } from '@sofie-automation/shared-lib/dist/core/model/Ids'
 
 export interface CoreConfig {
@@ -29,7 +32,7 @@ export interface CoreConfig {
 /**
  * Represents a connection between mos-integration and Core
  */
-export class CoreHandler {
+export class CoreHandler implements ICoreHandler {
 	core: CoreConnection | undefined
 	logger: Winston.Logger
 	public _observers: Array<Observer<any>> = []
@@ -37,19 +40,37 @@ export class CoreHandler {
 	private _coreMosHandlers: Array<CoreMosDeviceHandler> = []
 	private _onConnected?: () => any
 	private _isInitialized = false
+	private _isDestroyed = false
 	private _executedFunctions = new Set<PeripheralDeviceCommandId>()
 	private _coreConfig?: CoreConfig
-	private _certificates?: Buffer[]
+	private _k8sRestarter?: KubernetesRestarter
 
-	constructor(logger: Winston.Logger, deviceOptions: DeviceConfig) {
-		this.logger = logger
-		this._deviceOptions = deviceOptions
+	public get connectedToCore(): boolean {
+		return !!this.core && this.core.connected
 	}
 
-	async init(config: CoreConfig, certificates: Buffer[]): Promise<void> {
+	public static async create(
+		logger: Winston.Logger,
+		config: CoreConfig,
+		tlsOptions: DDPTLSOptions,
+		deviceOptions: DeviceConfig
+	): Promise<CoreHandler> {
+		const handler = new CoreHandler(logger, deviceOptions)
+		await handler.init(config, tlsOptions)
+		return handler
+	}
+
+	private constructor(logger: Winston.Logger, deviceOptions: DeviceConfig) {
+		this.logger = logger
+		this._deviceOptions = deviceOptions
+		if (KubernetesRestarter.canUseK8sRestarter()) {
+			this._k8sRestarter = new KubernetesRestarter(this.logger, 'sofie-mos-gateway')
+		}
+	}
+
+	private async init(config: CoreConfig, tlsOptions: DDPTLSOptions): Promise<void> {
 		// this.logger.info('========')
 		this._coreConfig = config
-		this._certificates = certificates
 		this.core = new CoreConnection(this.getCoreConnectionOptions())
 
 		this.core.onConnected(() => {
@@ -66,39 +87,46 @@ export class CoreHandler {
 		const ddpConfig: DDPConnectorOptions = {
 			host: config.host,
 			port: config.port,
-		}
-		if (this._certificates?.length) {
-			ddpConfig.tlsOpts = {
-				ca: this._certificates,
-			}
+			tlsOpts: tlsOptions,
 		}
 		await this.core.init(ddpConfig)
-
-		if (!this.core) {
-			throw Error('core is undefined!')
-		}
-
-		this.core
-			.setStatus({
-				statusCode: StatusCode.GOOD,
-				// messages: []
-			})
-			.catch((e) => this.logger.warn('Error when setting status:' + e))
-		// nothing
 
 		await this.setupSubscriptionsAndObservers()
 
 		this._isInitialized = true
+
+		await this.updateCoreStatus()
 	}
+	getCoreStatus(): PeripheralDeviceAPI.PeripheralDeviceStatusObject {
+		let statusCode = StatusCode.GOOD
+		const statusDetails: Array<{ message: string }> = []
+
+		if (!this._isInitialized) {
+			statusCode = StatusCode.BAD
+			statusDetails.push({ message: 'Starting up...' })
+		}
+		if (this._isDestroyed) {
+			statusCode = StatusCode.FATAL
+			statusDetails.push({ message: 'Shut down' })
+		}
+		return {
+			statusCode,
+			statusDetails,
+		}
+	}
+	async updateCoreStatus(): Promise<void> {
+		if (!this.core) throw Error('core is undefined!')
+
+		await this.core.setStatus(this.getCoreStatus())
+	}
+
 	async dispose(): Promise<void> {
+		this._isDestroyed = true
 		if (!this.core) {
 			throw Error('core is undefined!')
 		}
 
-		await this.core.setStatus({
-			statusCode: StatusCode.FATAL,
-			messages: ['Shutting down'],
-		})
+		await this.updateCoreStatus()
 
 		await Promise.all(
 			this._coreMosHandlers.map(async (cmh: CoreMosDeviceHandler) => {
@@ -132,7 +160,7 @@ export class CoreHandler {
 
 			versions: getVersions(this.logger),
 
-			documentationUrl: 'https://github.com/nrkno/sofie-core',
+			documentationUrl: 'https://github.com/Sofie-Automation/sofie-core',
 		}
 
 		if (!options.deviceToken) {
@@ -142,9 +170,13 @@ export class CoreHandler {
 
 		return options
 	}
-	async registerMosDevice(mosDevice: IMOSDevice, mosHandler: MosHandler): Promise<CoreMosDeviceHandler> {
+	async registerMosDevice(
+		mosDevice: IMOSDevice,
+		mosHandler: MosHandler,
+		deviceOptions: CoreMosDeviceHandlerOptions
+	): Promise<CoreMosDeviceHandler> {
 		this.logger.info('registerMosDevice -------------')
-		const coreMos = new CoreMosDeviceHandler(this, mosDevice, mosHandler)
+		const coreMos = new CoreMosDeviceHandler(this, mosDevice, mosHandler, deviceOptions)
 
 		this._coreMosHandlers.push(coreMos)
 		return coreMos.init().then(() => {
@@ -201,7 +233,10 @@ export class CoreHandler {
 	executeFunction(cmd: PeripheralDeviceCommand, fcnObject: CoreHandler | CoreMosDeviceHandler): void {
 		if (cmd) {
 			if (this._executedFunctions.has(cmd._id)) return // prevent it from running multiple times
-			this.logger.debug(cmd.functionName || cmd.actionId || '', cmd.args)
+			this.logger.debug(
+				`Executing function "${cmd.functionName || cmd.actionId || ''}", args: ${JSON.stringify(cmd.args)}`
+			)
+
 			this._executedFunctions.add(cmd._id)
 			// console.log('executeFunction', cmd)
 			const cb = (errStr: string | null, res?: any) => {
@@ -220,7 +255,7 @@ export class CoreHandler {
 						// console.log('cb done')
 					})
 					.catch((e) => {
-						this.logger.error(e)
+						this.logger.error(stringifyError(e))
 					})
 			}
 			// eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -290,12 +325,19 @@ export class CoreHandler {
 			}
 		})
 	}
-	killProcess(): void {
-		this.logger.info('KillProcess command received, shutting down in 1000ms!')
-		setTimeout(() => {
-			// eslint-disable-next-line no-process-exit
-			process.exit(0)
-		}, 1000)
+	async killProcess(): Promise<boolean> {
+		this.logger.debug('KillProcess command received for mos-gateway')
+		if (this._k8sRestarter) {
+			this.logger.debug('Running on kubernetes was true, restarting deployment')
+			return await this._k8sRestarter.restartKube()
+		} else {
+			this.logger.debug('killing process in 1000ms!')
+			setTimeout(() => {
+				// eslint-disable-next-line n/no-process-exit
+				process.exit(0)
+			}, 1000)
+			return true
+		}
 	}
 	pingResponse(message: string): true {
 		if (!this.core) {

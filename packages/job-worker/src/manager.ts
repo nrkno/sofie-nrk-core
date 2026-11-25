@@ -1,17 +1,22 @@
-import { WorkerId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { UserError } from '@sofie-automation/corelib/dist/error'
-import { JobSpec } from './main'
+import type { WorkerId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import type { JobSpec } from './main.js'
+import type { QueueJobOptions } from './jobs/index.js'
 
 export interface JobManager {
 	jobFinished: (
 		id: string,
 		startedTime: number,
 		finishedTime: number,
-		error: null | Error | UserError,
+		error: null | string, // Stringified UserError
 		result: any
 	) => Promise<void>
 	// getNextJob: (queueName: string) => Promise<JobSpec>
-	queueJob: (queueName: string, jobName: string, jobData: unknown) => Promise<void>
+	queueJob: (
+		queueName: string,
+		jobName: string,
+		jobData: unknown,
+		options: QueueJobOptions | undefined
+	) => Promise<void>
 	subscribeToQueue: (queueName: string, workerId: WorkerId) => JobStream
 }
 

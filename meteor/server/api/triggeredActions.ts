@@ -1,17 +1,15 @@
-import { Meteor } from 'meteor/meteor'
-import { check, Match } from '../../lib/check'
-import { registerClassToMeteorMethods, ReplaceOptionalWithNullInMethodArguments } from '../methods'
-import { literal, getRandomId, protectString, Complete } from '../../lib/lib'
+import { z } from 'zod'
+import { check, zAnyArray, zPlainObject } from '../lib/check'
+import { ReplaceOptionalWithNullInMethodArguments } from '../methods'
+import { literal, getRandomId, Complete } from '@sofie-automation/corelib/dist/lib'
+import { protectString } from '@sofie-automation/corelib/dist/protectedString'
 import { logger } from '../logging'
-import { MethodContext, MethodContextAPI } from '../../lib/api/methods'
-import { ShowStyleContentWriteAccess } from '../security/showStyle'
-import { DBTriggeredActions, TriggeredActionsObj } from '../../lib/collections/TriggeredActions'
+import { MethodContext, MethodContextAPI } from './methodContext'
+import { DBTriggeredActions, TriggeredActionsObj } from '@sofie-automation/meteor-lib/dist/collections/TriggeredActions'
 import {
 	CreateTriggeredActionsContent,
 	NewTriggeredActionsAPI,
-	TriggeredActionsAPIMethods,
-} from '../../lib/api/triggeredActions'
-import { SystemWriteAccess } from '../security/system'
+} from '@sofie-automation/meteor-lib/dist/api/triggeredActions'
 import { fetchShowStyleBaseLight } from '../optimizations'
 import {
 	convertObjectIntoOverrides,
@@ -21,6 +19,11 @@ import { ShowStyleBaseId, TriggeredActionId } from '@sofie-automation/corelib/di
 import { TriggeredActions } from '../collections'
 import KoaRouter from '@koa/router'
 import bodyParser from 'koa-bodyparser'
+import { UserPermissions } from '@sofie-automation/meteor-lib/dist/userPermissions'
+import { assertConnectionHasOneOfPermissions } from '../security/auth'
+import { SofieError } from '@sofie-automation/corelib/dist/error'
+
+const PERMISSIONS_FOR_TRIGGERED_ACTIONS: Array<keyof UserPermissions> = ['configure']
 
 export async function createTriggeredActions(
 	showStyleBaseId: ShowStyleBaseId | null,
@@ -58,9 +61,11 @@ actionTriggersRouter.post(
 	async (ctx) => {
 		ctx.response.type = 'text/plain'
 
+		assertConnectionHasOneOfPermissions(ctx, ...PERMISSIONS_FOR_TRIGGERED_ACTIONS)
+
 		const showStyleBaseId: ShowStyleBaseId | undefined = protectString<ShowStyleBaseId>(ctx.params.showStyleBaseId)
 
-		check(showStyleBaseId, Match.Optional(String))
+		check(showStyleBaseId, z.string().optional())
 
 		const replace = !!ctx.query['replace']
 
@@ -68,7 +73,7 @@ actionTriggersRouter.post(
 			if (showStyleBaseId !== undefined) {
 				const showStyleBase = await fetchShowStyleBaseLight(showStyleBaseId)
 				if (!showStyleBase) {
-					throw new Meteor.Error(
+					throw new SofieError(
 						404,
 						`Restore Action Triggers: ShowStyle "${showStyleBaseId}" could not be found`
 					)
@@ -76,15 +81,15 @@ actionTriggersRouter.post(
 			}
 
 			if (ctx.request.type !== 'application/json')
-				throw new Meteor.Error(400, 'Restore Action Triggers: Invalid content-type')
+				throw new SofieError(400, 'Restore Action Triggers: Invalid content-type')
 
 			const body = ctx.request.body
-			if (!body) throw new Meteor.Error(400, 'Restore Action Triggers: Missing request body')
+			if (!body) throw new SofieError(400, 'Restore Action Triggers: Missing request body')
 			if (typeof body !== 'object' || Object.keys(body as any).length === 0)
-				throw new Meteor.Error(400, 'Restore Action Triggers: Invalid request body')
+				throw new SofieError(400, 'Restore Action Triggers: Invalid request body')
 
 			const triggeredActions = body as DBTriggeredActions[]
-			check(triggeredActions, Array)
+			check(triggeredActions, zAnyArray)
 
 			// set new showStyleBaseId
 			for (const triggeredActionsObj of triggeredActions) {
@@ -98,10 +103,10 @@ actionTriggersRouter.post(
 					delete compatObj.actions
 				}
 
-				check(triggeredActionsObj._id, String)
-				check(triggeredActionsObj.name, Match.Optional(Match.OneOf(String, Object)))
-				check(triggeredActionsObj.triggersWithOverrides, Object)
-				check(triggeredActionsObj.actionsWithOverrides, Object)
+				check(triggeredActionsObj._id, z.string())
+				check(triggeredActionsObj.name, z.union([z.string(), zPlainObject]).optional())
+				check(triggeredActionsObj.triggersWithOverrides, zPlainObject)
+				check(triggeredActionsObj.actionsWithOverrides, zPlainObject)
 				triggeredActionsObj.showStyleBaseId = showStyleBaseId ?? null
 			}
 
@@ -113,7 +118,15 @@ actionTriggersRouter.post(
 
 			// TODO - should we clear `blueprintUniqueId`, to avoid blueprints getting them confused with data they own?
 
-			await TriggeredActions.upsertManyAsync(triggeredActions)
+			await TriggeredActions.bulkWriteAsync(
+				triggeredActions.map((triggeredActionsObj) => ({
+					replaceOne: {
+						filter: { _id: triggeredActionsObj._id },
+						replacement: triggeredActionsObj,
+						upsert: true,
+					},
+				}))
+			)
 
 			ctx.response.status = 200
 			ctx.body = ''
@@ -128,7 +141,7 @@ actionTriggersRouter.post(
 actionTriggersRouter.get('/download/:showStyleBaseId', async (ctx) => {
 	const showStyleBaseId: ShowStyleBaseId | undefined = protectString(ctx.params.showStyleBaseId)
 
-	check(showStyleBaseId, Match.Maybe(String))
+	check(showStyleBaseId, z.string().nullish())
 
 	const triggeredActions = await TriggeredActions.findFetchAsync({
 		showStyleBaseId: showStyleBaseId === undefined ? null : showStyleBaseId,
@@ -158,38 +171,32 @@ async function apiCreateTriggeredActions(
 	showStyleBaseId: ShowStyleBaseId | null,
 	base: CreateTriggeredActionsContent | null
 ) {
-	check(showStyleBaseId, Match.Maybe(String))
-	check(base, Match.Maybe(Object))
+	check(showStyleBaseId, z.string().nullish())
+	check(base, zPlainObject.nullish())
 
-	if (!showStyleBaseId) {
-		const access = await SystemWriteAccess.coreSystem(context)
-		if (!access) throw new Meteor.Error(403, `Core System settings not writable`)
-	} else {
-		const access = await ShowStyleContentWriteAccess.anyContent(context, showStyleBaseId)
-		if (!access) throw new Meteor.Error(404, `ShowStyleBase "${showStyleBaseId}" not found`)
-	}
+	assertConnectionHasOneOfPermissions(context.connection, ...PERMISSIONS_FOR_TRIGGERED_ACTIONS)
 
 	return createTriggeredActions(showStyleBaseId, base || undefined)
 }
 async function apiRemoveTriggeredActions(context: MethodContext, id: TriggeredActionId) {
-	check(id, String)
+	check(id, z.string())
 
-	const access = await ShowStyleContentWriteAccess.triggeredActions(context, id)
-	const triggeredActions = typeof access === 'boolean' ? access : access.triggeredActions
-	if (!triggeredActions) throw new Meteor.Error(404, `Action Trigger "${id}" not found`)
+	assertConnectionHasOneOfPermissions(context.connection, ...PERMISSIONS_FOR_TRIGGERED_ACTIONS)
 
 	await removeTriggeredActions(id)
 }
 
-class ServerTriggeredActionsAPI
+export class ServerTriggeredActionsAPI
 	extends MethodContextAPI
 	implements ReplaceOptionalWithNullInMethodArguments<NewTriggeredActionsAPI>
 {
-	async createTriggeredActions(showStyleBaseId: ShowStyleBaseId | null, base: CreateTriggeredActionsContent | null) {
+	async createTriggeredActions(
+		showStyleBaseId: ShowStyleBaseId | null,
+		base: CreateTriggeredActionsContent | null
+	): Promise<TriggeredActionId> {
 		return apiCreateTriggeredActions(this, showStyleBaseId, base)
 	}
-	async removeTriggeredActions(triggeredActionId: TriggeredActionId) {
+	async removeTriggeredActions(triggeredActionId: TriggeredActionId): Promise<void> {
 		return apiRemoveTriggeredActions(this, triggeredActionId)
 	}
 }
-registerClassToMeteorMethods(TriggeredActionsAPIMethods, ServerTriggeredActionsAPI, false)

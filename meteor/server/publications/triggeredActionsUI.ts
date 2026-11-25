@@ -1,23 +1,24 @@
+import { z } from 'zod'
 import { ShowStyleBaseId, TriggeredActionId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { applyAndValidateOverrides } from '@sofie-automation/corelib/dist/settings/objectWithOverrides'
-import { Meteor } from 'meteor/meteor'
 import { ReadonlyDeep } from 'type-fest'
-import { CustomCollectionName, MeteorPubSub } from '../../lib/api/pubsub'
-import { DBTriggeredActions, UITriggeredActionsObj } from '../../lib/collections/TriggeredActions'
-import { Complete, literal } from '../../lib/lib'
+import { CustomCollectionName, MeteorPubSub } from '@sofie-automation/meteor-lib/dist/api/pubsub'
+import {
+	DBTriggeredActions,
+	UITriggeredActionsObj,
+} from '@sofie-automation/meteor-lib/dist/collections/TriggeredActions'
+import { Complete, literal } from '@sofie-automation/corelib/dist/lib'
 import {
 	CustomPublishCollection,
-	meteorCustomPublish,
 	setUpCollectionOptimizedObserver,
+	SetupObserversResult,
 	TriggerUpdate,
 } from '../lib/customPublication'
-import { logger } from '../logging'
-import { resolveCredentials } from '../security/lib/credentials'
-import { NoSecurityReadAccess } from '../security/noSecurity'
-import { ShowStyleReadAccess } from '../security/showStyle'
 import { TriggeredActions } from '../collections'
-import { check, Match } from 'meteor/check'
+import { check } from '../lib/check'
 import { MongoQuery } from '@sofie-automation/corelib/dist/mongo'
+import { triggerWriteAccessBecauseNoCheckNecessary } from '../security/securityVerify'
+import type { PublicationRegistry } from '../publicationRegistry'
 
 interface UITriggeredActionsArgs {
 	readonly showStyleBaseId: ShowStyleBaseId | null
@@ -61,7 +62,7 @@ function convertDocument(doc: DBTriggeredActions): UITriggeredActionsObj {
 async function setupUITriggeredActionsPublicationObservers(
 	args: ReadonlyDeep<UITriggeredActionsArgs>,
 	triggerUpdate: TriggerUpdate<UITriggeredActionsUpdateProps>
-): Promise<Meteor.LiveQueryHandle[]> {
+): Promise<SetupObserversResult> {
 	const trackChange = (id: TriggeredActionId): Partial<UITriggeredActionsUpdateProps> => ({
 		invalidateTriggeredActions: [id],
 	})
@@ -105,19 +106,15 @@ async function manipulateUITriggeredActionsPublicationData(
 	}
 }
 
-meteorCustomPublish(
-	MeteorPubSub.uiTriggeredActions,
-	CustomCollectionName.UITriggeredActions,
-	async function (pub, showStyleBaseId: ShowStyleBaseId | null) {
-		check(showStyleBaseId, Match.Maybe(String))
+export function registerTriggeredActionsUIPublications(registry: PublicationRegistry): void {
+	registry.customPublish(
+		MeteorPubSub.uiTriggeredActions,
+		CustomCollectionName.UITriggeredActions,
+		async (_context, pub, showStyleBaseId: ShowStyleBaseId | null) => {
+			check(showStyleBaseId, z.string().nullish())
 
-		const cred = await resolveCredentials({ userId: this.userId, token: undefined })
+			triggerWriteAccessBecauseNoCheckNecessary()
 
-		if (
-			!cred ||
-			NoSecurityReadAccess.any() ||
-			(showStyleBaseId && (await ShowStyleReadAccess.showStyleBase(showStyleBaseId, cred)))
-		) {
 			await setUpCollectionOptimizedObserver<
 				UITriggeredActionsObj,
 				UITriggeredActionsArgs,
@@ -130,8 +127,6 @@ meteorCustomPublish(
 				manipulateUITriggeredActionsPublicationData,
 				pub
 			)
-		} else {
-			logger.warn(`Pub.${CustomCollectionName.UITriggeredActions}: Not allowed: "${showStyleBaseId}"`)
 		}
-	}
-)
+	)
+}

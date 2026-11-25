@@ -4,10 +4,12 @@ import {
 	PieceId,
 	PieceInstanceId,
 	RundownBaselineAdLibActionId,
+	RundownId,
 } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { ReadonlyDeep } from 'type-fest'
-import { UIPieceContentStatus } from '../../../../lib/api/rundownNotifications'
-import { literal, protectString } from '../../../../lib/lib'
+import { UIPieceContentStatus } from '@sofie-automation/corelib/dist/dataModel/PieceContentStatus'
+import { literal } from '@sofie-automation/corelib/dist/lib'
+import { protectString } from '@sofie-automation/corelib/dist/protectedString'
 import { CustomPublishCollection } from '../../../lib/customPublication'
 import { ContentCache } from './reactiveContentCache'
 import { wrapTranslatableMessageFromBlueprintsIfNotString } from '@sofie-automation/corelib/dist/TranslatableMessage'
@@ -16,16 +18,18 @@ import {
 	PieceContentStatusPiece,
 	PieceContentStatusStudio,
 } from '../checkPieceContentStatus'
-import { PieceDependencies } from '../common'
+import type { PieceDependencies } from '../common'
+import type { PieceContentStatusMessageFactory } from '../messageFactory'
 
 async function regenerateGenericPiece(
 	contentCache: ReadonlyDeep<ContentCache>,
 	uiStudio: PieceContentStatusStudio,
+	messageFactory: PieceContentStatusMessageFactory | undefined,
 	pieceDoc: PieceContentStatusPiece,
 	sourceLayerId: string | undefined,
 	doc: Pick<Required<UIPieceContentStatus>, '_id' | 'partId' | 'pieceId' | 'rundownId' | 'name'>
 ): Promise<{
-	dependencies: PieceDependencies
+	dependencies: Omit<PieceDependencies, 'rundownId'>
 	doc: UIPieceContentStatus
 	blueprintId: BlueprintId
 } | null> {
@@ -40,7 +44,13 @@ async function regenerateGenericPiece(
 	const sourceLayer = sourceLayerId && sourceLayersForRundown?.sourceLayers?.[sourceLayerId]
 
 	if (part && segment && sourceLayer) {
-		const [status, dependencies] = await checkPieceContentStatusAndDependencies(uiStudio, pieceDoc, sourceLayer)
+		const [status, dependencies] = await checkPieceContentStatusAndDependencies(
+			uiStudio,
+			part.rundownId,
+			messageFactory,
+			pieceDoc,
+			sourceLayer
+		)
 
 		return {
 			dependencies,
@@ -74,6 +84,7 @@ export async function regenerateForPieceIds(
 	contentCache: ReadonlyDeep<ContentCache>,
 	uiStudio: PieceContentStatusStudio,
 	dependenciesState: Map<PieceId, PieceDependencies>,
+	messageFactories: Map<RundownId, PieceContentStatusMessageFactory>,
 	collection: CustomPublishCollection<UIPieceContentStatus>,
 	regeneratePieceIds: Set<PieceId>
 ): Promise<void> {
@@ -89,15 +100,22 @@ export async function regenerateForPieceIds(
 			// Piece has been deleted, queue it for batching
 			deletedPieceIds.add(pieceId)
 		} else {
-			const res = await regenerateGenericPiece(contentCache, uiStudio, pieceDoc, pieceDoc.sourceLayerId, {
-				_id: protectString(`piece_${pieceId}`),
+			const res = await regenerateGenericPiece(
+				contentCache,
+				uiStudio,
+				messageFactories.get(pieceDoc.startRundownId),
+				pieceDoc,
+				pieceDoc.sourceLayerId,
+				{
+					_id: protectString(`piece_${pieceId}`),
 
-				partId: pieceDoc.startPartId,
-				rundownId: pieceDoc.startRundownId,
-				pieceId: pieceId,
+					partId: pieceDoc.startPartId ?? undefined,
+					rundownId: pieceDoc.startRundownId,
+					pieceId: pieceId,
 
-				name: pieceDoc.name,
-			})
+					name: pieceDoc.name,
+				}
+			)
 
 			if (res) {
 				dependenciesState.set(pieceId, res.dependencies)
@@ -121,6 +139,7 @@ export async function regenerateForPieceInstanceIds(
 	contentCache: ReadonlyDeep<ContentCache>,
 	uiStudio: PieceContentStatusStudio,
 	dependenciesState: Map<PieceInstanceId, PieceDependencies>,
+	messageFactories: Map<RundownId, PieceContentStatusMessageFactory>,
 	collection: CustomPublishCollection<UIPieceContentStatus>,
 	regeneratePieceIds: Set<PieceInstanceId>
 ): Promise<void> {
@@ -149,12 +168,27 @@ export async function regenerateForPieceInstanceIds(
 			const sourceLayer =
 				pieceDoc.piece.sourceLayerId && sourceLayersForRundown?.sourceLayers?.[pieceDoc.piece.sourceLayerId]
 
+			let previousPieceInstanceId: PieceInstanceId | undefined
+			if (pieceDoc.infinite) {
+				// Note: this is a temporary solution, until single packages can be owned by multiple PieceInstances
+				// This shouldn't need to be reactive upon this PieceInstance, as this is filling a brief gap until package-manager catches up.
+				// That assumption could be wrong, but trying to track this dependency will be messy so would be nice to avoid.
+				const previousPieceInstance = contentCache.PieceInstances.findOne({
+					'infinite.infiniteInstanceId': pieceDoc.infinite.infiniteInstanceId,
+					'infinite.infiniteInstanceIndex': pieceDoc.infinite.infiniteInstanceIndex - 1,
+				})
+				previousPieceInstanceId = previousPieceInstance?._id
+			}
+
 			if (partInstance && segment && sourceLayer) {
 				const [status, dependencies] = await checkPieceContentStatusAndDependencies(
 					uiStudio,
+					pieceDoc.rundownId,
+					messageFactories.get(pieceDoc.rundownId),
 					{
 						...pieceDoc.piece,
 						pieceInstanceId: pieceDoc._id,
+						previousPieceInstanceId,
 					},
 					sourceLayer
 				)
@@ -162,7 +196,7 @@ export async function regenerateForPieceInstanceIds(
 				const res: UIPieceContentStatus = {
 					_id: protectString(`piece_${pieceId}`),
 
-					partId: pieceDoc.piece.startPartId,
+					partId: pieceDoc.piece.startPartId ?? undefined,
 					rundownId: pieceDoc.rundownId,
 					pieceId: pieceId,
 
@@ -202,6 +236,7 @@ export async function regenerateForAdLibPieceIds(
 	contentCache: ReadonlyDeep<ContentCache>,
 	uiStudio: PieceContentStatusStudio,
 	dependenciesState: Map<PieceId, PieceDependencies>,
+	messageFactories: Map<RundownId, PieceContentStatusMessageFactory>,
 	collection: CustomPublishCollection<UIPieceContentStatus>,
 	regenerateAdLibPieceIds: Set<PieceId>
 ): Promise<void> {
@@ -217,15 +252,22 @@ export async function regenerateForAdLibPieceIds(
 			// Piece has been deleted, queue it for batching
 			deletedPieceIds.add(pieceId)
 		} else {
-			const res = await regenerateGenericPiece(contentCache, uiStudio, pieceDoc, pieceDoc.sourceLayerId, {
-				_id: protectString(`adlib_${pieceId}`),
+			const res = await regenerateGenericPiece(
+				contentCache,
+				uiStudio,
+				messageFactories.get(pieceDoc.rundownId),
+				pieceDoc,
+				pieceDoc.sourceLayerId,
+				{
+					_id: protectString(`adlib_${pieceId}`),
 
-				partId: pieceDoc.partId,
-				rundownId: pieceDoc.rundownId,
-				pieceId: pieceId,
+					partId: pieceDoc.partId,
+					rundownId: pieceDoc.rundownId,
+					pieceId: pieceId,
 
-				name: pieceDoc.name,
-			})
+					name: pieceDoc.name,
+				}
+			)
 
 			if (res) {
 				dependenciesState.set(pieceId, res.dependencies)
@@ -249,6 +291,7 @@ export async function regenerateForAdLibActionIds(
 	contentCache: ReadonlyDeep<ContentCache>,
 	uiStudio: PieceContentStatusStudio,
 	dependenciesState: Map<AdLibActionId, PieceDependencies>,
+	messageFactories: Map<RundownId, PieceContentStatusMessageFactory>,
 	collection: CustomPublishCollection<UIPieceContentStatus>,
 	regenerateActionIds: Set<AdLibActionId>
 ): Promise<void> {
@@ -267,20 +310,29 @@ export async function regenerateForAdLibActionIds(
 			const fakedPiece = literal<PieceContentStatusPiece>({
 				_id: protectString(`${actionDoc._id}`),
 				content: 'content' in actionDoc.display ? actionDoc.display.content : {},
+				name:
+					typeof actionDoc.display.label === 'string' ? actionDoc.display.label : actionDoc.display.label.key,
 				expectedPackages: actionDoc.expectedPackages,
 			})
 
 			const sourceLayerId = 'sourceLayerId' in actionDoc.display ? actionDoc.display.sourceLayerId : undefined
 
-			const res = await regenerateGenericPiece(contentCache, uiStudio, fakedPiece, sourceLayerId, {
-				_id: protectString(`action_${pieceId}`),
+			const res = await regenerateGenericPiece(
+				contentCache,
+				uiStudio,
+				messageFactories.get(actionDoc.rundownId),
+				fakedPiece,
+				sourceLayerId,
+				{
+					_id: protectString(`action_${pieceId}`),
 
-				partId: actionDoc.partId,
-				rundownId: actionDoc.rundownId,
-				pieceId: pieceId,
+					partId: actionDoc.partId,
+					rundownId: actionDoc.rundownId,
+					pieceId: pieceId,
 
-				name: actionDoc.display.label,
-			})
+					name: actionDoc.display.label,
+				}
+			)
 
 			if (res) {
 				dependenciesState.set(pieceId, res.dependencies)
@@ -304,6 +356,7 @@ export async function regenerateForBaselineAdLibPieceIds(
 	contentCache: ReadonlyDeep<ContentCache>,
 	uiStudio: PieceContentStatusStudio,
 	dependenciesState: Map<PieceId, PieceDependencies>,
+	messageFactories: Map<RundownId, PieceContentStatusMessageFactory>,
 	collection: CustomPublishCollection<UIPieceContentStatus>,
 	regenerateAdLibPieceIds: Set<PieceId>
 ): Promise<void> {
@@ -330,6 +383,8 @@ export async function regenerateForBaselineAdLibPieceIds(
 			if (sourceLayer) {
 				const [status, dependencies] = await checkPieceContentStatusAndDependencies(
 					uiStudio,
+					pieceDoc.rundownId,
+					messageFactories.get(pieceDoc.rundownId),
 					pieceDoc,
 					sourceLayer
 				)
@@ -372,6 +427,7 @@ export async function regenerateForBaselineAdLibActionIds(
 	contentCache: ReadonlyDeep<ContentCache>,
 	uiStudio: PieceContentStatusStudio,
 	dependenciesState: Map<RundownBaselineAdLibActionId, PieceDependencies>,
+	messageFactories: Map<RundownId, PieceContentStatusMessageFactory>,
 	collection: CustomPublishCollection<UIPieceContentStatus>,
 	regenerateActionIds: Set<RundownBaselineAdLibActionId>
 ): Promise<void> {
@@ -390,6 +446,8 @@ export async function regenerateForBaselineAdLibActionIds(
 			const fakedPiece = literal<PieceContentStatusPiece>({
 				_id: protectString(`${actionDoc._id}`),
 				content: 'content' in actionDoc.display ? actionDoc.display.content : {},
+				name:
+					typeof actionDoc.display.label === 'string' ? actionDoc.display.label : actionDoc.display.label.key,
 				expectedPackages: actionDoc.expectedPackages,
 			})
 
@@ -406,6 +464,8 @@ export async function regenerateForBaselineAdLibActionIds(
 			if (sourceLayer) {
 				const [status, dependencies] = await checkPieceContentStatusAndDependencies(
 					uiStudio,
+					actionDoc.rundownId,
+					messageFactories.get(actionDoc.rundownId),
 					fakedPiece,
 					sourceLayer
 				)

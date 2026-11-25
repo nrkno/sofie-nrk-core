@@ -1,62 +1,44 @@
-import { UserId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { MongoModifier, MongoQuery } from '@sofie-automation/corelib/dist/mongo'
-import { ProtectedString, protectString } from '@sofie-automation/corelib/dist/protectedString'
-import { Meteor } from 'meteor/meteor'
-import { Mongo } from 'meteor/mongo'
-import { NpmModuleMongodb } from 'meteor/npm-mongo'
 import {
-	UpdateOptions,
-	UpsertOptions,
-	FieldNames,
-	getOrCreateMongoCollection,
 	FindOptions,
-	collectionsCache,
-	IndexSpecifier,
-	MongoCursor,
-	ObserveChangesCallbacks,
+	MongoBulkWriteOperation,
+	MongoModifier,
+	MongoQuery,
 	ObserveCallbacks,
-} from '../../lib/collections/lib'
-import { PromisifyCallbacks, waitForPromise } from '../../lib/lib'
-import type { AnyBulkWriteOperation, Collection as RawCollection } from 'mongodb'
+	ObserveChangesCallbacks,
+	FindObserveChangesOptions,
+} from '@sofie-automation/corelib/dist/mongo'
+import { ProtectedString } from '@sofie-automation/corelib/dist/protectedString'
+import { PromisifyCallbacks } from '@sofie-automation/shared-lib/dist/lib/types'
+import type { CreateIndexesOptions, IndexDescriptionInfo } from 'mongodb'
 import { CollectionName } from '@sofie-automation/corelib/dist/dataModel/Collections'
 import { registerCollection } from './lib'
-import { WrappedMockCollection } from './implementations/mock'
+import { createMockCollection } from './implementations/mock'
 import { WrappedAsyncMongoCollection } from './implementations/asyncCollection'
 import { WrappedReadOnlyMongoCollection } from './implementations/readonlyWrapper'
+import {
+	FieldNames,
+	IndexSpecifier,
+	MongoLiveQueryHandle,
+	UpdateOptions,
+} from '@sofie-automation/meteor-lib/dist/collections/lib'
+import { UserPermissions } from '@sofie-automation/meteor-lib/dist/userPermissions'
+import { isInTestMode } from '../lib'
+import type { LiveQueryHandleSync } from '../lib/lib'
+import { SofieError } from '@sofie-automation/corelib/dist/error'
 
-export interface MongoAllowRules<DBInterface> {
-	insert?: (userId: UserId, doc: DBInterface) => Promise<boolean> | boolean
-	update?: (
-		userId: UserId,
+export interface CustomMongoAllowRules<DBInterface> {
+	// insert?: (userId: UserId | null, doc: DBInterface) => Promise<boolean> | boolean
+	requiredPermissions: Array<keyof UserPermissions>
+	update: (
+		permissions: UserPermissions,
 		doc: DBInterface,
 		fieldNames: FieldNames<DBInterface>,
 		modifier: MongoModifier<DBInterface>
 	) => Promise<boolean> | boolean
-	remove?: (userId: UserId, doc: DBInterface) => Promise<boolean> | boolean
+	// remove?: (userId: UserId | null, doc: DBInterface) => Promise<boolean> | boolean
 }
 
-/**
- * Wrap an existing Mongo.Collection to have async methods. Primarily to convert the built-in Users collection
- * @param collection Collection to wrap
- * @param name Name of the collection
- * @param allowRules The 'allow' rules for publications. Set to `false` to make readonly
- */
-export function wrapMongoCollection<DBInterface extends { _id: ProtectedString<any> }>(
-	collection: Mongo.Collection<DBInterface>,
-	name: CollectionName,
-	allowRules: MongoAllowRules<DBInterface> | false
-): AsyncOnlyMongoCollection<DBInterface> {
-	if (collectionsCache.has(name)) throw new Meteor.Error(500, `Collection "${name}" has already been created`)
-	collectionsCache.set(name, collection)
-
-	setupCollectionAllowRules(collection, allowRules)
-
-	const wrapped = new WrappedAsyncMongoCollection<DBInterface>(collection, name)
-
-	registerCollection(name, wrapped as WrappedAsyncMongoCollection<any>)
-
-	return wrapped
-}
+export const collectionsAllowDenyCache = new Map<string, CustomMongoAllowRules<any>>()
 
 /**
  * Create a fully featured MongoCollection
@@ -65,13 +47,16 @@ export function wrapMongoCollection<DBInterface extends { _id: ProtectedString<a
  */
 export function createAsyncOnlyMongoCollection<DBInterface extends { _id: ProtectedString<any> }>(
 	name: CollectionName,
-	allowRules: MongoAllowRules<DBInterface> | false
+	allowRules: CustomMongoAllowRules<DBInterface> | false
 ): AsyncOnlyMongoCollection<DBInterface> {
-	const collection = getOrCreateMongoCollection(name)
+	if (allowRules) {
+		if (allowRules.requiredPermissions.length === 0)
+			throw new SofieError(403, `No permissions specified for collection "${name}"`)
 
-	setupCollectionAllowRules(collection, allowRules)
+		collectionsAllowDenyCache.set(name, allowRules as CustomMongoAllowRules<any>)
+	}
 
-	const wrappedCollection = wrapMeteorCollectionIntoAsyncCollection<DBInterface>(collection, name)
+	const wrappedCollection = createWrappedCollection<DBInterface>(name)
 
 	registerCollection(name, wrappedCollection)
 
@@ -86,69 +71,55 @@ export function createAsyncOnlyMongoCollection<DBInterface extends { _id: Protec
 export function createAsyncOnlyReadOnlyMongoCollection<DBInterface extends { _id: ProtectedString<any> }>(
 	name: CollectionName
 ): AsyncOnlyReadOnlyMongoCollection<DBInterface> {
-	const collection = getOrCreateMongoCollection(name)
-
-	const mutableCollection = wrapMeteorCollectionIntoAsyncCollection<DBInterface>(collection, name)
+	const mutableCollection = createWrappedCollection<DBInterface>(name)
 	const readonlyCollection = new WrappedReadOnlyMongoCollection<DBInterface>(mutableCollection)
 
 	registerCollection(name, readonlyCollection)
 
-	setupCollectionAllowRules(collection, false)
-
 	return readonlyCollection
 }
 
-function wrapMeteorCollectionIntoAsyncCollection<DBInterface extends { _id: ProtectedString<any> }>(
-	collection: Mongo.Collection<DBInterface>,
+function createWrappedCollection<DBInterface extends { _id: ProtectedString<any> }>(
 	name: CollectionName
-) {
-	if ((collection as any)._isMock) {
-		// We use a special one in tests, to reduce the amount of hops between fibers and promises
-		return new WrappedMockCollection<DBInterface>(collection, name)
+): AsyncOnlyMongoCollection<DBInterface> {
+	if (isInTestMode()) {
+		// In unit tests there is no real database, so back the collection with the in-memory mock
+		return createMockCollection<DBInterface>(name)
 	} else {
-		// Override the default mongodb methods, because the errors thrown by them doesn't contain the proper call stack
-		return new WrappedAsyncMongoCollection<DBInterface>(collection, name)
+		// Backed by the native mongodb driver (CRUD) and the change-stream observe engine
+		return new WrappedAsyncMongoCollection<DBInterface>(name)
 	}
 }
 
-function setupCollectionAllowRules<DBInterface extends { _id: ProtectedString<any> }>(
-	collection: Mongo.Collection<DBInterface>,
-	args: MongoAllowRules<DBInterface> | false
-) {
-	if (args) {
-		const { insert: origInsert, update: origUpdate, remove: origRemove } = args
+/**
+ * A minimal mongo cursor, with only the async methods used by the codebase.
+ * This is intentionally only the observe methods, kept for publication usage to avoid a larger refactor
+ */
+export interface MinimalMongoCursor<T extends { _id: ProtectedString<any> }> {
+	readonly collectionName: string | null
 
-		const options: Parameters<Mongo.Collection<DBInterface>['allow']>[0] = {
-			insert: origInsert ? (userId, doc) => waitForPromise(origInsert(protectString(userId), doc)) : () => false,
-			update: origUpdate
-				? (userId, doc, fieldNames, modifier) =>
-						waitForPromise(origUpdate(protectString(userId), doc, fieldNames as any, modifier))
-				: () => false,
-			remove: origRemove ? (userId, doc) => waitForPromise(origRemove(protectString(userId), doc)) : () => false,
-		}
-
-		collection.allow(options)
-	} else {
-		// Block all client mutations
-		collection.allow({
-			insert(): boolean {
-				return false
-			},
-			update() {
-				return false
-			},
-			remove() {
-				return false
-			},
-		})
-	}
+	/**
+	 * Watch a query. Receive callbacks as the result set changes.
+	 * @param callbacks Functions to call to deliver the result set as it changes
+	 */
+	observeAsync(callbacks: ObserveCallbacks<T>): Promise<MongoLiveQueryHandle>
+	/**
+	 * Watch a query. Receive callbacks as the result set changes. Only the differences between the old and new documents are passed to the callbacks.
+	 * @param callbacks Functions to call to deliver the result set as it changes
+	 * @param options { nonMutatingCallbacks: boolean }
+	 */
+	observeChangesAsync(
+		callbacks: ObserveChangesCallbacks<T>,
+		options?: { nonMutatingCallbacks?: boolean | undefined }
+	): Promise<MongoLiveQueryHandle>
 }
 
 /**
  * A minimal Async only wrapping around the base Mongo.Collection type
  */
-export interface AsyncOnlyMongoCollection<DBInterface extends { _id: ProtectedString<any> }>
-	extends AsyncOnlyReadOnlyMongoCollection<DBInterface> {
+export interface AsyncOnlyMongoCollection<
+	DBInterface extends { _id: ProtectedString<any> },
+> extends AsyncOnlyReadOnlyMongoCollection<DBInterface> {
 	/**
 	 * Insert a document
 	 * @param document The document to insert
@@ -168,7 +139,7 @@ export interface AsyncOnlyMongoCollection<DBInterface extends { _id: ProtectedSt
 	 * @param options Options for the operation
 	 */
 	updateAsync(
-		selector: DBInterface['_id'] | { _id: DBInterface['_id'] },
+		selector: DBInterface['_id'] | ({ _id: DBInterface['_id'] } & MongoQuery<Omit<DBInterface, '_id'>>),
 		modifier: MongoModifier<DBInterface>,
 		options?: UpdateOptions
 	): Promise<number>
@@ -180,28 +151,11 @@ export interface AsyncOnlyMongoCollection<DBInterface extends { _id: ProtectedSt
 	): Promise<number>
 
 	/**
-	 * Perform an update/insert of a document
-	 * @param selector A query describing the documents to update. Typically this will be an id
-	 * @param modifier The operation to apply to each matching document
-	 * @param options Options for the operation
+	 * Replace a single document with a full document, matched by its `_id` (upserting if not present).
+	 * @param doc The full document to store
+	 * @returns `true` if an existing document was replaced, `false` if a new one was inserted
 	 */
-	upsertAsync(
-		selector: DBInterface['_id'] | { _id: DBInterface['_id'] },
-		modifier: MongoModifier<DBInterface>,
-		options?: UpsertOptions
-	): Promise<{ numberAffected?: number; insertedId?: DBInterface['_id'] }>
-	upsertAsync(
-		selector: MongoQuery<DBInterface>,
-		modifier: MongoModifier<DBInterface>,
-		// Require { multi } to be set when selecting multiple documents to be updated, otherwise only the first found document will be updated
-		options: UpdateOptions & Required<Pick<UpdateOptions, 'multi'>>
-	): Promise<{ numberAffected?: number; insertedId?: DBInterface['_id'] }>
-
-	/**
-	 * Perform an upsert for multiple documents, based on the `_id` of each document
-	 * @param documents Documents to upsert
-	 */
-	upsertManyAsync(doc: DBInterface[]): Promise<{ numberAffected: number; insertedIds: DBInterface['_id'][] }>
+	replaceAsync(doc: DBInterface): Promise<boolean>
 
 	/**
 	 * Remove one or more documents
@@ -214,33 +168,30 @@ export interface AsyncOnlyMongoCollection<DBInterface extends { _id: ProtectedSt
 	 * This should be used instead of Promise.all(...) when doing multiple updates, as it is more performant
 	 * @param ops Operations to perform
 	 */
-	bulkWriteAsync(ops: Array<AnyBulkWriteOperation<DBInterface>>): Promise<void>
+	bulkWriteAsync(ops: Array<MongoBulkWriteOperation<DBInterface>>): Promise<void>
 }
 
 /**
  * A minimal Async only wrapping around the base Mongo.Collection type
  */
 export interface AsyncOnlyReadOnlyMongoCollection<DBInterface extends { _id: ProtectedString<any> }> {
-	name: string | null
+	readonly name: string
 
 	/**
 	 * Get a mutable handle to the collection
 	 * Warning: This can be unsafe to use if the job-worker is processing a job
 	 */
-	mutableCollection: AsyncOnlyMongoCollection<DBInterface>
-
-	/**
-	 * Returns the [`Collection`](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html) object corresponding to this collection from the
-	 * [npm `mongodb` driver module](https://www.npmjs.com/package/mongodb) which is wrapped by `Mongo.Collection`.
-	 */
-	rawCollection(): RawCollection<DBInterface>
+	readonly mutableCollection: AsyncOnlyMongoCollection<DBInterface>
 
 	/**
 	 * Find and return multiple documents
 	 * @param selector A query describing the documents to find
 	 * @param options Options for the operation
 	 */
-	findFetchAsync(selector: MongoQuery<DBInterface>, options?: FindOptions<DBInterface>): Promise<Array<DBInterface>>
+	findFetchAsync(
+		selector: MongoQuery<DBInterface>,
+		options?: Omit<FindOptions<DBInterface>, 'fields'>
+	): Promise<Array<DBInterface>>
 
 	/**
 	 * Find and return a document
@@ -249,7 +200,7 @@ export interface AsyncOnlyReadOnlyMongoCollection<DBInterface extends { _id: Pro
 	 */
 	findOneAsync(
 		selector: MongoQuery<DBInterface> | DBInterface['_id'],
-		options?: FindOptions<DBInterface>
+		options?: Omit<FindOptions<DBInterface>, 'fields'>
 	): Promise<DBInterface | undefined>
 
 	/**
@@ -258,8 +209,8 @@ export interface AsyncOnlyReadOnlyMongoCollection<DBInterface extends { _id: Pro
 	 */
 	findWithCursor(
 		selector?: MongoQuery<DBInterface> | DBInterface['_id'],
-		options?: FindOptions<DBInterface>
-	): Promise<MongoCursor<DBInterface>>
+		options?: Omit<FindOptions<DBInterface>, 'fields'>
+	): Promise<MinimalMongoCursor<DBInterface>>
 
 	/**
 	 * Observe changes on this collection
@@ -268,8 +219,8 @@ export interface AsyncOnlyReadOnlyMongoCollection<DBInterface extends { _id: Pro
 	observeChanges(
 		selector: MongoQuery<DBInterface> | DBInterface['_id'],
 		callbacks: PromisifyCallbacks<ObserveChangesCallbacks<DBInterface>>,
-		options?: FindOptions<DBInterface>
-	): Meteor.LiveQueryHandle
+		options?: FindObserveChangesOptions<DBInterface>
+	): Promise<LiveQueryHandleSync>
 
 	/**
 	 * Observe changes on this collection
@@ -278,8 +229,8 @@ export interface AsyncOnlyReadOnlyMongoCollection<DBInterface extends { _id: Pro
 	observe(
 		selector: MongoQuery<DBInterface> | DBInterface['_id'],
 		callbacks: PromisifyCallbacks<ObserveCallbacks<DBInterface>>,
-		options?: FindOptions<DBInterface>
-	): Meteor.LiveQueryHandle
+		options?: FindObserveChangesOptions<DBInterface>
+	): Promise<LiveQueryHandleSync>
 
 	/**
 	 * Count the number of docuyments in a collection that match the selector.
@@ -287,5 +238,22 @@ export interface AsyncOnlyReadOnlyMongoCollection<DBInterface extends { _id: Pro
 	 */
 	countDocuments(selector?: MongoQuery<DBInterface>, options?: FindOptions<DBInterface>): Promise<number>
 
-	_ensureIndex(keys: IndexSpecifier<DBInterface> | string, options?: NpmModuleMongodb.CreateIndexesOptions): void
+	/**
+	 * Ensure an index exists on this collection.
+	 * Note: this is fire-and-forget; the index is created in the background and failures are logged.
+	 * @param indexSpec The fields to index, e.g. `{ rundownId: 1, _rank: 1 }`
+	 * @param options Options for the index, e.g. `{ unique: true }`
+	 */
+	createIndex(indexSpec: IndexSpecifier<DBInterface>, options?: CreateIndexesOptions): void
+
+	/**
+	 * List the indexes that currently exist on this collection in the database
+	 */
+	getIndexes(): Promise<IndexDescriptionInfo[]>
+
+	/**
+	 * Drop an index from this collection
+	 * @param indexName The name of the index to drop
+	 */
+	dropIndex(indexName: string): Promise<void>
 }

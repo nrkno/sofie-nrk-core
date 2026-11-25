@@ -2,28 +2,31 @@ import { PartInstanceId, RundownId, ShowStyleBaseId } from '@sofie-automation/co
 import { DBPart } from '@sofie-automation/corelib/dist/dataModel/Part'
 import { DBPartInstance } from '@sofie-automation/corelib/dist/dataModel/PartInstance'
 import { Piece } from '@sofie-automation/corelib/dist/dataModel/Piece'
-import { PieceInstance } from '@sofie-automation/corelib/dist/dataModel/PieceInstance'
+import { PieceInstance, wrapPieceToInstance } from '@sofie-automation/corelib/dist/dataModel/PieceInstance'
 import {
 	getPieceInstancesForPart as libgetPieceInstancesForPart,
 	getPlayheadTrackingInfinitesForPart as libgetPlayheadTrackingInfinitesForPart,
 	buildPiecesStartingInThisPartQuery,
 	buildPastInfinitePiecesForThisPartQuery,
 } from '@sofie-automation/corelib/dist/playout/infinites'
-import { processAndPrunePieceInstanceTimings } from '@sofie-automation/corelib/dist/playout/processAndPrune'
-import { JobContext } from '../jobs'
+import {
+	createPartCurrentTimes,
+	processAndPrunePieceInstanceTimings,
+} from '@sofie-automation/corelib/dist/playout/processAndPrune'
+import { JobContext } from '../jobs/index.js'
 import { ReadonlyDeep } from 'type-fest'
-import { PlayoutModel } from './model/PlayoutModel'
-import { PlayoutPartInstanceModel } from './model/PlayoutPartInstanceModel'
-import { PlayoutSegmentModel } from './model/PlayoutSegmentModel'
-import { getCurrentTime } from '../lib'
-import { flatten } from '@sofie-automation/corelib/dist/lib'
-import _ = require('underscore')
-import { IngestModelReadonly } from '../ingest/model/IngestModel'
+import { PlayoutModel } from './model/PlayoutModel.js'
+import { PlayoutPartInstanceModel } from './model/PlayoutPartInstanceModel.js'
+import { PlayoutSegmentModel } from './model/PlayoutSegmentModel.js'
+import { getCurrentTime } from '../lib/index.js'
+import { clone, flatten, getRandomId } from '@sofie-automation/corelib/dist/lib'
+import _ from 'underscore'
+import { IngestModelReadonly } from '../ingest/model/IngestModel.js'
 import { SegmentOrphanedReason } from '@sofie-automation/corelib/dist/dataModel/Segment'
 import { sortRundownIDsInPlaylist } from '@sofie-automation/corelib/dist/playout/playlist'
 import { mongoWhere } from '@sofie-automation/corelib/dist/mongo'
-import { PlayoutRundownModel } from './model/PlayoutRundownModel'
-import { logger } from '../logging'
+import { PlayoutRundownModel } from './model/PlayoutRundownModel.js'
+import { logger } from '../logging.js'
 
 /** When we crop a piece, set the piece as "it has definitely ended" this far into the future. */
 export const DEFINITELY_ENDED_FUTURE_DURATION = 1 * 1000
@@ -155,13 +158,13 @@ export async function fetchPiecesThatMayBeActiveForPart(
 ): Promise<ReadonlyDeep<Piece>[]> {
 	const span = context.startSpan('fetchPiecesThatMayBeActiveForPart')
 
-	const piecePromises: Array<Promise<Array<Piece>> | Array<ReadonlyDeep<Piece>>> = []
+	const piecePromises: Array<Promise<Array<Piece> | Array<ReadonlyDeep<Piece>>>> = []
 
 	// Find all the pieces starting in the part
 	const thisPiecesQuery = buildPiecesStartingInThisPartQuery(part)
 	piecePromises.push(
 		unsavedIngestModel?.rundownId === part.rundownId
-			? unsavedIngestModel.getAllPieces().filter((p) => mongoWhere(p, thisPiecesQuery))
+			? Promise.resolve(unsavedIngestModel.getAllPieces().filter((p) => mongoWhere(p, thisPiecesQuery)))
 			: context.directCollections.Pieces.findFetch(thisPiecesQuery)
 	)
 
@@ -178,7 +181,9 @@ export async function fetchPiecesThatMayBeActiveForPart(
 			[] // other rundowns don't exist in the ingestModel
 		)
 		if (thisRundownPieceQuery) {
-			piecePromises.push(unsavedIngestModel.getAllPieces().filter((p) => mongoWhere(p, thisRundownPieceQuery)))
+			piecePromises.push(
+				Promise.resolve(unsavedIngestModel.getAllPieces().filter((p) => mongoWhere(p, thisRundownPieceQuery)))
+			)
 		}
 
 		// Find pieces for the previous rundowns
@@ -217,6 +222,7 @@ export async function fetchPiecesThatMayBeActiveForPart(
 export async function syncPlayheadInfinitesForNextPartInstance(
 	context: JobContext,
 	playoutModel: PlayoutModel,
+	unsavedIngestModel: Pick<IngestModelReadonly, 'rundownId' | 'getAllPieces'> | undefined,
 	fromPartInstance: PlayoutPartInstanceModel | null,
 	toPartInstance: PlayoutPartInstanceModel | null
 ): Promise<void> {
@@ -253,11 +259,14 @@ export async function syncPlayheadInfinitesForNextPartInstance(
 			toPartInstance.partInstance.part
 		)
 
-		const nowInPart = getCurrentTime() - (fromPartInstance.partInstance.timings?.plannedStartedPlayback ?? 0)
+		const partTimes = createPartCurrentTimes(
+			getCurrentTime(),
+			fromPartInstance.partInstance.timings?.plannedStartedPlayback
+		)
 		const prunedPieceInstances = processAndPrunePieceInstanceTimings(
 			showStyleBase.sourceLayers,
 			fromPartInstance.pieceInstances.map((p) => p.pieceInstance),
-			nowInPart,
+			partTimes,
 			undefined,
 			true
 		)
@@ -278,10 +287,22 @@ export async function syncPlayheadInfinitesForNextPartInstance(
 			nextSegment?.segment,
 			toPartInstance.partInstance._id,
 			nextPartIsAfterCurrentPart,
-			false
+			false,
+			context.studio.settings.allowTestingAdlibsToPersist ?? false
 		)
 
 		toPartInstance.replaceInfinitesFromPreviousPlayhead(infinites)
+	} else if (toPartInstance && !fromPartInstance) {
+		// This is the first take of the rundown, ensure the baseline infinites are loaded
+		const baselineInfinites = await getBaselineInfinitesForPart(
+			context,
+			playoutModel,
+			unsavedIngestModel,
+			toPartInstance.partInstance.part,
+			toPartInstance.partInstance._id
+		)
+
+		toPartInstance.replaceInfinitesFromPreviousPlayhead(baselineInfinites)
 	}
 	if (span) span.end()
 }
@@ -378,8 +399,44 @@ export function getPieceInstancesForPart(
 		playoutModel.getAllOrderedParts().map((p) => p._id),
 		newInstanceId,
 		nextPartIsAfterCurrentPart,
-		false
+		false,
+		context.studio.settings.allowTestingAdlibsToPersist ?? false
 	)
 	if (span) span.end()
 	return res
+}
+
+export async function getBaselineInfinitesForPart(
+	context: JobContext,
+	playoutModel: PlayoutModel,
+	unsavedIngestModel: Pick<IngestModelReadonly, 'rundownId' | 'getAllPieces'> | undefined,
+	part: ReadonlyDeep<DBPart>,
+	partInstanceId: PartInstanceId
+): Promise<PieceInstance[]> {
+	// Find the pieces. If an ingest model is provided, use that instead of the database
+	const pieces =
+		unsavedIngestModel && unsavedIngestModel.rundownId === part.rundownId
+			? unsavedIngestModel.getAllPieces().filter((p) => p.startPartId === null)
+			: await context.directCollections.Pieces.findFetch({
+					startRundownId: part.rundownId,
+					startPartId: null,
+				})
+
+	const playlistActivationId = playoutModel.playlist.activationId
+	if (!playlistActivationId) throw new Error(`RundownPlaylist "${playoutModel.playlistId}" is not active`)
+
+	return pieces.map((piece) => {
+		const instance = wrapPieceToInstance(clone<Piece>(piece), playlistActivationId, partInstanceId, false)
+
+		// All these pieces are expected to be outOnRundownChange infinites, as that is how they are ingested
+
+		instance.infinite = {
+			infiniteInstanceId: getRandomId(),
+			infiniteInstanceIndex: 0,
+			infinitePieceId: instance.piece._id,
+			fromPreviousPart: true,
+		}
+
+		return instance
+	})
 }

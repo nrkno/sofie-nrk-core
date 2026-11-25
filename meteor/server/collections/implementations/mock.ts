@@ -1,92 +1,149 @@
-import { MongoModifier, MongoQuery } from '@sofie-automation/corelib/dist/mongo'
-import { ProtectedString } from '@sofie-automation/corelib/dist/protectedString'
-import { Meteor } from 'meteor/meteor'
-import { Mongo } from 'meteor/mongo'
 import {
-	UpdateOptions,
-	UpsertOptions,
 	FindOptions,
-	MongoCursor,
-	ObserveChangesCallbacks,
+	MongoBulkWriteOperation,
+	MongoModifier,
+	MongoQuery,
 	ObserveCallbacks,
-} from '../../../lib/collections/lib'
-import { PromisifyCallbacks } from '../../../lib/lib'
-import type { AnyBulkWriteOperation } from 'mongodb'
-import { AsyncOnlyMongoCollection } from '../collection'
-import { WrappedMongoCollectionBase, dePromiseObjectOfFunctions } from './base'
+	ObserveChangesCallbacks,
+	FindObserveChangesOptions,
+} from '@sofie-automation/corelib/dist/mongo'
+import { ProtectedString } from '@sofie-automation/corelib/dist/protectedString'
+import type { CreateIndexesOptions, IndexDescriptionInfo } from 'mongodb'
+import { InMemoryMongoCollection } from '@sofie-automation/corelib/dist/memoryCollection'
+import { PromisifyCallbacks } from '@sofie-automation/shared-lib/dist/lib/types'
+import { UpdateOptions, IndexSpecifier } from '@sofie-automation/meteor-lib/dist/collections/lib'
+import { AsyncOnlyMongoCollection, MinimalMongoCursor } from '../collection'
+import type { LiveQueryHandleSync } from '../../lib/lib'
 
-/** This is for the mock mongo collection, as internally it is sync and so we dont need or want to play around with fibers */
-export class WrappedMockCollection<DBInterface extends { _id: ProtectedString<any> }>
-	extends WrappedMongoCollectionBase<DBInterface>
-	implements AsyncOnlyMongoCollection<DBInterface>
-{
-	private readonly realSleep: (time: number) => Promise<void>
+/**
+ * Captured at module load, which is always before a test body can install `jest.useFakeTimers()`.
+ * {@link WrappedMockCollection} must yield on a *real* timer, so that its methods still resolve in tests
+ * that have taken control of the fake clock.
+ */
+const realSetTimeout = setTimeout
 
-	constructor(collection: Mongo.Collection<DBInterface>, name: string | null) {
-		super(collection, name)
+/**
+ * The collection used in unit tests: an async veneer over the in-memory {@link InMemoryMongoCollection}.
+ * Each method forces a real-timer tick before delegating to the synchronous core, so callers cannot
+ * accidentally rely on writes resolving synchronously. Observe callbacks, by contrast, are delivered via
+ * `setImmediate`, which jest *does* fake, so `jest.useFakeTimers()` + `runAllTimers()` tests see them on a
+ * later tick.
+ */
+export class WrappedMockCollection<
+	DBInterface extends { _id: ProtectedString<any> },
+> implements AsyncOnlyMongoCollection<DBInterface> {
+	readonly #core: InMemoryMongoCollection<DBInterface>
 
-		if (!this._isMock) throw new Meteor.Error(500, 'WrappedMockCollection is only valid for a mock collection')
+	/**
+	 * Delay (ms) before a bulkWrite begins, simulating the async nature of writes to mongo and aiming to
+	 * surface race conditions in our code.
+	 */
+	asyncBulkWriteDelay = 100
 
-		const realSleep = (Meteor as any).sleepNoFakeTimers
-		if (!realSleep) throw new Error('Missing Meteor.sleepNoFakeTimers, looks like the mock is broken?')
-		this.realSleep = realSleep
+	constructor(name: string) {
+		this.#core = new InMemoryMongoCollection<DBInterface>(name, {
+			observerDeliveryScheduler: (fn) => setImmediate(fn),
+		})
+	}
+
+	protected get _isMock(): boolean {
+		return true
+	}
+
+	/** Force a real-timer tick so callers can't rely on the synchronous core resolving synchronously. */
+	async #sleep(time: number): Promise<void> {
+		await new Promise<void>((resolve) => realSetTimeout(resolve, time))
+	}
+
+	get name(): string {
+		return this.#core.name
 	}
 
 	get mutableCollection(): AsyncOnlyMongoCollection<DBInterface> {
 		return this
 	}
 
+	/** The backing in-memory collection (exposes `observers` for tests, `mockSetData`/`clear` for helpers). */
+	get mockCollection(): InMemoryMongoCollection<DBInterface> {
+		return this.#core
+	}
+
 	async findFetchAsync(
-		selector: MongoQuery<DBInterface> | DBInterface['_id'],
-		options?: FindOptions<DBInterface>
+		selector: MongoQuery<DBInterface>,
+		options?: Omit<FindOptions<DBInterface>, 'fields'>
 	): Promise<Array<DBInterface>> {
-		await this.realSleep(0)
-		return this.find(selector as any, options).fetch()
+		await this.#sleep(0)
+		return this.#core.findFetch(selector, options)
 	}
 
 	async findOneAsync(
 		selector: MongoQuery<DBInterface> | DBInterface['_id'],
-		options?: FindOptions<DBInterface>
+		options?: Omit<FindOptions<DBInterface>, 'fields'>
 	): Promise<DBInterface | undefined> {
-		const arr = await this.findFetchAsync(selector, { ...options, limit: 1 })
-		return arr[0]
+		await this.#sleep(0)
+		return this.#core.findOne(selector, options)
 	}
 
-	/**
-	 * Retrieve a cursor for use in a publication
-	 * @param selector A query describing the documents to find
-	 */
 	async findWithCursor(
-		_selector?: MongoQuery<DBInterface> | DBInterface['_id'],
-		_options?: FindOptions<DBInterface>
-	): Promise<MongoCursor<DBInterface>> {
-		throw new Error('findWithCursor not supported in tests')
+		selector?: MongoQuery<DBInterface> | DBInterface['_id'],
+		options?: Omit<FindOptions<DBInterface>, 'fields'>
+	): Promise<MinimalMongoCursor<DBInterface>> {
+		await this.#sleep(0)
+		return {
+			collectionName: this.#core.name,
+			observeAsync: async (callbacks) => {
+				await this.#sleep(0)
+				return this.#core.observe(callbacks, selector, options)
+			},
+			observeChangesAsync: async (callbacks, callbackOptions) => {
+				await this.#sleep(0)
+				return this.#core.observeChanges(callbacks, selector, { ...options, ...callbackOptions })
+			},
+		}
 	}
 
-	observeChanges(
-		selector: MongoQuery<DBInterface> | DBInterface['_id'],
-		callbacks: PromisifyCallbacks<ObserveChangesCallbacks<DBInterface>>,
-		options?: FindOptions<DBInterface>
-	): Meteor.LiveQueryHandle {
-		return this.find(selector, options).observeChanges(dePromiseObjectOfFunctions(callbacks))
-	}
-
-	observe(
+	async observe(
 		selector: MongoQuery<DBInterface> | DBInterface['_id'],
 		callbacks: PromisifyCallbacks<ObserveCallbacks<DBInterface>>,
-		options?: FindOptions<DBInterface>
-	): Meteor.LiveQueryHandle {
-		return this.find(selector, options).observe(dePromiseObjectOfFunctions(callbacks))
+		options?: FindObserveChangesOptions<DBInterface>
+	): Promise<LiveQueryHandleSync> {
+		await this.#sleep(0)
+		return this.#core.observe(callbacks, selector, options)
+	}
+
+	async observeChanges(
+		selector: MongoQuery<DBInterface> | DBInterface['_id'],
+		callbacks: PromisifyCallbacks<ObserveChangesCallbacks<DBInterface>>,
+		options?: FindObserveChangesOptions<DBInterface>
+	): Promise<LiveQueryHandleSync> {
+		await this.#sleep(0)
+		return this.#core.observeChanges(callbacks, selector, options)
+	}
+
+	async countDocuments(selector?: MongoQuery<DBInterface>, options?: FindOptions<DBInterface>): Promise<number> {
+		await this.#sleep(0)
+		return this.#core.count(selector, options)
+	}
+
+	createIndex(_indexSpec: IndexSpecifier<DBInterface>, _options?: CreateIndexesOptions): void {
+		// No indexes in the in-memory mock
+	}
+
+	async getIndexes(): Promise<IndexDescriptionInfo[]> {
+		return []
+	}
+
+	async dropIndex(_indexName: string): Promise<void> {
+		// No indexes in the in-memory mock
 	}
 
 	async insertAsync(doc: DBInterface): Promise<DBInterface['_id']> {
-		await this.realSleep(0)
-		return this.insert(doc)
+		await this.#sleep(0)
+		return this.#core.insert(doc)
 	}
 
 	async insertManyAsync(docs: DBInterface[]): Promise<Array<DBInterface['_id']>> {
-		await this.realSleep(0)
-		return Promise.all(docs.map((doc) => this.insert(doc)))
+		return Promise.all(docs.map(async (doc) => this.insertAsync(doc)))
 	}
 
 	async updateAsync(
@@ -94,63 +151,29 @@ export class WrappedMockCollection<DBInterface extends { _id: ProtectedString<an
 		modifier: MongoModifier<DBInterface>,
 		options?: UpdateOptions
 	): Promise<number> {
-		await this.realSleep(0)
-		return this.update(selector, modifier, options)
+		await this.#sleep(0)
+		return this.#core.update(selector as MongoQuery<DBInterface> | DBInterface['_id'], modifier, options)
 	}
 
-	async upsertAsync(
-		selector: MongoQuery<DBInterface> | DBInterface['_id'] | { _id: DBInterface['_id'] },
-		modifier: MongoModifier<DBInterface>,
-		options?: UpsertOptions
-	): Promise<{ numberAffected?: number; insertedId?: DBInterface['_id'] }> {
-		await this.realSleep(0)
-		return this.upsert(selector, modifier, options)
-	}
-
-	async upsertManyAsync(docs: DBInterface[]): Promise<{ numberAffected: number; insertedIds: DBInterface['_id'][] }> {
-		const result: {
-			numberAffected: number
-			insertedIds: DBInterface['_id'][]
-		} = {
-			numberAffected: 0,
-			insertedIds: [],
-		}
-		await Promise.all(
-			docs.map(async (doc) => {
-				const r = this.upsert(doc._id, { $set: doc })
-				if (r.numberAffected) result.numberAffected += r.numberAffected
-				if (r.insertedId) result.insertedIds.push(r.insertedId)
-			})
-		)
-		return result
+	async replaceAsync(doc: DBInterface): Promise<boolean> {
+		await this.#sleep(0)
+		return this.#core.replace(doc)
 	}
 
 	async removeAsync(selector: MongoQuery<DBInterface> | DBInterface['_id']): Promise<number> {
-		await this.realSleep(0)
-		return this.remove(selector)
+		await this.#sleep(0)
+		return this.#core.remove(selector)
 	}
 
-	async bulkWriteAsync(ops: Array<AnyBulkWriteOperation<DBInterface>>): Promise<void> {
-		if (ops.length > 0) {
-			const rawCollection = this.rawCollection()
-			const bulkWriteResult = await rawCollection.bulkWrite(ops, {
-				ordered: false,
-			})
-			if (bulkWriteResult && bulkWriteResult.hasWriteErrors()) {
-				throw new Meteor.Error(
-					500,
-					`Errors in rawCollection.bulkWrite: ${bulkWriteResult.getWriteErrors().join(',')}`
-				)
-			}
-		}
+	async bulkWriteAsync(ops: Array<MongoBulkWriteOperation<DBInterface>>): Promise<void> {
+		await this.#sleep(this.asyncBulkWriteDelay)
+		this.#core.bulkWrite(ops)
 	}
+}
 
-	async countDocuments(selector?: MongoQuery<DBInterface>, options?: FindOptions<DBInterface>): Promise<number> {
-		await this.realSleep(0)
-		try {
-			return this._collection.find((selector ?? {}) as any, options as any).count()
-		} catch (e) {
-			this.wrapMongoError(e)
-		}
-	}
+/** Create a mock-backed collection. The one place that constructs the in-memory test collection. */
+export function createMockCollection<DBInterface extends { _id: ProtectedString<any> }>(
+	name: string
+): WrappedMockCollection<DBInterface> {
+	return new WrappedMockCollection<DBInterface>(name)
 }

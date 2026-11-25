@@ -1,8 +1,7 @@
 import '../../../../__mocks__/_extendJest'
 
-import { sleep } from '@sofie-automation/corelib/dist/lib'
 import { ReactiveMongoObserverGroup } from '..//observerGroup'
-import { LiveQueryHandle } from '../../../lib/lib'
+import { LiveQueryHandle, sleep } from '../../../lib/lib'
 
 describe('ReactiveMongoObserverGroup', () => {
 	beforeEach(() => {
@@ -11,9 +10,9 @@ describe('ReactiveMongoObserverGroup', () => {
 
 	test('cleanup on stop', async () => {
 		const handle: LiveQueryHandle = { stop: jest.fn() }
-		const generator = jest.fn(async () => [handle])
+		const generator = jest.fn(async () => [Promise.resolve(handle)])
 
-		const observerGroup = await ReactiveMongoObserverGroup(generator)
+		const observerGroup = await ReactiveMongoObserverGroup('myDebugName', generator)
 
 		// Ensure we got a sane response
 		expect(observerGroup).toBeTruthy()
@@ -30,9 +29,9 @@ describe('ReactiveMongoObserverGroup', () => {
 		expect(handle.stop).toHaveBeenCalledTimes(1)
 
 		// Call stop again and it should complain but do nothing
-		await expect(async () => observerGroup.stop()).rejects.toThrowMeteor(
+		await expect(async () => observerGroup.stop()).rejects.toThrowSofieError(
 			500,
-			'ReactiveMongoObserverGroup is not running!'
+			'ReactiveMongoObserverGroup "myDebugName" is not running!'
 		)
 		expect(generator).toHaveBeenCalledTimes(1)
 		expect(handle.stop).toHaveBeenCalledTimes(1)
@@ -40,9 +39,9 @@ describe('ReactiveMongoObserverGroup', () => {
 
 	test('restarting', async () => {
 		const handle: LiveQueryHandle = { stop: jest.fn() }
-		const generator = jest.fn(async () => [handle])
+		const generator = jest.fn(async () => [Promise.resolve(handle)])
 
-		const observerGroup = await ReactiveMongoObserverGroup(generator)
+		const observerGroup = await ReactiveMongoObserverGroup('myDebugName', generator)
 
 		// Ensure we got a sane response
 		expect(observerGroup).toBeTruthy()
@@ -71,9 +70,9 @@ describe('ReactiveMongoObserverGroup', () => {
 		expect(handle.stop).toHaveBeenCalledTimes(3)
 
 		// Restart it again
-		await expect(async () => observerGroup.restart()).rejects.toThrowMeteor(
+		await expect(async () => observerGroup.restart()).rejects.toThrowSofieError(
 			500,
-			'ReactiveMongoObserverGroup is not running!'
+			'ReactiveMongoObserverGroup "myDebugName" is not running!'
 		)
 		expect(generator).toHaveBeenCalledTimes(3)
 		expect(handle.stop).toHaveBeenCalledTimes(3)
@@ -81,9 +80,9 @@ describe('ReactiveMongoObserverGroup', () => {
 
 	test('restart debounce', async () => {
 		const handle: LiveQueryHandle = { stop: jest.fn() }
-		const generator = jest.fn(async () => [handle])
+		const generator = jest.fn(async () => [Promise.resolve(handle)])
 
-		const observerGroup = await ReactiveMongoObserverGroup(generator)
+		const observerGroup = await ReactiveMongoObserverGroup('myDebugName', generator)
 
 		// Ensure we got a sane response
 		expect(observerGroup).toBeTruthy()

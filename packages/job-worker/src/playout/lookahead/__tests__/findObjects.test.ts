@@ -1,23 +1,27 @@
-import { findLookaheadObjectsForPart } from '../findObjects'
+import { findLookaheadObjectsForPart } from '../findObjects.js'
 import {
 	IBlueprintPieceType,
 	OnGenerateTimelineObj,
 	PieceLifespan,
+	TimelineObjHoldMode,
+	TimelineObjOnAirMode,
 	TSR,
 } from '@sofie-automation/blueprints-integration'
-import { sortPieceInstancesByStart } from '../../pieces'
+import { sortPieceInstancesByStart } from '../../pieces.js'
 import { RundownId, PartInstanceId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { PieceInstance } from '@sofie-automation/corelib/dist/dataModel/PieceInstance'
 import { TimelineObjRundown } from '@sofie-automation/corelib/dist/dataModel/Timeline'
 import { literal } from '@sofie-automation/corelib/dist/lib'
 import { protectString } from '@sofie-automation/corelib/dist/protectedString'
 import { DBPart } from '@sofie-automation/corelib/dist/dataModel/Part'
-import { setupDefaultJobEnvironment } from '../../../__mocks__/context'
-import _ = require('underscore')
+import { setupDefaultJobEnvironment } from '../../../__mocks__/context.js'
+import _ from 'underscore'
 import {
 	EmptyPieceTimelineObjectsBlob,
 	serializePieceTimelineObjectsBlob,
 } from '@sofie-automation/corelib/dist/dataModel/Piece'
+
+const DEFAULT_PLAYOUT_STATE = { isInHold: false, isRehearsal: false }
 
 function stripObjectProperties(
 	objs: Array<TimelineObjRundown & OnGenerateTimelineObj<TSR.TSRTimelineContent>>,
@@ -51,7 +55,8 @@ describe('findLookaheadObjectsForPart', () => {
 			layerName,
 			undefined,
 			partInfo,
-			null
+			null,
+			DEFAULT_PLAYOUT_STATE
 		)
 		expect(objects).toHaveLength(0)
 	})
@@ -107,11 +112,27 @@ describe('findLookaheadObjectsForPart', () => {
 		}
 
 		// Empty layer
-		const objects = findLookaheadObjectsForPart(context, currentPartInstanceId, layer0, undefined, partInfo, null)
+		const objects = findLookaheadObjectsForPart(
+			context,
+			currentPartInstanceId,
+			layer0,
+			undefined,
+			partInfo,
+			null,
+			DEFAULT_PLAYOUT_STATE
+		)
 		expect(objects).toHaveLength(0)
 
 		// Layer has an object
-		const objects2 = findLookaheadObjectsForPart(context, currentPartInstanceId, layer1, undefined, partInfo, null)
+		const objects2 = findLookaheadObjectsForPart(
+			context,
+			currentPartInstanceId,
+			layer1,
+			undefined,
+			partInfo,
+			null,
+			DEFAULT_PLAYOUT_STATE
+		)
 		expect(objects2).toHaveLength(1)
 	})
 
@@ -146,7 +167,15 @@ describe('findLookaheadObjectsForPart', () => {
 		}
 
 		// Run for future part
-		const objects = findLookaheadObjectsForPart(context, currentPartInstanceId, layer0, undefined, partInfo, null)
+		const objects = findLookaheadObjectsForPart(
+			context,
+			currentPartInstanceId,
+			layer0,
+			undefined,
+			partInfo,
+			null,
+			DEFAULT_PLAYOUT_STATE
+		)
 		expect(stripObjectProperties(objects)).toStrictEqual([
 			{
 				id: 'obj0',
@@ -164,7 +193,8 @@ describe('findLookaheadObjectsForPart', () => {
 			layer0,
 			undefined,
 			partInfo,
-			partInstanceId
+			partInstanceId,
+			DEFAULT_PLAYOUT_STATE
 		)
 		expect(stripObjectProperties(objects1)).toStrictEqual([
 			{
@@ -177,7 +207,15 @@ describe('findLookaheadObjectsForPart', () => {
 		])
 
 		// Run for partInstance without the id
-		const objects2 = findLookaheadObjectsForPart(context, currentPartInstanceId, layer0, undefined, partInfo, null)
+		const objects2 = findLookaheadObjectsForPart(
+			context,
+			currentPartInstanceId,
+			layer0,
+			undefined,
+			partInfo,
+			null,
+			DEFAULT_PLAYOUT_STATE
+		)
 		expect(stripObjectProperties(objects2)).toStrictEqual([
 			{
 				id: 'obj0',
@@ -195,7 +233,8 @@ describe('findLookaheadObjectsForPart', () => {
 			layer0,
 			undefined,
 			partInfo,
-			partInstanceId
+			partInstanceId,
+			DEFAULT_PLAYOUT_STATE
 		)
 		expect(objects3).toStrictEqual(objects1)
 	})
@@ -254,7 +293,8 @@ describe('findLookaheadObjectsForPart', () => {
 			layer0,
 			undefined,
 			partInfo,
-			partInstanceId
+			partInstanceId,
+			DEFAULT_PLAYOUT_STATE
 		)
 		expect(stripObjectProperties(objects, true)).toStrictEqual([
 			{
@@ -277,7 +317,8 @@ describe('findLookaheadObjectsForPart', () => {
 			layer0,
 			previousPart,
 			partInfo,
-			partInstanceId
+			partInstanceId,
+			DEFAULT_PLAYOUT_STATE
 		)
 		expect(stripObjectProperties(objects1, true)).toStrictEqual(stripObjectProperties(objects, true))
 
@@ -297,7 +338,8 @@ describe('findLookaheadObjectsForPart', () => {
 			layer0,
 			previousPart,
 			partInfo,
-			partInstanceId
+			partInstanceId,
+			DEFAULT_PLAYOUT_STATE
 		)
 		expect(stripObjectProperties(objects2, true)).toStrictEqual([
 			{
@@ -321,7 +363,8 @@ describe('findLookaheadObjectsForPart', () => {
 			layer0,
 			undefined,
 			partInfo,
-			partInstanceId
+			partInstanceId,
+			DEFAULT_PLAYOUT_STATE
 		)
 		expect(stripObjectProperties(objects3, true)).toStrictEqual(stripObjectProperties(objects1, true))
 
@@ -333,7 +376,8 @@ describe('findLookaheadObjectsForPart', () => {
 			layer0,
 			blockedPreviousPart,
 			partInfo,
-			partInstanceId
+			partInstanceId,
+			DEFAULT_PLAYOUT_STATE
 		)
 		expect(stripObjectProperties(objects4, true)).toStrictEqual(stripObjectProperties(objects1, true))
 	})
@@ -389,7 +433,15 @@ describe('findLookaheadObjectsForPart', () => {
 		}
 
 		// Run for future part
-		const objects = findLookaheadObjectsForPart(context, currentPartInstanceId, layer0, undefined, partInfo, null)
+		const objects = findLookaheadObjectsForPart(
+			context,
+			currentPartInstanceId,
+			layer0,
+			undefined,
+			partInfo,
+			null,
+			DEFAULT_PLAYOUT_STATE
+		)
 		expect(stripObjectProperties(objects)).toStrictEqual([
 			{
 				id: 'obj0',
@@ -414,7 +466,8 @@ describe('findLookaheadObjectsForPart', () => {
 			layer0,
 			undefined,
 			partInfo,
-			partInstanceId
+			partInstanceId,
+			DEFAULT_PLAYOUT_STATE
 		)
 		expect(stripObjectProperties(objects1)).toStrictEqual([
 			{
@@ -434,7 +487,15 @@ describe('findLookaheadObjectsForPart', () => {
 		])
 
 		// Run for partInstance without the id
-		const objects2 = findLookaheadObjectsForPart(context, currentPartInstanceId, layer0, undefined, partInfo, null)
+		const objects2 = findLookaheadObjectsForPart(
+			context,
+			currentPartInstanceId,
+			layer0,
+			undefined,
+			partInfo,
+			null,
+			DEFAULT_PLAYOUT_STATE
+		)
 		expect(stripObjectProperties(objects2)).toStrictEqual([
 			{
 				id: 'obj0',
@@ -459,7 +520,8 @@ describe('findLookaheadObjectsForPart', () => {
 			layer0,
 			undefined,
 			partInfo,
-			partInstanceId
+			partInstanceId,
+			DEFAULT_PLAYOUT_STATE
 		)
 		expect(stripObjectProperties(objects3)).toStrictEqual([
 			{
@@ -560,7 +622,8 @@ describe('findLookaheadObjectsForPart', () => {
 			layer0,
 			undefined,
 			partInfo,
-			partInstanceId
+			partInstanceId,
+			DEFAULT_PLAYOUT_STATE
 		)
 		expect(stripObjectProperties(objects, true)).toStrictEqual([
 			{
@@ -593,7 +656,8 @@ describe('findLookaheadObjectsForPart', () => {
 			layer0,
 			previousPart,
 			partInfo,
-			partInstanceId
+			partInstanceId,
+			DEFAULT_PLAYOUT_STATE
 		)
 		expect(stripObjectProperties(objects1, true)).toStrictEqual(stripObjectProperties(objects, true))
 
@@ -623,7 +687,8 @@ describe('findLookaheadObjectsForPart', () => {
 			layer0,
 			previousPart,
 			partInfo,
-			partInstanceId
+			partInstanceId,
+			DEFAULT_PLAYOUT_STATE
 		)
 		expect(stripObjectProperties(objects2, true)).toStrictEqual([
 			{
@@ -658,7 +723,8 @@ describe('findLookaheadObjectsForPart', () => {
 			layer0,
 			undefined,
 			partInfo,
-			partInstanceId
+			partInstanceId,
+			DEFAULT_PLAYOUT_STATE
 		)
 		expect(stripObjectProperties(objects3, true)).toStrictEqual(stripObjectProperties(objects1, true))
 
@@ -670,7 +736,8 @@ describe('findLookaheadObjectsForPart', () => {
 			layer0,
 			blockedPreviousPart,
 			partInfo,
-			partInstanceId
+			partInstanceId,
+			DEFAULT_PLAYOUT_STATE
 		)
 		expect(stripObjectProperties(objects4, true)).toStrictEqual(stripObjectProperties(objects1, true))
 	})
@@ -781,7 +848,8 @@ describe('findLookaheadObjectsForPart', () => {
 			layer0,
 			previousPart,
 			partInfo,
-			partInstanceId
+			partInstanceId,
+			DEFAULT_PLAYOUT_STATE
 		)
 		expect(stripObjectProperties(objects2, true)).toStrictEqual([
 			{
@@ -815,7 +883,8 @@ describe('findLookaheadObjectsForPart', () => {
 			layer0,
 			undefined,
 			partInfo,
-			partInstanceId
+			partInstanceId,
+			DEFAULT_PLAYOUT_STATE
 		)
 		expect(stripObjectProperties(objects3, true)).toStrictEqual([
 			{
@@ -839,5 +908,509 @@ describe('findLookaheadObjectsForPart', () => {
 				},
 			},
 		])
+	})
+
+	test('playoutState filters objects with holdMode', () => {
+		const currentPartInstanceId: PartInstanceId | null = null
+		const rundownId: RundownId = protectString('rundown0')
+		const partInstanceId = protectString('partInstance0')
+
+		function createPartInfoWithHoldMode(holdMode: TimelineObjHoldMode, layer: string): any {
+			return {
+				part: definePart(rundownId),
+				usesInTransition: true,
+				pieces: literal<PieceInstance[]>([
+					{
+						...defaultPieceInstanceProps,
+						_id: protectString('piece_' + Math.random()),
+						rundownId: rundownId,
+						piece: {
+							...defaultPieceInstanceProps.piece,
+							content: {},
+							timelineObjectsString: serializePieceTimelineObjectsBlob([
+								{
+									id: 'obj_' + holdMode,
+									enable: { start: 0 },
+									layer: layer,
+									content: { deviceType: TSR.DeviceType.ABSTRACT } as any,
+									holdMode: holdMode,
+									priority: 0,
+								},
+							]),
+						},
+					},
+				]),
+			}
+		}
+
+		// Test EXCEPT holdMode: should be included when NOT in hold, filtered when in hold
+		const exceptNotInHold = findLookaheadObjectsForPart(
+			context,
+			currentPartInstanceId,
+			'layer_except',
+			undefined,
+			createPartInfoWithHoldMode(TimelineObjHoldMode.EXCEPT, 'layer_except'),
+			partInstanceId,
+			{ isInHold: false, isRehearsal: false }
+		)
+		expect(exceptNotInHold).toHaveLength(1)
+
+		const exceptInHold = findLookaheadObjectsForPart(
+			context,
+			currentPartInstanceId,
+			'layer_except',
+			undefined,
+			createPartInfoWithHoldMode(TimelineObjHoldMode.EXCEPT, 'layer_except'),
+			partInstanceId,
+			{ isInHold: true, isRehearsal: false }
+		)
+		expect(exceptInHold).toHaveLength(0)
+
+		// Test ONLY holdMode: should be filtered when NOT in hold, included when in hold
+		const onlyNotInHold = findLookaheadObjectsForPart(
+			context,
+			currentPartInstanceId,
+			'layer_only',
+			undefined,
+			createPartInfoWithHoldMode(TimelineObjHoldMode.ONLY, 'layer_only'),
+			partInstanceId,
+			{ isInHold: false, isRehearsal: false }
+		)
+		expect(onlyNotInHold).toHaveLength(0)
+
+		const onlyInHold = findLookaheadObjectsForPart(
+			context,
+			currentPartInstanceId,
+			'layer_only',
+			undefined,
+			createPartInfoWithHoldMode(TimelineObjHoldMode.ONLY, 'layer_only'),
+			partInstanceId,
+			{ isInHold: true, isRehearsal: false }
+		)
+		expect(onlyInHold).toHaveLength(1)
+	})
+
+	test('playoutState filters objects with onAirMode', () => {
+		const currentPartInstanceId: PartInstanceId | null = null
+		const rundownId: RundownId = protectString('rundown0')
+		const partInstanceId = protectString('partInstance0')
+
+		function createPartInfoWithOnAirMode(onAirMode: TimelineObjOnAirMode, layer: string): any {
+			return {
+				part: definePart(rundownId),
+				usesInTransition: true,
+				pieces: literal<PieceInstance[]>([
+					{
+						...defaultPieceInstanceProps,
+						_id: protectString('piece_' + Math.random()),
+						rundownId: rundownId,
+						piece: {
+							...defaultPieceInstanceProps.piece,
+							content: {},
+							timelineObjectsString: serializePieceTimelineObjectsBlob([
+								{
+									id: 'obj_' + onAirMode,
+									enable: { start: 0 },
+									layer: layer,
+									content: { deviceType: TSR.DeviceType.ABSTRACT } as any,
+									onAirMode: onAirMode,
+									priority: 0,
+								},
+							]),
+						},
+					},
+				]),
+			}
+		}
+
+		// Test ONAIR onAirMode: should be included when NOT in rehearsal, filtered when in rehearsal
+		const onAirNotRehearsal = findLookaheadObjectsForPart(
+			context,
+			currentPartInstanceId,
+			'layer_onair',
+			undefined,
+			createPartInfoWithOnAirMode(TimelineObjOnAirMode.ONAIR, 'layer_onair'),
+			partInstanceId,
+			{ isInHold: false, isRehearsal: false }
+		)
+		expect(onAirNotRehearsal).toHaveLength(1)
+
+		const onAirInRehearsal = findLookaheadObjectsForPart(
+			context,
+			currentPartInstanceId,
+			'layer_onair',
+			undefined,
+			createPartInfoWithOnAirMode(TimelineObjOnAirMode.ONAIR, 'layer_onair'),
+			partInstanceId,
+			{ isInHold: false, isRehearsal: true }
+		)
+		expect(onAirInRehearsal).toHaveLength(0)
+
+		// Test REHEARSAL onAirMode: should be filtered when NOT in rehearsal, included when in rehearsal
+		const rehearsalNotInRehearsal = findLookaheadObjectsForPart(
+			context,
+			currentPartInstanceId,
+			'layer_rehearsal',
+			undefined,
+			createPartInfoWithOnAirMode(TimelineObjOnAirMode.REHEARSAL, 'layer_rehearsal'),
+			partInstanceId,
+			{ isInHold: false, isRehearsal: false }
+		)
+		expect(rehearsalNotInRehearsal).toHaveLength(0)
+
+		const rehearsalInRehearsal = findLookaheadObjectsForPart(
+			context,
+			currentPartInstanceId,
+			'layer_rehearsal',
+			undefined,
+			createPartInfoWithOnAirMode(TimelineObjOnAirMode.REHEARSAL, 'layer_rehearsal'),
+			partInstanceId,
+			{ isInHold: false, isRehearsal: true }
+		)
+		expect(rehearsalInRehearsal).toHaveLength(1)
+	})
+
+	describe('single piece with multiple objects on the same layer', () => {
+		const rundownId: RundownId = protectString('rundown0')
+		const layer0 = 'layer0'
+		const partInstanceId = protectString('partInstance0')
+
+		test('all objects from a single piece on the same layer are returned', () => {
+			// A single piece that contributes two objects to the same layer should expose both
+			// objects in the lookahead result
+			const partInfo = {
+				part: definePart(rundownId),
+				usesInTransition: false,
+				pieces: literal<PieceInstance[]>([
+					{
+						...defaultPieceInstanceProps,
+						rundownId,
+						piece: {
+							...defaultPieceInstanceProps.piece,
+							timelineObjectsString: serializePieceTimelineObjectsBlob([
+								{
+									id: 'obj0',
+									enable: { start: 0 },
+									layer: layer0,
+									content: { deviceType: TSR.DeviceType.ABSTRACT },
+									priority: 0,
+								},
+								{
+									id: 'obj1',
+									enable: { start: 100 },
+									layer: layer0,
+									content: { deviceType: TSR.DeviceType.ABSTRACT },
+									priority: 0,
+								},
+							]),
+						},
+					},
+				]),
+			}
+
+			const objects = findLookaheadObjectsForPart(
+				context,
+				null,
+				layer0,
+				undefined,
+				partInfo,
+				partInstanceId,
+				DEFAULT_PLAYOUT_STATE
+			)
+
+			expect(stripObjectProperties(objects)).toStrictEqual([
+				{
+					id: 'obj0',
+					layer: layer0,
+					pieceInstanceId: 'piece0_instance',
+					infinitePieceInstanceId: undefined,
+					partInstanceId: partInstanceId,
+				},
+				{
+					id: 'obj1',
+					layer: layer0,
+					pieceInstanceId: 'piece0_instance',
+					infinitePieceInstanceId: undefined,
+					partInstanceId: partInstanceId,
+				},
+			])
+		})
+
+		test('all objects from a start=0 Normal piece are filtered when the transition has an object on this layer', () => {
+			// Note: this is sane, but maybe not 100% correct. There are times when it would be desirable to preserve the Normal piece's objects if they start in the part after the transition will have ended
+			const partInfo = {
+				part: definePart(rundownId),
+				usesInTransition: true,
+				pieces: literal<PieceInstance[]>([
+					{
+						...defaultPieceInstanceProps,
+						rundownId,
+						piece: {
+							...defaultPieceInstanceProps.piece,
+							timelineObjectsString: serializePieceTimelineObjectsBlob([
+								{
+									id: 'obj0',
+									enable: { start: 0 },
+									layer: layer0,
+									content: { deviceType: TSR.DeviceType.ABSTRACT },
+									priority: 0,
+								},
+								{
+									id: 'obj1',
+									enable: { start: 100 },
+									layer: layer0,
+									content: { deviceType: TSR.DeviceType.ABSTRACT },
+									priority: 0,
+								},
+							]),
+						},
+					},
+					{
+						// Transition piece with an object on the same layer.
+						...defaultPieceInstanceProps,
+						_id: protectString('piece1_instance'),
+						rundownId,
+						piece: {
+							...defaultPieceInstanceProps.piece,
+							_id: protectString('piece1'),
+							pieceType: IBlueprintPieceType.InTransition,
+							timelineObjectsString: serializePieceTimelineObjectsBlob([
+								{
+									id: 'trans0',
+									enable: { start: 0 },
+									layer: layer0,
+									content: { deviceType: TSR.DeviceType.ABSTRACT },
+									priority: 0,
+								},
+							]),
+						},
+					},
+				]),
+			}
+
+			const previousPart: DBPart = { disableNextInTransition: false, classesForNext: undefined } as any
+			const objects = findLookaheadObjectsForPart(
+				context,
+				partInstanceId,
+				layer0,
+				previousPart,
+				partInfo,
+				partInstanceId,
+				DEFAULT_PLAYOUT_STATE
+			)
+
+			// obj0 and obj1 are both filtered because their parent piece is Normal + start=0 and
+			// `hasTransitionObj` is truthy. Only the transition object should remain.
+			expect(stripObjectProperties(objects)).toStrictEqual([
+				{
+					id: 'trans0',
+					layer: layer0,
+					pieceInstanceId: 'piece1_instance',
+					infinitePieceInstanceId: undefined,
+					partInstanceId: partInstanceId,
+				},
+			])
+		})
+
+		test('all objects from a start=0 Normal piece are included when the transition has no object on this layer', () => {
+			const partInfo = {
+				part: definePart(rundownId),
+				usesInTransition: true,
+				pieces: literal<PieceInstance[]>([
+					{
+						...defaultPieceInstanceProps,
+						rundownId,
+						piece: {
+							...defaultPieceInstanceProps.piece,
+							timelineObjectsString: serializePieceTimelineObjectsBlob([
+								{
+									id: 'obj0',
+									enable: { start: 0 },
+									layer: layer0,
+									content: { deviceType: TSR.DeviceType.ABSTRACT },
+									priority: 0,
+								},
+								{
+									id: 'obj1',
+									enable: { start: 100 },
+									layer: layer0,
+									content: { deviceType: TSR.DeviceType.ABSTRACT },
+									priority: 0,
+								},
+							]),
+						},
+					},
+					{
+						// Transition piece whose only object is on a *different* layer.
+						...defaultPieceInstanceProps,
+						_id: protectString('piece1_instance'),
+						rundownId,
+						piece: {
+							...defaultPieceInstanceProps.piece,
+							_id: protectString('piece1'),
+							pieceType: IBlueprintPieceType.InTransition,
+							timelineObjectsString: serializePieceTimelineObjectsBlob([
+								{
+									id: 'trans0',
+									enable: { start: 0 },
+									layer: 'other_layer',
+									content: { deviceType: TSR.DeviceType.ABSTRACT },
+									priority: 0,
+								},
+							]),
+						},
+					},
+				]),
+			}
+
+			const previousPart: DBPart = { disableNextInTransition: false, classesForNext: undefined } as any
+			const objects = findLookaheadObjectsForPart(
+				context,
+				partInstanceId,
+				layer0,
+				previousPart,
+				partInfo,
+				partInstanceId,
+				DEFAULT_PLAYOUT_STATE
+			)
+
+			// `hasTransitionObj` is falsy for layer0, so the Normal piece's objects must not be
+			// skipped. Both obj0 and obj1 should appear.
+			expect(stripObjectProperties(objects)).toStrictEqual([
+				{
+					id: 'obj0',
+					layer: layer0,
+					pieceInstanceId: 'piece0_instance',
+					infinitePieceInstanceId: undefined,
+					partInstanceId: partInstanceId,
+				},
+				{
+					id: 'obj1',
+					layer: layer0,
+					pieceInstanceId: 'piece0_instance',
+					infinitePieceInstanceId: undefined,
+					partInstanceId: partInstanceId,
+				},
+			])
+		})
+
+		test('multiple objects from a later-starting piece all appear alongside filtered start=0 objects', () => {
+			// Three pieces: one Normal at start=0 (should be filtered), one Normal at start=500
+			// that contributes TWO objects (both should appear), and an InTransition piece with an
+			// object on the layer (should appear + triggers the start=0 filter).
+			const partInfo = {
+				part: definePart(rundownId),
+				usesInTransition: true,
+				// Sort so that InTransition comes first in the iteration order, matching production behaviour.
+				pieces: sortPieceInstancesByStart(
+					literal<PieceInstance[]>([
+						{
+							...defaultPieceInstanceProps,
+							rundownId,
+							piece: {
+								...defaultPieceInstanceProps.piece,
+								enable: { start: 0 },
+								timelineObjectsString: serializePieceTimelineObjectsBlob([
+									{
+										id: 'obj0',
+										enable: { start: 0 },
+										layer: layer0,
+										content: { deviceType: TSR.DeviceType.ABSTRACT },
+										priority: 0,
+									},
+								]),
+							},
+						},
+						{
+							// Normal piece at start=500 — contributes TWO objects.
+							...defaultPieceInstanceProps,
+							_id: protectString('piece1_instance'),
+							rundownId,
+							piece: {
+								...defaultPieceInstanceProps.piece,
+								_id: protectString('piece1'),
+								enable: { start: 500 },
+								timelineObjectsString: serializePieceTimelineObjectsBlob([
+									{
+										id: 'obj1',
+										enable: { start: 0 },
+										layer: layer0,
+										content: { deviceType: TSR.DeviceType.ABSTRACT },
+										priority: 0,
+									},
+									{
+										id: 'obj2',
+										enable: { start: 0 },
+										layer: layer0,
+										content: { deviceType: TSR.DeviceType.ABSTRACT },
+										priority: 0,
+									},
+								]),
+							},
+						},
+						{
+							// Transition piece. InTransition sorts before Normal pieces at the same start.
+							...defaultPieceInstanceProps,
+							_id: protectString('piece2_instance'),
+							rundownId,
+							piece: {
+								...defaultPieceInstanceProps.piece,
+								_id: protectString('piece2'),
+								pieceType: IBlueprintPieceType.InTransition,
+								enable: { start: 0 },
+								timelineObjectsString: serializePieceTimelineObjectsBlob([
+									{
+										id: 'trans0',
+										enable: { start: 0 },
+										layer: layer0,
+										content: { deviceType: TSR.DeviceType.ABSTRACT },
+										priority: 0,
+									},
+								]),
+							},
+						},
+					]),
+					0
+				),
+			}
+
+			const previousPart: DBPart = { disableNextInTransition: false, classesForNext: undefined } as any
+			const objects = findLookaheadObjectsForPart(
+				context,
+				partInstanceId,
+				layer0,
+				previousPart,
+				partInfo,
+				partInstanceId,
+				DEFAULT_PLAYOUT_STATE
+			)
+
+			// obj0 (Normal, start=0) is filtered because `hasTransitionObj` is truthy.
+			// trans0 (InTransition) is always included.
+			// obj1 and obj2 (Normal, start=500) are not filtered since start != 0.
+			expect(stripObjectProperties(objects)).toStrictEqual([
+				{
+					id: 'trans0',
+					layer: layer0,
+					pieceInstanceId: 'piece2_instance',
+					infinitePieceInstanceId: undefined,
+					partInstanceId: partInstanceId,
+				},
+				{
+					id: 'obj1',
+					layer: layer0,
+					pieceInstanceId: 'piece1_instance',
+					infinitePieceInstanceId: undefined,
+					partInstanceId: partInstanceId,
+				},
+				{
+					id: 'obj2',
+					layer: layer0,
+					pieceInstanceId: 'piece1_instance',
+					infinitePieceInstanceId: undefined,
+					partInstanceId: partInstanceId,
+				},
+			])
+		})
 	})
 })

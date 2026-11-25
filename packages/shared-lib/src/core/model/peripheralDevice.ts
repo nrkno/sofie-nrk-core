@@ -1,12 +1,10 @@
-import { TSR } from '../../tsr'
-import { PeripheralDeviceId, StudioId } from './Ids'
+import type { TSR } from '../../tsr.js'
+import type { PeripheralDeviceId, StudioId } from './Ids.js'
 
-export type GenericPeripheralDeviceSettings = Record<string, never>
-
-export interface IngestDeviceSettings {
+export interface IngestDeviceSecretSettingsStatus {
 	/** OAuth: Set to true when secret value exists */
-	secretCredentials: boolean
-	secretAccessToken: boolean
+	credentials?: boolean
+	accessToken?: boolean
 }
 export interface IngestDeviceSecretSettings {
 	/** OAuth: */

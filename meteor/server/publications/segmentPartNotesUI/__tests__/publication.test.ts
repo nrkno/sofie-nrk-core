@@ -1,9 +1,8 @@
 import { RundownId, RundownPlaylistId, SegmentId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { ProtectedString, protectString } from '@sofie-automation/corelib/dist/protectedString'
-import { UISegmentPartNote } from '../../../../lib/api/rundownNotifications'
-import { testInFiber } from '../../../../__mocks__/helpers/jest'
+import { UISegmentPartNote } from '@sofie-automation/meteor-lib/dist/api/rundownNotifications'
 import { CustomPublishCollection } from '../../../lib/customPublication'
-import { ReactiveCacheCollection } from '../../lib/ReactiveCacheCollection'
+import { InMemoryMongoCollection } from '@sofie-automation/corelib/dist/memoryCollection'
 import { manipulateUISegmentPartNotesPublicationData, UISegmentPartNotesState } from '../publication'
 import { ContentCache } from '../reactiveContentCache'
 import * as generateNotesForSegment from '../generateNotesForSegment'
@@ -67,10 +66,10 @@ describe('manipulateUISegmentPartNotesPublicationData', () => {
 
 	function createAndPopulateMockCache(): ContentCache {
 		const newCache: ContentCache = {
-			Rundowns: new ReactiveCacheCollection('Rundowns'),
-			Segments: new ReactiveCacheCollection('Segments'),
-			Parts: new ReactiveCacheCollection('Parts'),
-			DeletedPartInstances: new ReactiveCacheCollection('DeletedPartInstances'),
+			Rundowns: new InMemoryMongoCollection('Rundowns'),
+			Segments: new InMemoryMongoCollection('Segments'),
+			Parts: new InMemoryMongoCollection('Parts'),
+			PartInstances: new InMemoryMongoCollection('PartInstances'),
 		}
 
 		newCache.Rundowns.insert({
@@ -120,7 +119,7 @@ describe('manipulateUISegmentPartNotesPublicationData', () => {
 		},
 	]
 
-	testInFiber('basic call', async () => {
+	test('basic call', async () => {
 		const state: Partial<UISegmentPartNotesState> = {}
 		const collection = createSpyPublishCollection()
 
@@ -142,7 +141,7 @@ describe('manipulateUISegmentPartNotesPublicationData', () => {
 		expect(collection.remove).toHaveBeenLastCalledWith(null)
 	})
 
-	testInFiber('first cache', async () => {
+	test('first cache', async () => {
 		const playlistId = protectString<RundownPlaylistId>('playlist0')
 		const state: Partial<UISegmentPartNotesState> = {}
 		const collection = createSpyPublishCollection()
@@ -167,7 +166,7 @@ describe('manipulateUISegmentPartNotesPublicationData', () => {
 		expect(collection.replace).toHaveBeenCalledTimes(2)
 	})
 
-	testInFiber('replace cache', async () => {
+	test('replace cache', async () => {
 		const playlistId = protectString<RundownPlaylistId>('playlist0')
 		const state: Partial<UISegmentPartNotesState> = {}
 		const collection = createSpyPublishCollection()
@@ -212,7 +211,7 @@ describe('manipulateUISegmentPartNotesPublicationData', () => {
 		expect(generateNotesForSegment.generateNotesForSegment).toHaveBeenCalledTimes(3)
 	})
 
-	testInFiber('update no reported changes', async () => {
+	test('update no reported changes', async () => {
 		const playlistId = protectString<RundownPlaylistId>('playlist0')
 		const state: Partial<UISegmentPartNotesState> = {}
 		const collection = createSpyPublishCollection()
@@ -249,7 +248,7 @@ describe('manipulateUISegmentPartNotesPublicationData', () => {
 		expect(generateNotesForSegment.generateNotesForSegment).toHaveBeenCalledTimes(2)
 	})
 
-	testInFiber('rundown changed', async () => {
+	test('rundown changed', async () => {
 		const playlistId = protectString<RundownPlaylistId>('playlist0')
 		const state: Partial<UISegmentPartNotesState> = {}
 		const collection = createSpyPublishCollection()
@@ -287,7 +286,7 @@ describe('manipulateUISegmentPartNotesPublicationData', () => {
 		expect(generateNotesForSegment.generateNotesForSegment).toHaveBeenCalledTimes(4)
 	})
 
-	testInFiber('segment changed', async () => {
+	test('segment changed', async () => {
 		const playlistId = protectString<RundownPlaylistId>('playlist0')
 		const state: Partial<UISegmentPartNotesState> = {}
 		const collection = createSpyPublishCollection()
@@ -328,7 +327,7 @@ describe('manipulateUISegmentPartNotesPublicationData', () => {
 	describe('generateNotesForSegment calls', () => {
 		const newCache = createAndPopulateMockCache()
 		newCache.Parts.insert({
-			_id: 'part0',
+			_id: protectString('part0'),
 			_rank: 1,
 			segmentId: segmentId0,
 			rundownId: rundownId,
@@ -338,7 +337,7 @@ describe('manipulateUISegmentPartNotesPublicationData', () => {
 			invalidReason: undefined,
 		})
 		newCache.Parts.insert({
-			_id: 'part1',
+			_id: protectString('part1'),
 			_rank: 2,
 			segmentId: segmentId0,
 			rundownId: rundownId,
@@ -348,7 +347,7 @@ describe('manipulateUISegmentPartNotesPublicationData', () => {
 			invalidReason: undefined,
 		})
 		newCache.Parts.insert({
-			_id: 'part2',
+			_id: protectString('part2'),
 			_rank: 1,
 			segmentId: segmentId1,
 			rundownId: rundownId,
@@ -357,16 +356,16 @@ describe('manipulateUISegmentPartNotesPublicationData', () => {
 			invalid: false,
 			invalidReason: undefined,
 		})
-		newCache.DeletedPartInstances.insert({
-			_id: 'instance0',
+		newCache.PartInstances.insert({
+			_id: protectString('instance0'),
 			segmentId: segmentId0,
 			rundownId: rundownId,
-			orphaned: undefined,
+			orphaned: 'deleted',
 			reset: false,
 			part: 'part' as any,
 		})
 
-		testInFiber('segment changed', async () => {
+		test('segment changed', async () => {
 			const playlistId = protectString<RundownPlaylistId>('playlist0')
 			const state: Partial<UISegmentPartNotesState> = {}
 			const collection = createSpyPublishCollection()
@@ -422,6 +421,7 @@ describe('manipulateUISegmentPartNotesPublicationData', () => {
 				[
 					{
 						_id: 'instance0',
+						orphaned: 'deleted',
 						part: 'part',
 						reset: false,
 						rundownId: 'rundown0',

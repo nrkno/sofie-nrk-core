@@ -6,15 +6,12 @@
  *
  * Brought into this project for maintenance reasons, including conversion to Typescript.
  */
-/// <reference types="../types/faye-websocket" />
+import WebSocket from 'ws'
+import EJSON from 'ejson'
+import { EventEmitter } from 'events'
+import type { ProtectedString } from '@sofie-automation/shared-lib/dist/lib/protectedString.js'
 
-import * as WebSocket from 'faye-websocket'
-import * as EJSON from 'ejson'
-import { EventEmitter } from 'eventemitter3'
-import got from 'got'
-import { ProtectedString } from '@sofie-automation/shared-lib/dist/lib/protectedString'
-
-export interface TLSOpts {
+export interface DDPTLSOptions {
 	// Described in https://nodejs.org/api/tls.html#tls_tls_connect_options_callback
 
 	/* Necessary only if the server uses a self-signed certificate.*/
@@ -26,6 +23,9 @@ export interface TLSOpts {
 
 	/* Necessary only if the server's cert isn't for "localhost". */
 	checkServerIdentity?: (hostname: string, cert: object) => Error | undefined // () => { }, // Returns <Error> object, populating it with reason, host, and cert on failure. On success, returns <undefined>.
+
+	/* If true, the server certificate is automatically rejected if it is not valid. The default value is true. */
+	rejectUnauthorized?: boolean
 }
 
 /**
@@ -34,13 +34,13 @@ export interface TLSOpts {
 export interface DDPConnectorOptions {
 	host: string
 	port: number
+	headers?: { [header: string]: string }
 	path?: string
 	ssl?: boolean
 	debug?: boolean
 	autoReconnect?: boolean // default: true
 	autoReconnectTimer?: number
-	tlsOpts?: TLSOpts
-	useSockJs?: boolean
+	tlsOpts?: DDPTLSOptions
 	url?: string
 	maintainCollections?: boolean
 	ddpVersion?: '1' | 'pre2' | 'pre1'
@@ -69,252 +69,36 @@ export interface Observer<Doc extends { _id: ProtectedString<any> | string }> {
 	stop: () => void
 }
 
-/** DDP message type for client requests to servers */
-export type ClientServer = 'connect' | 'ping' | 'pong' | 'method' | 'sub' | 'unsub'
-/** DDP message type for server requests to clients */
-export type ServerClient =
-	| 'failed'
-	| 'connected'
-	| 'result'
-	| 'updated'
-	| 'nosub'
-	| 'added'
-	| 'removed'
-	| 'changed'
-	| 'ready'
-	| 'ping'
-	| 'pong'
-	| 'error'
-/** All types of DDP messages */
-export type MessageType = ClientServer | ServerClient
+// The DDP message types are defined canonically in shared-lib, so this client and Sofie's standalone
+// DDP server share one definition and cannot drift. Import the shapes used in this client's
+// implementation, and re-export the subset that was previously part of this module's public API.
+import type {
+	ClientServer,
+	ServerClient,
+	MessageType,
+	DDPError,
+	ConnectedMessage,
+	FailedMessage,
+	PingMessage,
+	PongMessage,
+	NoSubMessage,
+	AddedMessage,
+	ChangedMessage,
+	RemovedMessage,
+	ReadyMessage,
+	ResultMessage,
+	UpdatedMessage,
+	ClientMessage,
+	ServerMessage,
+} from '@sofie-automation/shared-lib/dist/ddp/messageTypes.js'
 
-/**
- * Represents any DDP message sent from as a request or response from a server to a client.
- */
-export interface Message {
-	/** Kind of meteor message */
-	msg: MessageType
-}
-
-/**
- * DDP-specified error.
- * Note. Different fields to a Javascript error.
- */
-export interface DDPError {
-	error: string | number
-	reason?: string
-	message?: string
-	errorType: 'Meteor.Error'
-}
-
-/**
- * Request message to initiate a connection from a client to a server.
- */
-interface Connect extends Message {
-	msg: 'connect'
-	/** If trying to reconnect to an existing DDP session */
-	session?: string
-	/** The proposed protocol version */
-	version: string
-	/** Protocol versions supported by the client, in order of preference */
-	support: Array<string>
-}
-
-/**
- * Response message sent when a client's connection request was successful.
- */
-interface Connected extends Message {
-	msg: 'connected'
-	/** An identifier for the DDP session */
-	session: string
-}
-
-/**
- * Response message when a client's connection request was unsuccessful.
- */
-interface Failed extends Message {
-	msg: 'failed'
-	/** A suggested protocol version to connect with */
-	version: string
-}
-
-/**
- * Heartbeat request message. Can be sent from server to client or client to server.
- */
-interface Ping extends Message {
-	msg: 'ping'
-	/** Identifier used to correlate with response */
-	id?: string
-}
-
-/**
- * Heartbeat response message.
- */
-
-interface Pong extends Message {
-	msg: 'pong'
-	/** Same as received in the `ping` message */
-	id?: string
-}
-
-/**
- * Message from the client specifying the sets of information it is interested in.
- * The server should then send `added`, `changed` and `removed` messages matching
- * the subscribed types.
- */
-interface Sub extends Message {
-	msg: 'sub'
-	/** An arbitrary client-determined identifier for this subscription */
-	id: string
-	/** Name of the subscription */
-	name: string
-	/** Parameters to the subscription. Most be serializable to EJSON. */
-	params?: Array<unknown>
-}
-
-/**
- * Request to unsubscribe from messages related to an existing subscription.
- */
-interface UnSub extends Message {
-	msg: 'unsub'
-	/** The `id` passed to `sub` */
-	id: string
-}
-
-/**
- * Message sent when a subscription is unsubscribed. Contains an optional error if a
- * problem occurred.
- */
-interface NoSub extends Message {
-	msg: 'nosub'
-	/** The client `id` passed to `sub` for this subscription. */
-	id: string
-	/** An error raised by the subscription as it concludes, or sub-not-found */
-	error?: DDPError
-}
-
-/**
- * Notification that a document has been added to a collection.
- */
-interface Added extends Message {
-	msg: 'added'
-	/** Collection name */
-	collection: string
-	/** Document identifier */
-	id: string
-	/** Document values - serializable with EJSON */
-	fields?: { [attr: string]: unknown }
-}
-
-/**
- * Notification that a document has changed within a collection.
- */
-interface Changed extends Message {
-	msg: 'changed'
-	/** Collection name */
-	collection: string
-	/** Document identifier */
-	id: string
-	/** Document values - serializable with EJSON */
-	fields?: { [attr: string]: unknown }
-	/** Field names to delete */
-	cleared?: Array<string>
-}
-
-/**
- * Notification that a document has been removed from a collection.
- */
-interface Removed extends Message {
-	msg: 'removed'
-	/** Collection name */
-	collection: string
-	/** Document identifier */
-	id: string
-}
-
-/**
- * Message sent to client after an initial salvo of updates have sent a
- * complete set of initial data.
- */
-interface Ready extends Message {
-	msg: 'ready'
-	/** Identifiers passed to `sub` which have sent their initial batch of data */
-	subs: Array<string>
-}
-
-/**
- * Remote procedure call request request.
- */
-interface Method extends Message {
-	msg: 'method'
-	/** Method name */
-	method: string
-	/** Parameters to the method */
-	params?: Array<unknown>
-	/** An arbitrary client-determined identifier for this method call */
-	id: string
-	/** An arbitrary client-determined seed for pseudo-random generators  */
-	randomSeed?: string
-}
-
-/**
- * Remote procedure call response message, either an error or a return value _result_.
- */
-interface Result extends Message {
-	msg: 'result'
-	/** Method name */
-	id: string
-	/** An error thrown by the method, or method nor found */
-	error?: DDPError
-	/** Return value of the method */
-	result?: unknown
-}
-
-/**
- * Message sent to indicate that all side-effect changes to subscribed data caused by
- * a method have completed.
- */
-interface Updated extends Message {
-	msg: 'updated'
-	/** Identifiers passed to `method`, all of whose writes have been reflected in data messages */
-	methods: Array<string>
-}
-
-/**
- * Erroneous messages sent from the client to the server can result in receiving a top-level
- * `error` message in response.
- */
-interface ErrorMessage extends Message {
-	msg: 'error'
-	/** Description of the error */
-	reason: string
-	/** If the original message parsed properly, it is included here */
-	offendingMessage?: Message
-}
-
-export type AnyMessage =
-	| Connect
-	| Connected
-	| Failed
-	| Ping
-	| Pong
-	| Sub
-	| UnSub
-	| NoSub
-	| Added
-	| Changed
-	| Removed
-	| Ready
-	| Method
-	| Result
-	| Updated
-	| ErrorMessage
+export type { ClientServer, ServerClient, MessageType, DDPError }
 
 export type DDPClientEvents = {
 	failed: [error: Error]
 	'socket-error': [error: Error]
 	'socket-close': [code: number, reason: string]
-	message: [data: any]
+	message: [data: string]
 	connected: []
 }
 
@@ -332,7 +116,7 @@ export class DDPClient extends EventEmitter<DDPClientEvents> {
 		}
 	} = {}
 
-	public socket: WebSocket.Client | undefined
+	public socket: WebSocket | undefined
 	public session: string | undefined
 
 	private hostInt!: string
@@ -343,6 +127,10 @@ export class DDPClient extends EventEmitter<DDPClientEvents> {
 	public get port(): number {
 		return this.portInt
 	}
+	private headersInt: { [header: string]: string } = {}
+	public get headers(): { [header: string]: string } {
+		return this.headersInt
+	}
 	private pathInt?: string
 	public get path(): string | undefined {
 		return this.pathInt
@@ -350,10 +138,6 @@ export class DDPClient extends EventEmitter<DDPClientEvents> {
 	private sslInt!: boolean
 	public get ssl(): boolean {
 		return this.sslInt
-	}
-	private useSockJSInt!: boolean
-	public get useSockJS(): boolean {
-		return this.useSockJSInt
 	}
 	private autoReconnectInt!: boolean
 	public get autoReconnect(): boolean {
@@ -385,7 +169,7 @@ export class DDPClient extends EventEmitter<DDPClientEvents> {
 	}
 	public static readonly supportedDdpVersions = ['1', 'pre2', 'pre1']
 
-	private tlsOpts!: TLSOpts
+	private tlsOpts!: DDPTLSOptions
 	private isConnecting = false
 	private isReconnecting = false
 	private isClosing = false
@@ -400,7 +184,7 @@ export class DDPClient extends EventEmitter<DDPClientEvents> {
 	constructor(opts?: DDPConnectorOptions) {
 		super()
 
-		opts || (opts = { host: '127.0.0.1', port: 3000, tlsOpts: {} })
+		opts = opts || { host: '127.0.0.1', port: 3000, tlsOpts: {} }
 
 		this.resetOptions(opts)
 		this.ddpVersionInt = opts.ddpVersion || '1'
@@ -410,10 +194,10 @@ export class DDPClient extends EventEmitter<DDPClientEvents> {
 		// console.log(opts)
 		this.hostInt = opts.host || '127.0.0.1'
 		this.portInt = opts.port || 3000
+		this.headersInt = opts.headers || {}
 		this.pathInt = opts.path
 		this.sslInt = opts.ssl || this.port === 443
 		this.tlsOpts = opts.tlsOpts || {}
-		this.useSockJSInt = opts.useSockJs || false
 		this.autoReconnectInt = opts.autoReconnect === false ? false : true
 		this.autoReconnectTimerInt = opts.autoReconnectTimer || 500
 		this.maintainCollectionsInt = opts.maintainCollections || true
@@ -445,7 +229,7 @@ export class DDPClient extends EventEmitter<DDPClientEvents> {
 
 	///////////////////////////////////////////////////////////////////////////
 	// RAW, low level functions
-	private send(data: AnyMessage): void {
+	private send(data: ClientMessage): void {
 		if (data.msg !== 'connect' && this.isConnecting) {
 			this.endPendingMethodCalls()
 		} else {
@@ -454,7 +238,7 @@ export class DDPClient extends EventEmitter<DDPClientEvents> {
 		}
 	}
 
-	private failed(data: Failed): void {
+	private failed(data: FailedMessage): void {
 		if (DDPClient.supportedDdpVersions.indexOf(data.version) !== -1) {
 			this.ddpVersionInt = data.version as '1' | 'pre2' | 'pre1'
 			this.connect()
@@ -464,14 +248,14 @@ export class DDPClient extends EventEmitter<DDPClientEvents> {
 		}
 	}
 
-	private connected(data: Connected): void {
+	private connected(data: ConnectedMessage): void {
 		this.session = data.session
 		this.isConnecting = false
 		this.isReconnecting = false
 		this.emit('connected')
 	}
 
-	private result(data: Result): void {
+	private result(data: ResultMessage): void {
 		if (data.id) {
 			// console.log('Received result', data, this.callbacks, this.callbacks[data.id])
 			const cb = this.callbacks[data.id] || undefined
@@ -483,7 +267,7 @@ export class DDPClient extends EventEmitter<DDPClientEvents> {
 		}
 	}
 
-	private updated(data: Updated): void {
+	private updated(data: UpdatedMessage): void {
 		if (data.methods) {
 			data.methods.forEach((method) => {
 				const cb = this.updatedCallbacks[method]
@@ -495,7 +279,7 @@ export class DDPClient extends EventEmitter<DDPClientEvents> {
 		}
 	}
 
-	private nosub(data: NoSub): void {
+	private nosub(data: NoSubMessage): void {
 		if (data.id) {
 			const cb = this.callbacks[data.id]
 			if (cb) {
@@ -506,7 +290,7 @@ export class DDPClient extends EventEmitter<DDPClientEvents> {
 		}
 	}
 
-	private added(data: Added): void {
+	private added(data: AddedMessage): void {
 		// console.log('Received added', data, this.maintainCollections)
 		if (this.maintainCollections) {
 			const name = data.collection
@@ -532,7 +316,7 @@ export class DDPClient extends EventEmitter<DDPClientEvents> {
 		}
 	}
 
-	private removed(data: Removed): void {
+	private removed(data: RemovedMessage): void {
 		if (this.maintainCollections) {
 			const name = data.collection
 			const id = data.id || 'unknown'
@@ -551,7 +335,7 @@ export class DDPClient extends EventEmitter<DDPClientEvents> {
 		}
 	}
 
-	private changed(data: Changed): void {
+	private changed(data: ChangedMessage): void {
 		if (this.maintainCollections) {
 			const name = data.collection
 			const id = data.id || 'unknown'
@@ -594,7 +378,7 @@ export class DDPClient extends EventEmitter<DDPClientEvents> {
 		}
 	}
 
-	private ready(data: Ready): void {
+	private ready(data: ReadyMessage): void {
 		// console.log('Received ready', data, this.callbacks)
 		data.subs.forEach((id) => {
 			const cb = this.callbacks[id]
@@ -605,8 +389,8 @@ export class DDPClient extends EventEmitter<DDPClientEvents> {
 		})
 	}
 
-	private ping(data: Ping): void {
-		this.send((data.id && ({ msg: 'pong', id: data.id } as Pong)) || ({ msg: 'pong' } as Pong))
+	private ping(data: PingMessage): void {
+		this.send((data.id && ({ msg: 'pong', id: data.id } as PongMessage)) || ({ msg: 'pong' } as PongMessage))
 	}
 
 	private messageWork: { [name in ServerClient]: (data: any) => void } = {
@@ -631,11 +415,9 @@ export class DDPClient extends EventEmitter<DDPClientEvents> {
 	// handle a message from the server
 	private message(rawData: string): void {
 		// console.log('Received message', rawData)
-		const data: Message = EJSON.parse(rawData)
+		const data: ServerMessage = EJSON.parse(rawData)
 
-		if (this.messageWork[data.msg as ServerClient]) {
-			this.messageWork[data.msg as ServerClient](data)
-		}
+		this.messageWork[data.msg]?.(data)
 	}
 
 	private getNextId(): string {
@@ -686,14 +468,7 @@ export class DDPClient extends EventEmitter<DDPClientEvents> {
 			})
 		}
 
-		if (this.useSockJS) {
-			this.makeSockJSConnection().catch((e) => {
-				this.emit('failed', e)
-			})
-		} else {
-			const url = this.buildWsUrl()
-			this.makeWebSocketConnection(url)
-		}
+		this.makeWebSocketConnection(this.buildWsUrl())
 	}
 
 	private endPendingMethodCalls(): void {
@@ -713,56 +488,26 @@ export class DDPClient extends EventEmitter<DDPClientEvents> {
 		})
 	}
 
-	private async makeSockJSConnection(): Promise<void> {
-		const protocol = this.ssl ? 'https://' : 'http://'
-		if (this.path && !this.path?.endsWith('/')) {
-			this.pathInt = this.path + '/'
-		}
-		const url = `${protocol}${this.host}:${this.port}/${this.path || ''}sockjs/info`
-
-		try {
-			const response = await got(url, {
-				https: {
-					certificateAuthority: this.tlsOpts.ca,
-					key: this.tlsOpts.key,
-					certificate: this.tlsOpts.cert,
-					checkServerIdentity: this.tlsOpts.checkServerIdentity,
-				},
-				responseType: 'json',
-			})
-			// Info object defined here(?): https://github.com/sockjs/sockjs-node/blob/master/lib/info.js
-			const info = response.body as { base_url: string }
-			if (!info || !info.base_url) {
-				const url = this.buildWsUrl()
-				this.makeWebSocketConnection(url)
-			} else if (info.base_url.indexOf('http') === 0) {
-				const url = (info.base_url + '/websocket').replace(/^http/, 'ws')
-				this.makeWebSocketConnection(url)
-			} else {
-				const path = info.base_url + '/websocket'
-				const url = this.buildWsUrl(path)
-				this.makeWebSocketConnection(url)
-			}
-		} catch (err) {
-			this.recoverNetworkError(err)
+	private getHeadersWithDefaults(): { [header: string]: string } {
+		return {
+			dnt: 'gateway', // Provide the header needed for the header based auth to work when not connected through a reverse proxy
+			...this.headers,
 		}
 	}
 
-	private buildWsUrl(path?: string): string {
-		let url: string
-		path = path || this.path || 'websocket'
-		const protocol = this.ssl ? 'wss://' : 'ws://'
-		if (this.url && !this.useSockJS) {
-			url = this.url
+	private buildWsUrl(): string {
+		if (this.url) {
+			return this.url
 		} else {
-			url = `${protocol}${this.host}:${this.port}${path.indexOf('/') === 0 ? path : '/' + path}`
+			const path = this.path || 'websocket'
+			const protocol = this.ssl ? 'wss://' : 'ws://'
+			return `${protocol}${this.host}:${this.port}${path.indexOf('/') === 0 ? path : '/' + path}`
 		}
-		return url
 	}
 
 	private makeWebSocketConnection(url: string): void {
 		// console.log('About to create WebSocket client')
-		this.socket = new WebSocket.Client(url, null, { tls: this.tlsOpts })
+		this.socket = new WebSocket(url, { ...this.tlsOpts, headers: this.getHeadersWithDefaults() })
 
 		this.socket.on('open', () => {
 			// just go ahead and open the connection on connect
@@ -782,21 +527,27 @@ export class DDPClient extends EventEmitter<DDPClientEvents> {
 			this.emit('socket-error', error)
 		})
 
-		this.socket.on('close', (event) => {
-			this.emit('socket-close', event.code, event.reason)
+		this.socket.on('close', (code, reason) => {
+			this.emit('socket-close', code, reason.toString())
 			this.endPendingMethodCalls()
 			this.recoverNetworkError()
 		})
 
-		this.socket.on('message', (event) => {
-			this.message(event.data)
-			this.emit('message', event.data)
+		this.socket.on('message', (data) => {
+			const str =
+				typeof data === 'string'
+					? data
+					: Array.isArray(data)
+						? Buffer.concat(data).toString('utf-8')
+						: Buffer.from(data as ArrayBuffer).toString('utf-8')
+			this.message(str)
+			this.emit('message', str)
 		})
 	}
 
 	close(): void {
 		this.isClosing = true
-		this.socket && this.socket.close() // with mockJS connection, might not get created
+		this.socket?.close() // with mockJS connection, might not get created
 		this.removeAllListeners('connected')
 		this.removeAllListeners('failed')
 	}

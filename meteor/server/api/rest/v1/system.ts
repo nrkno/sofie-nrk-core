@@ -1,68 +1,58 @@
+import { z } from 'zod'
 import { UserErrorMessage } from '@sofie-automation/corelib/dist/error'
-import { MigrationData, PendingMigrations, SystemRestAPI } from '../../../../lib/api/rest/v1'
+import { MigrationData, PendingMigrations, SystemRestAPI } from '../../../lib/rest/v1'
 import { logger } from '../../../logging'
 import { APIFactory, APIRegisterHook, ServerAPIContext } from './types'
-import { check } from '../../../../lib/check'
+import { check } from '../../../lib/check'
 import { protectString } from '@sofie-automation/corelib/dist/protectedString'
 import { BlueprintId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { Meteor } from 'meteor/meteor'
-import { ClientAPI } from '../../../../lib/api/client'
-import { MeteorCall } from '../../../../lib/api/methods'
-import { MigrationStepInputResult } from '@sofie-automation/blueprints-integration'
+import { ClientAPI } from '@sofie-automation/meteor-lib/dist/api/client'
+import { assignSystemBlueprint } from '../../blueprints/api'
+import * as Migrations from '../../../migration/databaseMigration'
+import type { DDPClientConnection } from '../../../ddp-server/types'
 
 class SystemServerAPI implements SystemRestAPI {
+	constructor(private context: ServerAPIContext) {}
+
 	async assignSystemBlueprint(
-		_connection: Meteor.Connection,
+		connection: DDPClientConnection,
 		_event: string,
 		blueprintId: BlueprintId
 	): Promise<ClientAPI.ClientResponse<void>> {
-		return ClientAPI.responseSuccess(await MeteorCall.blueprint.assignSystemBlueprint(blueprintId))
+		return ClientAPI.responseSuccess(
+			await assignSystemBlueprint(this.context.getMethodContext(connection), blueprintId)
+		)
 	}
 
 	async unassignSystemBlueprint(
-		_connection: Meteor.Connection,
+		connection: DDPClientConnection,
 		_event: string
 	): Promise<ClientAPI.ClientResponse<void>> {
-		return ClientAPI.responseSuccess(await MeteorCall.blueprint.assignSystemBlueprint(undefined))
+		return ClientAPI.responseSuccess(await assignSystemBlueprint(this.context.getMethodContext(connection), null))
 	}
 
 	async getPendingMigrations(
-		_connection: Meteor.Connection,
+		connection: DDPClientConnection,
 		_event: string
 	): Promise<ClientAPI.ClientResponse<{ inputs: PendingMigrations }>> {
-		const migrationStatus = await MeteorCall.migration.getMigrationStatus()
+		const migrationStatus = await Migrations.getMigrationStatus(this.context.getMethodContext(connection))
 		if (!migrationStatus.migrationNeeded) return ClientAPI.responseSuccess({ inputs: [] })
 
-		const requiredInputs: PendingMigrations = []
-		for (const migration of migrationStatus.migration.manualInputs) {
-			if (migration.stepId && migration.attribute) {
-				requiredInputs.push({
-					stepId: migration.stepId,
-					attributeId: migration.attribute,
-				})
-			}
-		}
-
-		return ClientAPI.responseSuccess({ inputs: requiredInputs })
+		// Inputs are no longer supported, but need to be preserved for api compatibility
+		return ClientAPI.responseSuccess({ inputs: [] })
 	}
 
 	async applyPendingMigrations(
-		_connection: Meteor.Connection,
-		_event: string,
-		inputs: MigrationData
+		connection: DDPClientConnection,
+		_event: string
 	): Promise<ClientAPI.ClientResponse<void>> {
-		const migrationStatus = await MeteorCall.migration.getMigrationStatus()
+		const migrationStatus = await Migrations.getMigrationStatus(this.context.getMethodContext(connection))
 		if (!migrationStatus.migrationNeeded) throw new Error(`Migration does not need to be applied`)
 
-		const migrationData: MigrationStepInputResult[] = inputs.map((input) => ({
-			stepId: input.stepId,
-			attribute: input.attributeId,
-			value: input.migrationValue,
-		}))
-		const result = await MeteorCall.migration.runMigration(
+		const result = await Migrations.runMigration(
+			this.context.getMethodContext(connection),
 			migrationStatus.migration.chunks,
-			migrationStatus.migration.hash,
-			migrationData
+			migrationStatus.migration.hash
 		)
 		if (result.migrationCompleted) return ClientAPI.responseSuccess(undefined)
 		throw new Error(`Unknown error occurred`)
@@ -70,8 +60,8 @@ class SystemServerAPI implements SystemRestAPI {
 }
 
 class SystemAPIFactory implements APIFactory<SystemRestAPI> {
-	createServerAPI(_context: ServerAPIContext): SystemRestAPI {
-		return new SystemServerAPI()
+	createServerAPI(context: ServerAPIContext): SystemRestAPI {
+		return new SystemServerAPI(context)
 	}
 }
 
@@ -95,12 +85,10 @@ export function registerRoutes(registerRoute: APIRegisterHook<SystemRestAPI>): v
 		'/system/migrations',
 		new Map([[400, [UserErrorMessage.NoMigrationsToApply]]]),
 		systemAPIFactory,
-		async (serverAPI, connection, event, _params, body) => {
-			const inputs = body.inputs
+		async (serverAPI, connection, event, _params, _body) => {
 			logger.info(`API POST: System migrations`)
 
-			check(inputs, Array)
-			return await serverAPI.applyPendingMigrations(connection, event, inputs)
+			return await serverAPI.applyPendingMigrations(connection, event)
 		}
 	)
 
@@ -113,7 +101,7 @@ export function registerRoutes(registerRoute: APIRegisterHook<SystemRestAPI>): v
 			const blueprintId = protectString<BlueprintId>(body.blueprintId)
 			logger.info(`API PUT: system blueprint ${blueprintId}`)
 
-			check(blueprintId, String)
+			check(blueprintId, z.string())
 			return await serverAPI.assignSystemBlueprint(connection, events, blueprintId)
 		}
 	)

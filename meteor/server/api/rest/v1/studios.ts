@@ -1,30 +1,39 @@
-import { UserError, UserErrorMessage } from '@sofie-automation/corelib/dist/error'
+import { SofieError, UserError, UserErrorMessage } from '@sofie-automation/corelib/dist/error'
+import { z } from 'zod'
 import { logger } from '../../../logging'
 import { APIFactory, APIRegisterHook, ServerAPIContext } from './types'
 import { protectString, unprotectString } from '@sofie-automation/corelib/dist/protectedString'
 import { PeripheralDeviceId, StudioId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { check } from '../../../../lib/check'
-import { APIStudio, StudioAction, StudioActionType, StudiosRestAPI } from '../../../../lib/api/rest/v1'
-import { Meteor } from 'meteor/meteor'
-import { ClientAPI } from '../../../../lib/api/client'
+import { check, zPlainObject } from '../../../lib/check'
+import { APIStudio, StudioAction, StudioActionType, StudiosRestAPI } from '../../../lib/rest/v1'
+import { ClientAPI } from '@sofie-automation/meteor-lib/dist/api/client'
 import { PeripheralDevices, RundownPlaylists, Studios } from '../../../collections'
-import { APIStudioFrom, studioFrom } from './typeConversion'
-import { runUpgradeForStudio, validateConfigForStudio } from '../../../migration/upgrades'
-import { NoteSeverity } from '@sofie-automation/blueprints-integration'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import { APIStudioFrom, studioFrom, validateAPIBlueprintConfigForStudio } from './typeConversion'
+import { runUpgradeForStudio, updateStudioBaseline, validateConfigForStudio } from '../../../migration/upgrades'
+import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import { ServerClientAPI } from '../../client'
-import { assertNever, getCurrentTime } from '../../../../lib/lib'
+import { assertNever, literal } from '@sofie-automation/corelib/dist/lib'
+import { getCurrentTime } from '../../../lib/lib'
 import { StudioJobs } from '@sofie-automation/corelib/dist/worker/studio'
-import { DBStudio } from '@sofie-automation/corelib/dist/dataModel/Studio'
+import { DBStudio, StudioDeviceSettings } from '@sofie-automation/corelib/dist/dataModel/Studio'
 import { PeripheralDevice } from '@sofie-automation/corelib/dist/dataModel/PeripheralDevice'
-import { StudioContentWriteAccess } from '../../../security/studio'
 import { ServerPlayoutAPI } from '../../playout/playout'
+import { checkValidation } from '.'
+import { assertConnectionHasOneOfPermissions } from '../../../security/auth'
+import { UserPermissions } from '@sofie-automation/meteor-lib/dist/userPermissions'
+import {
+	applyAndValidateOverrides,
+	ObjectOverrideSetOp,
+} from '@sofie-automation/corelib/dist/settings/objectWithOverrides'
+import type { DDPClientConnection } from '../../../ddp-server/types'
+
+const PERMISSIONS_FOR_PLAYOUT_USERACTION: Array<keyof UserPermissions> = ['studio']
 
 class StudiosServerAPI implements StudiosRestAPI {
 	constructor(private context: ServerAPIContext) {}
 
 	async getStudios(
-		_connection: Meteor.Connection,
+		_connection: DDPClientConnection,
 		_event: string
 	): Promise<ClientAPI.ClientResponse<Array<{ id: string }>>> {
 		const studios = (await Studios.findFetchAsync({}, { projection: { _id: 1 } })) as Array<Pick<DBStudio, '_id'>>
@@ -33,50 +42,53 @@ class StudiosServerAPI implements StudiosRestAPI {
 	}
 
 	async addStudio(
-		_connection: Meteor.Connection,
+		_connection: DDPClientConnection,
 		_event: string,
-		studio: APIStudio
+		apiStudio: APIStudio
 	): Promise<ClientAPI.ClientResponse<string>> {
-		const newStudio = await studioFrom(studio)
-		if (!newStudio) throw new Meteor.Error(400, `Invalid Studio`)
+		const studioCount = await Studios.countDocuments()
+		if (studioCount > 0) {
+			return ClientAPI.responseError(UserError.create(UserErrorMessage.SystemSingleStudio, {}, 400))
+		}
+
+		const blueprintConfigValidation = await validateAPIBlueprintConfigForStudio(apiStudio)
+		checkValidation(`addStudio`, blueprintConfigValidation)
+
+		const newStudio = await studioFrom(apiStudio)
+		if (!newStudio) throw new SofieError(400, `Invalid Studio`)
 
 		const newStudioId = await Studios.insertAsync(newStudio)
 
 		const validation = await validateConfigForStudio(newStudioId)
-		const validateOK = validation.messages.reduce((acc, msg) => acc && msg.level === NoteSeverity.INFO, true)
-		if (!validateOK) {
-			const details = JSON.stringify(
-				validation.messages.filter((msg) => msg.level < NoteSeverity.INFO).map((msg) => msg.message.key),
-				null,
-				2
-			)
-			logger.error(`addStudio failed validation with errors: ${details}`)
-			throw new Meteor.Error(409, `Studio ${newStudioId} has failed validation`, details)
-		}
+		checkValidation(`addStudio ${newStudioId}`, validation.messages)
 
 		await runUpgradeForStudio(newStudioId)
+		await updateStudioBaseline(newStudioId)
 		return ClientAPI.responseSuccess(unprotectString(newStudioId), 200)
 	}
 
 	async getStudio(
-		_connection: Meteor.Connection,
+		_connection: DDPClientConnection,
 		_event: string,
 		studioId: StudioId
 	): Promise<ClientAPI.ClientResponse<APIStudio>> {
 		const studio = await Studios.findOneAsync(studioId)
-		if (!studio) throw new Meteor.Error(404, `Studio ${studioId} not found`)
+		if (!studio) throw new SofieError(404, `Studio ${studioId} not found`)
 
-		return ClientAPI.responseSuccess(APIStudioFrom(studio))
+		return ClientAPI.responseSuccess(await APIStudioFrom(studio))
 	}
 
 	async addOrUpdateStudio(
-		_connection: Meteor.Connection,
+		_connection: DDPClientConnection,
 		_event: string,
 		studioId: StudioId,
-		studio: APIStudio
-	): Promise<ClientAPI.ClientResponse<void>> {
-		const newStudio = await studioFrom(studio, studioId)
-		if (!newStudio) throw new Meteor.Error(400, `Invalid Studio`)
+		apiStudio: APIStudio
+	): Promise<ClientAPI.ClientResponse<string | false>> {
+		const blueprintConfigValidation = await validateAPIBlueprintConfigForStudio(apiStudio)
+		checkValidation(`addOrUpdateStudio ${studioId}`, blueprintConfigValidation)
+
+		const newStudio = await studioFrom(apiStudio, studioId)
+		if (!newStudio) throw new SofieError(400, `Invalid Studio`)
 
 		const existingStudio = await Studios.findOneAsync(studioId)
 		if (existingStudio) {
@@ -89,32 +101,80 @@ class StudiosServerAPI implements StudiosRestAPI {
 				}
 			)) as Array<Pick<DBRundownPlaylist, 'activationId'>>
 			if (playlists.some((p) => p.activationId !== undefined)) {
-				throw new Meteor.Error(412, `Studio ${studioId} cannot be updated, it is in use in an active Playlist`)
+				throw new SofieError(412, `Studio ${studioId} cannot be updated, it is in use in an active Playlist`)
 			}
 		}
 
-		await Studios.upsertAsync(studioId, newStudio)
+		await Studios.replaceAsync(newStudio)
 
 		const validation = await validateConfigForStudio(studioId)
-		const validateOK = validation.messages.reduce((acc, msg) => acc && msg.level === NoteSeverity.INFO, true)
-		if (!validateOK) {
-			const details = JSON.stringify(
-				validation.messages.filter((msg) => msg.level < NoteSeverity.INFO).map((msg) => msg.message.key),
-				null,
-				2
-			)
-			logger.error(`addOrUpdateStudio failed validation with errors: ${details}`)
-			throw new Meteor.Error(409, `Studio ${studioId} has failed validation`, details)
+		checkValidation(`addOrUpdateStudio ${studioId}`, validation.messages)
+
+		// wait for the upsert to complete before upgrade
+		await new Promise<void>((resolve) => setTimeout(() => resolve(), 200))
+
+		await runUpgradeForStudio(studioId)
+
+		return ClientAPI.responseSuccess(await updateStudioBaseline(studioId))
+	}
+
+	async getStudioConfig(
+		_connection: DDPClientConnection,
+		_event: string,
+		studioId: StudioId
+	): Promise<ClientAPI.ClientResponse<object>> {
+		const studio = await Studios.findOneAsync(studioId)
+		if (!studio) throw new SofieError(404, `Studio ${studioId} not found`)
+
+		return ClientAPI.responseSuccess((await APIStudioFrom(studio)).config)
+	}
+
+	async updateStudioConfig(
+		_connection: DDPClientConnection,
+		_event: string,
+		studioId: StudioId,
+		config: object
+	): Promise<ClientAPI.ClientResponse<string | false>> {
+		const existingStudio = await Studios.findOneAsync(studioId)
+		if (!existingStudio) {
+			throw new SofieError(404, `Studio ${studioId} not found`)
 		}
 
-		return ClientAPI.responseSuccess(await runUpgradeForStudio(studioId))
+		const apiStudio = await APIStudioFrom(existingStudio)
+		apiStudio.config = config
+
+		const blueprintConfigValidation = await validateAPIBlueprintConfigForStudio(apiStudio)
+		checkValidation(`updateStudioConfig ${studioId}`, blueprintConfigValidation)
+
+		const newStudio = await studioFrom(apiStudio, studioId)
+		if (!newStudio) throw new SofieError(400, `Invalid Studio`)
+
+		await Studios.replaceAsync(newStudio)
+
+		const validation = await validateConfigForStudio(studioId)
+		checkValidation(`updateStudioConfig ${studioId}`, validation.messages)
+
+		// wait for the upsert to complete before upgrade
+		await new Promise<void>((resolve) => setTimeout(() => resolve(), 200))
+
+		await runUpgradeForStudio(studioId)
+
+		return ClientAPI.responseSuccess(await updateStudioBaseline(studioId))
 	}
 
 	async deleteStudio(
-		connection: Meteor.Connection,
+		connection: DDPClientConnection,
 		event: string,
 		studioId: StudioId
 	): Promise<ClientAPI.ClientResponse<void>> {
+		const studioCount = await Studios.countDocuments()
+		if (studioCount === 1) {
+			throw new SofieError(
+				400,
+				`The last studio in the system cannot be deleted (there must be at least one studio)`
+			)
+		}
+
 		const existingStudio = await Studios.findOneAsync(studioId)
 		if (existingStudio) {
 			const playlists = (await RundownPlaylists.findFetchAsync(
@@ -126,11 +186,15 @@ class StudiosServerAPI implements StudiosRestAPI {
 				}
 			)) as Array<Pick<DBRundownPlaylist, 'activationId'>>
 			if (playlists.some((p) => p.activationId !== undefined)) {
-				throw new Meteor.Error(412, `Studio ${studioId} cannot be deleted, it is in use in an active Playlist`)
+				throw new SofieError(412, `Studio ${studioId} cannot be deleted, it is in use in an active Playlist`)
 			}
 		}
 
-		await PeripheralDevices.updateAsync({ studioId }, { $unset: { studioId: 1 } }, { multi: true })
+		await PeripheralDevices.updateAsync(
+			{ 'studioAndConfigId.studioId': studioId },
+			{ $unset: { studioAndConfigId: 1 } },
+			{ multi: true }
+		)
 
 		const rundownPlaylists = (await RundownPlaylists.findFetchAsync(
 			{ studioId },
@@ -148,7 +212,7 @@ class StudiosServerAPI implements StudiosRestAPI {
 				getCurrentTime(),
 				rundownPlaylist._id,
 				() => {
-					check(rundownPlaylist._id, String)
+					check(rundownPlaylist._id, z.string())
 				},
 				StudioJobs.RemovePlaylist,
 				{
@@ -164,7 +228,7 @@ class StudiosServerAPI implements StudiosRestAPI {
 	}
 
 	async switchRouteSet(
-		connection: Meteor.Connection,
+		connection: DDPClientConnection,
 		event: string,
 		studioId: StudioId,
 		routeSetId: string,
@@ -177,23 +241,24 @@ class StudiosServerAPI implements StudiosRestAPI {
 			'switchRouteSet',
 			{ studioId, routeSetId, state },
 			async () => {
-				check(studioId, String)
-				check(routeSetId, String)
-				check(state, Boolean)
+				check(studioId, z.string())
+				check(routeSetId, z.string())
+				check(state, z.boolean())
 
-				const access = await StudioContentWriteAccess.routeSet(this.context.getCredentials(), studioId)
-				return ServerPlayoutAPI.switchRouteSet(access, routeSetId, state)
+				assertConnectionHasOneOfPermissions(connection, ...PERMISSIONS_FOR_PLAYOUT_USERACTION)
+
+				return ServerPlayoutAPI.switchRouteSet(studioId, routeSetId, state)
 			}
 		)
 	}
 
 	async getPeripheralDevicesForStudio(
-		_connection: Meteor.Connection,
+		_connection: DDPClientConnection,
 		_event: string,
 		studioId: StudioId
 	): Promise<ClientAPI.ClientResponse<Array<{ id: string }>>> {
 		const peripheralDevices = (await PeripheralDevices.findFetchAsync(
-			{ studioId },
+			{ 'studioAndConfigId.studioId': studioId },
 			{ projection: { _id: 1 } }
 		)) as Array<Pick<PeripheralDevice, '_id'>>
 
@@ -201,37 +266,66 @@ class StudiosServerAPI implements StudiosRestAPI {
 	}
 
 	async attachDeviceToStudio(
-		_connection: Meteor.Connection,
+		_connection: DDPClientConnection,
 		_event: string,
 		studioId: StudioId,
-		deviceId: PeripheralDeviceId
+		deviceId: PeripheralDeviceId,
+		configId: string | undefined
 	): Promise<ClientAPI.ClientResponse<void>> {
 		const studio = await Studios.findOneAsync(studioId)
 		if (!studio)
 			return ClientAPI.responseError(
-				UserError.from(new Error(`Studio does not exist`), UserErrorMessage.StudioNotFound),
-				404
+				UserError.from(new Error(`Studio does not exist`), UserErrorMessage.StudioNotFound, undefined, 404)
 			)
 
 		const device = await PeripheralDevices.findOneAsync(deviceId)
 		if (!device)
 			return ClientAPI.responseError(
-				UserError.from(new Error(`Studio does not exist`), UserErrorMessage.PeripheralDeviceNotFound),
-				404
+				UserError.from(
+					new Error(`Studio does not exist`),
+					UserErrorMessage.PeripheralDeviceNotFound,
+					undefined,
+					404
+				)
 			)
 
-		if (device.studioId !== undefined && device.studioId !== studio._id) {
+		if (device.studioAndConfigId !== undefined && device.studioAndConfigId.studioId !== studio._id) {
 			return ClientAPI.responseError(
 				UserError.from(
 					new Error(`Device already attached to studio`),
-					UserErrorMessage.DeviceAlreadyAttachedToStudio
-				),
-				412
+					UserErrorMessage.DeviceAlreadyAttachedToStudio,
+					undefined,
+					412
+				)
 			)
 		}
+
+		// If no configId is provided, use the id of the device
+		configId = configId || unprotectString(device._id)
+
+		// Ensure that the requested config blob exists
+		const availableDeviceSettings = applyAndValidateOverrides(studio.peripheralDeviceSettings.deviceSettings).obj
+		if (!availableDeviceSettings[configId]) {
+			await Studios.updateAsync(studioId, {
+				$push: {
+					'peripheralDeviceSettings.deviceSettings.overrides': literal<ObjectOverrideSetOp>({
+						op: 'set',
+						path: configId,
+						value: literal<StudioDeviceSettings>({
+							name: device.name,
+							options: {},
+						}),
+					}),
+				},
+			})
+		}
+
 		await PeripheralDevices.updateAsync(deviceId, {
 			$set: {
-				studioId,
+				studioAndConfigId: {
+					studioId,
+					configId,
+				},
 			},
 		})
 
@@ -239,7 +333,7 @@ class StudiosServerAPI implements StudiosRestAPI {
 	}
 
 	async detachDeviceFromStudio(
-		_connection: Meteor.Connection,
+		_connection: DDPClientConnection,
 		_event: string,
 		studioId: StudioId,
 		deviceId: PeripheralDeviceId
@@ -247,20 +341,25 @@ class StudiosServerAPI implements StudiosRestAPI {
 		const studio = await Studios.findOneAsync(studioId)
 		if (!studio)
 			return ClientAPI.responseError(
-				UserError.from(new Error(`Studio does not exist`), UserErrorMessage.StudioNotFound),
-				404
+				UserError.from(new Error(`Studio does not exist`), UserErrorMessage.StudioNotFound, undefined, 404)
 			)
-		await PeripheralDevices.updateAsync(deviceId, {
-			$unset: {
-				studioId: 1,
+		await PeripheralDevices.updateAsync(
+			{
+				_id: deviceId,
+				'studioAndConfigId.studioId': studioId,
 			},
-		})
+			{
+				$unset: {
+					studioAndConfigId: 1,
+				},
+			}
+		)
 
 		return ClientAPI.responseSuccess(undefined, 200)
 	}
 
 	async studioAction(
-		_connection: Meteor.Connection,
+		_connection: DDPClientConnection,
 		_event: string,
 		studioId: StudioId,
 		action: StudioAction
@@ -270,7 +369,7 @@ class StudiosServerAPI implements StudiosRestAPI {
 				return ClientAPI.responseSuccess(await runUpgradeForStudio(studioId))
 			default:
 				assertNever(action.type)
-				throw new Meteor.Error(400, `Invalid action type`)
+				throw new SofieError(400, `Invalid action type`)
 		}
 	}
 }
@@ -315,12 +414,12 @@ export function registerRoutes(registerRoute: APIRegisterHook<StudiosRestAPI>): 
 			const studioId = protectString<StudioId>(params.studioId)
 			logger.info(`API GET: studio ${studioId}`)
 
-			check(studioId, String)
+			check(studioId, z.string())
 			return await serverAPI.getStudio(connection, event, studioId)
 		}
 	)
 
-	registerRoute<{ studioId: string }, APIStudio, void>(
+	registerRoute<{ studioId: string }, APIStudio, string | false>(
 		'put',
 		'/studios/:studioId',
 		new Map([
@@ -332,8 +431,39 @@ export function registerRoutes(registerRoute: APIRegisterHook<StudiosRestAPI>): 
 			const studioId = protectString<StudioId>(params.studioId)
 			logger.info(`API PUT: Add or Update studio ${studioId} ${body.name}`)
 
-			check(studioId, String)
+			check(studioId, z.string())
 			return await serverAPI.addOrUpdateStudio(connection, event, studioId, body)
+		}
+	)
+
+	registerRoute<{ studioId: string }, never, object>(
+		'get',
+		'/studios/:studioId/config',
+		new Map([[404, [UserErrorMessage.StudioNotFound]]]),
+		studiosAPIFactory,
+		async (serverAPI, connection, event, params, _) => {
+			const studioId = protectString<StudioId>(params.studioId)
+			logger.info(`API GET: studio config ${studioId}`)
+
+			check(studioId, z.string())
+			return await serverAPI.getStudioConfig(connection, event, studioId)
+		}
+	)
+
+	registerRoute<{ studioId: string }, object, string | false>(
+		'put',
+		'/studios/:studioId/config',
+		new Map([
+			[404, [UserErrorMessage.StudioNotFound]],
+			[409, [UserErrorMessage.ValidationFailed]],
+		]),
+		studiosAPIFactory,
+		async (serverAPI, connection, event, params, body) => {
+			const studioId = protectString<StudioId>(params.studioId)
+			logger.info(`API PUT: Update studio config ${studioId}`)
+
+			check(studioId, z.string())
+			return await serverAPI.updateStudioConfig(connection, event, studioId, body)
 		}
 	)
 
@@ -346,7 +476,7 @@ export function registerRoutes(registerRoute: APIRegisterHook<StudiosRestAPI>): 
 			const studioId = protectString<StudioId>(params.studioId)
 			logger.info(`API DELETE: studio ${studioId}`)
 
-			check(studioId, String)
+			check(studioId, z.string())
 			return await serverAPI.deleteStudio(connection, event, studioId)
 		}
 	)
@@ -360,7 +490,7 @@ export function registerRoutes(registerRoute: APIRegisterHook<StudiosRestAPI>): 
 			const studioId = protectString<StudioId>(params.studioId)
 			logger.info(`API GET: peripheral devices for studio ${studioId}`)
 
-			check(studioId, String)
+			check(studioId, z.string())
 			return await serverAPI.getPeripheralDevicesForStudio(connection, event, studioId)
 		}
 	)
@@ -376,14 +506,14 @@ export function registerRoutes(registerRoute: APIRegisterHook<StudiosRestAPI>): 
 			const active = body.active
 			logger.info(`API PUT: switch-route-set ${studioId} ${routeSetId} ${active}`)
 
-			check(studioId, String)
-			check(routeSetId, String)
-			check(active, Boolean)
+			check(studioId, z.string())
+			check(routeSetId, z.string())
+			check(active, z.boolean())
 			return await serverAPI.switchRouteSet(connection, event, studioId, routeSetId, active)
 		}
 	)
 
-	registerRoute<{ studioId: string }, { deviceId: string }, void>(
+	registerRoute<{ studioId: string }, { deviceId: string; configId: string | undefined }, void>(
 		'put',
 		'/studios/:studioId/devices',
 		new Map([
@@ -394,9 +524,10 @@ export function registerRoutes(registerRoute: APIRegisterHook<StudiosRestAPI>): 
 		async (serverAPI, connection, events, params, body) => {
 			const studioId = protectString<StudioId>(params.studioId)
 			const deviceId = protectString<PeripheralDeviceId>(body.deviceId)
-			logger.info(`API PUT: Attach device ${deviceId} to studio ${studioId}`)
+			const configId = body.configId
+			logger.info(`API PUT: Attach device ${deviceId} to studio ${studioId} (${configId})`)
 
-			return await serverAPI.attachDeviceToStudio(connection, events, studioId, deviceId)
+			return await serverAPI.attachDeviceToStudio(connection, events, studioId, deviceId, configId)
 		}
 	)
 
@@ -424,8 +555,8 @@ export function registerRoutes(registerRoute: APIRegisterHook<StudiosRestAPI>): 
 			const action = body.action
 			logger.info(`API POST: Studio action ${studioId} ${body.action.type}`)
 
-			check(studioId, String)
-			check(action, Object)
+			check(studioId, z.string())
+			check(action, zPlainObject)
 			return await serverAPI.studioAction(connection, event, studioId, action)
 		}
 	)

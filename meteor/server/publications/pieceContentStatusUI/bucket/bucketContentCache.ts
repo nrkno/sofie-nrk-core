@@ -1,10 +1,11 @@
-import { ReactiveCacheCollection } from '../../lib/ReactiveCacheCollection'
+import { InMemoryMongoCollection } from '@sofie-automation/corelib/dist/memoryCollection'
 import { DBShowStyleBase, SourceLayers } from '@sofie-automation/corelib/dist/dataModel/ShowStyleBase'
 import { literal } from '@sofie-automation/corelib/dist/lib'
 import { MongoFieldSpecifierOnesStrict } from '@sofie-automation/corelib/dist/mongo'
 import { BucketAdLibAction } from '@sofie-automation/corelib/dist/dataModel/BucketAdLibAction'
 import { BucketAdLib } from '@sofie-automation/corelib/dist/dataModel/BucketAdLibPiece'
 import { BlueprintId, ShowStyleBaseId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import { Blueprint } from '@sofie-automation/corelib/dist/dataModel/Blueprint'
 
 export interface SourceLayersDoc {
 	_id: ShowStyleBaseId
@@ -53,19 +54,27 @@ export const showStyleBaseFieldSpecifier = literal<
 	sourceLayersWithOverrides: 1,
 })
 
+export type BlueprintFields = '_id' | 'packageStatusMessages'
+export const blueprintFieldSpecifier = literal<MongoFieldSpecifierOnesStrict<Pick<Blueprint, BlueprintFields>>>({
+	_id: 1,
+	packageStatusMessages: 1,
+})
+
 export interface BucketContentCache {
-	BucketAdLibs: ReactiveCacheCollection<Pick<BucketAdLib, BucketAdLibFields>>
-	BucketAdLibActions: ReactiveCacheCollection<Pick<BucketAdLibAction, BucketActionFields>>
-	ShowStyleSourceLayers: ReactiveCacheCollection<SourceLayersDoc>
+	BucketAdLibs: InMemoryMongoCollection<Pick<BucketAdLib, BucketAdLibFields>>
+	BucketAdLibActions: InMemoryMongoCollection<Pick<BucketAdLibAction, BucketActionFields>>
+	ShowStyleSourceLayers: InMemoryMongoCollection<SourceLayersDoc>
+	Blueprints: InMemoryMongoCollection<Pick<Blueprint, BlueprintFields>>
 }
 
 export function createReactiveContentCache(): BucketContentCache {
 	const cache: BucketContentCache = {
-		BucketAdLibs: new ReactiveCacheCollection<Pick<BucketAdLib, BucketAdLibFields>>('bucketAdlibs'),
-		BucketAdLibActions: new ReactiveCacheCollection<Pick<BucketAdLibAction, BucketActionFields>>(
+		BucketAdLibs: new InMemoryMongoCollection<Pick<BucketAdLib, BucketAdLibFields>>('bucketAdlibs'),
+		BucketAdLibActions: new InMemoryMongoCollection<Pick<BucketAdLibAction, BucketActionFields>>(
 			'bucketAdlibActions'
 		),
-		ShowStyleSourceLayers: new ReactiveCacheCollection<SourceLayersDoc>('sourceLayers'),
+		ShowStyleSourceLayers: new InMemoryMongoCollection<SourceLayersDoc>('sourceLayers'),
+		Blueprints: new InMemoryMongoCollection<Pick<Blueprint, BlueprintFields>>('blueprints'),
 	}
 
 	return cache

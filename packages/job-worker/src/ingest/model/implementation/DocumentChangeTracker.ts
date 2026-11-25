@@ -1,12 +1,12 @@
 import { ProtectedString } from '@sofie-automation/corelib/dist/protectedString'
-import { AnyBulkWriteOperation } from 'mongodb'
-import { LazyInitialise } from '../../../lib/lazy'
-import { DocumentChanges, getDocumentChanges } from './utils'
+import { MongoBulkWriteOperation } from '@sofie-automation/corelib/dist/mongo'
+import { LazyInitialise } from '../../../lib/lazy.js'
+import { DocumentChanges, getDocumentChanges } from './utils.js'
 
 export async function generateWriteOpsForLazyDocuments<TDoc extends { _id: ProtectedString<any> }>(
 	currentDocs: LazyInitialise<TDoc[]>,
 	changedIds: ReadonlySet<TDoc['_id']>
-): Promise<AnyBulkWriteOperation<TDoc>[]> {
+): Promise<MongoBulkWriteOperation<TDoc>[]> {
 	const changeTracker = new DocumentChangeTracker<TDoc>()
 
 	if (changedIds.size > 0 || currentDocs.isLoaded()) {
@@ -98,12 +98,16 @@ export class DocumentChangeTracker<TDoc extends { _id: ProtectedString<any> }> {
 		return Array.from(this.#deletedIds.values())
 	}
 
+	getDocumentsToSave(): ReadonlyMap<TDoc['_id'], TDoc> {
+		return this.#documentsToSave
+	}
+
 	/**
 	 * Generate the mongodb BulkWrite operations for the documents known to this tracker
 	 * @returns mongodb BulkWrite operations
 	 */
-	generateWriteOps(): AnyBulkWriteOperation<TDoc>[] {
-		const ops: AnyBulkWriteOperation<TDoc>[] = []
+	generateWriteOps(): MongoBulkWriteOperation<TDoc>[] {
+		const ops: MongoBulkWriteOperation<TDoc>[] = []
 
 		for (const doc of this.#documentsToSave) {
 			ops.push({

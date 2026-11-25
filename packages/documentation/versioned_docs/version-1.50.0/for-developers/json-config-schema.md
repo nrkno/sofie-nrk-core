@@ -55,7 +55,7 @@ Names of the enum values as generated for the typescript enum, which we display 
 
 Note: Only valid for blueprint configuration.
 
-Sometimes it can be useful to reference other values. This property can be used on string fields, to let sofie generate a dropdown populated with values valid in the current context.
+Sometimes it can be useful to reference other values. This property can be used on string fields, to let Sofie generate a dropdown populated with values valid in the current context.
 
 #### `mappings`
 
@@ -121,7 +121,7 @@ This is not available in all places we use this schema. For example, Mappings ar
 
 ## Examples
 
-Below is an example of a simple schema for a gateway configuration. The subdevices are handled separetely, with their own schema.
+Below is an example of a simple schema for a gateway configuration. The subdevices are handled separately, with their own schema.
 
 ```json
 {

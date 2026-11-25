@@ -1,15 +1,16 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
-import * as _ from 'underscore'
+import _ from 'underscore'
 import {
 	IBlueprintPart,
 	IBlueprintPiece,
 	IBlueprintPieceType,
+	NoteSeverity,
 	PieceLifespan,
 } from '@sofie-automation/blueprints-integration'
-import { PlayoutModel } from '../../../../playout/model/PlayoutModel'
-import { MockJobContext, setupDefaultJobEnvironment } from '../../../../__mocks__/context'
-import { runJobWithPlayoutModel } from '../../../../playout/lock'
-import { defaultRundownPlaylist } from '../../../../__mocks__/defaultCollectionObjects'
+import { PlayoutModel } from '../../../../playout/model/PlayoutModel.js'
+import { MockJobContext, setupDefaultJobEnvironment } from '../../../../__mocks__/context.js'
+import { runJobWithPlayoutModel } from '../../../../playout/lock.js'
+import { defaultRundownPlaylist } from '../../../../__mocks__/defaultCollectionObjects.js'
 import { protectString, unprotectString } from '@sofie-automation/corelib/dist/protectedString'
 import { clone, getRandomId, literal, normalizeArrayToMapFunc, omit } from '@sofie-automation/corelib/dist/lib'
 import {
@@ -18,25 +19,27 @@ import {
 	RundownPlaylistActivationId,
 	RundownPlaylistId,
 } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { setupDefaultRundown, setupMockShowStyleCompound } from '../../../../__mocks__/presetCollections'
+import { setupDefaultRundown, setupMockShowStyleCompound } from '../../../../__mocks__/presetCollections.js'
 import { SourceLayers } from '@sofie-automation/corelib/dist/dataModel/ShowStyleBase'
-import { JobContext } from '../../../../jobs'
+import { JobContext } from '../../../../jobs/index.js'
 import { PieceInstance } from '@sofie-automation/corelib/dist/dataModel/PieceInstance'
 import { DBPartInstance } from '@sofie-automation/corelib/dist/dataModel/PartInstance'
-import { getCurrentTime } from '../../../../lib'
+import { getCurrentTime } from '../../../../lib/index.js'
 import {
 	EmptyPieceTimelineObjectsBlob,
+	Piece,
 	serializePieceTimelineObjectsBlob,
 } from '@sofie-automation/corelib/dist/dataModel/Piece'
-import { PlayoutPartInstanceModel } from '../../../../playout/model/PlayoutPartInstanceModel'
-import { convertPartInstanceToBlueprints, convertPieceInstanceToBlueprints } from '../../lib'
+import { PlayoutPartInstanceModel } from '../../../../playout/model/PlayoutPartInstanceModel.js'
+import { convertPartInstanceToBlueprints, convertPieceInstanceToBlueprints } from '../../lib.js'
 import { TimelineObjRundown, TimelineObjType } from '@sofie-automation/corelib/dist/dataModel/Timeline'
-import { PlayoutPartInstanceModelImpl } from '../../../../playout/model/implementation/PlayoutPartInstanceModelImpl'
-import { writePartInstancesAndPieceInstances } from '../../../../playout/model/implementation/SavePlayoutModel'
-import { PlayoutPieceInstanceModel } from '../../../../playout/model/PlayoutPieceInstanceModel'
-import { DatabasePersistedModel } from '../../../../modelBase'
+import { PlayoutPartInstanceModelImpl } from '../../../../playout/model/implementation/PlayoutPartInstanceModelImpl.js'
+import { writePartInstancesAndPieceInstances } from '../../../../playout/model/implementation/SavePlayoutModel.js'
+import { PlayoutPieceInstanceModel } from '../../../../playout/model/PlayoutPieceInstanceModel.js'
+import { DatabasePersistedModel } from '../../../../modelBase.js'
+import { SelectedPartInstance } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 
-import * as PlayoutAdlib from '../../../../playout/adlibUtils'
+import * as PlayoutAdlib from '../../../../playout/adlibUtils.js'
 type TinnerStopPieces = jest.MockedFunction<typeof PlayoutAdlib.innerStopPieces>
 const innerStopPiecesMock = jest.spyOn(PlayoutAdlib, 'innerStopPieces') as TinnerStopPieces
 const insertQueuedPartWithPiecesOrig = PlayoutAdlib.insertQueuedPartWithPieces
@@ -47,15 +50,16 @@ const insertQueuedPartWithPiecesMock = jest.spyOn(
 ) as TinsertQueuedPartWithPieces
 
 jest.mock('../../../../playout/resolvedPieces')
-import { getResolvedPiecesForCurrentPartInstance } from '../../../../playout/resolvedPieces'
+import { getResolvedPiecesForCurrentPartInstance } from '../../../../playout/resolvedPieces.js'
 type TgetResolvedPiecesForCurrentPartInstance = jest.MockedFunction<typeof getResolvedPiecesForCurrentPartInstance>
 const getResolvedPiecesForCurrentPartInstanceMock =
 	getResolvedPiecesForCurrentPartInstance as TgetResolvedPiecesForCurrentPartInstance
 
 jest.mock('../../../postProcess')
-import { postProcessPieces, postProcessTimelineObjects } from '../../../postProcess'
-import { ActionPartChange, PartAndPieceInstanceActionService } from '../PartAndPieceInstanceActionService'
-import { isTooCloseToAutonext } from '../../../../playout/lib'
+import { postProcessPieces, postProcessTimelineObjects } from '../../../postProcess.js'
+import { ActionPartChange, PartAndPieceInstanceActionService } from '../PartAndPieceInstanceActionService.js'
+import { mock } from 'jest-mock-extended'
+import { QuickLoopService } from '../../../../playout/model/services/QuickLoopService.js'
 const { postProcessPieces: postProcessPiecesOrig, postProcessTimelineObjects: postProcessTimelineObjectsOrig } =
 	jest.requireActual('../../../postProcess')
 
@@ -138,7 +142,7 @@ describe('Test blueprint api context', () => {
 				const pieceInstances = await context.mockCollections.PieceInstances.findFetch({
 					partInstanceId: partInstance._id,
 				})
-				return new PlayoutPartInstanceModelImpl(partInstance, pieceInstances, false)
+				return new PlayoutPartInstanceModelImpl(partInstance, pieceInstances, false, mock<QuickLoopService>())
 			})
 		)
 	}
@@ -157,7 +161,7 @@ describe('Test blueprint api context', () => {
 			rundown.rundown.showStyleBaseId
 		)
 
-		const service = new PartAndPieceInstanceActionService(jobContext, playoutModel, showStyle, rundown)
+		const service = new PartAndPieceInstanceActionService(jobContext, playoutModel, showStyle)
 
 		return {
 			playlist,
@@ -175,7 +179,9 @@ describe('Test blueprint api context', () => {
 		return runJobWithPlayoutModel(context, { playlistId }, null, fcn as any)
 	}
 
-	async function setupMyDefaultRundown(): Promise<{
+	async function setupMyDefaultRundown(
+		insertExtraContents?: (jobContext: MockJobContext, rundownId: RundownId) => Promise<void>
+	): Promise<{
 		jobContext: MockJobContext
 		playlistId: RundownPlaylistId
 		rundownId: RundownId
@@ -198,6 +204,8 @@ describe('Test blueprint api context', () => {
 		const rundownId: RundownId = getRandomId()
 
 		await setupDefaultRundown(context, showStyleCompound, playlistId, rundownId)
+
+		if (insertExtraContents) await insertExtraContents(context, rundownId)
 
 		const allPartInstances = await generateSparsePieceInstances(context, activationId, rundownId)
 		expect(allPartInstances).toHaveLength(5)
@@ -232,7 +240,9 @@ describe('Test blueprint api context', () => {
 		nextPartInstance: PlayoutPartInstanceModel | DBPartInstance | PieceInstance | undefined | null,
 		previousPartInstance?: PlayoutPartInstanceModel | DBPartInstance | PieceInstance | null
 	) {
-		const convertInfo = (info: PlayoutPartInstanceModel | DBPartInstance | PieceInstance | null) => {
+		const convertInfo = (
+			info: PlayoutPartInstanceModel | DBPartInstance | PieceInstance | null
+		): SelectedPartInstance | null => {
 			if (!info) {
 				return null
 			} else if ('partInstanceId' in info) {
@@ -278,7 +288,7 @@ describe('Test blueprint api context', () => {
 		if (previousPartInstance !== undefined) {
 			await jobContext.mockCollections.RundownPlaylists.update(playlistId, {
 				$set: {
-					previousPartInfo: convertInfo(previousPartInstance),
+					previousPartsInfo: previousPartInstance ? [convertInfo(previousPartInstance)!] : [],
 				},
 			})
 		}
@@ -1075,6 +1085,30 @@ describe('Test blueprint api context', () => {
 				insertQueuedPartWithPiecesMock.mockClear()
 			})
 
+			async function addRundownWithDifferentShowStyle(
+				jobContext: MockJobContext,
+				playlistId: RundownPlaylistId,
+				currentRundownId: RundownId
+			) {
+				const otherShowStyle = await setupMockShowStyleCompound(jobContext)
+				const otherRundownId: RundownId = getRandomId()
+				await setupDefaultRundown(jobContext, otherShowStyle, playlistId, otherRundownId)
+				await jobContext.mockCollections.RundownPlaylists.update(playlistId, {
+					$set: { rundownIdsInOrder: [currentRundownId, otherRundownId] },
+				})
+
+				const targetPart = await jobContext.mockCollections.Parts.findOne({
+					externalId: 'MOCK_PART_0_0',
+					rundownId: otherRundownId,
+				})
+				expect(targetPart).toBeTruthy()
+				expect(otherShowStyle.showStyleVariantId).not.toEqual(
+					(await jobContext.mockCollections.Rundowns.findOne(currentRundownId))?.showStyleVariantId
+				)
+
+				return { otherRundownId, targetPart: targetPart! }
+			}
+
 			test('bad parameters', async () => {
 				const { jobContext, playlistId, rundownId } = await setupMyDefaultRundown()
 
@@ -1088,6 +1122,7 @@ describe('Test blueprint api context', () => {
 
 				const partInstance = (await jobContext.mockCollections.PartInstances.findOne({
 					rundownId,
+					'part.externalId': 'MOCK_PART_0_0',
 				})) as DBPartInstance
 				expect(partInstance).toBeTruthy()
 				await setPartInstances(jobContext, playlistId, partInstance, undefined)
@@ -1126,7 +1161,7 @@ describe('Test blueprint api context', () => {
 					})
 					partInstanceModel.setPlannedStartedPlayback(getCurrentTime())
 
-					expect(isTooCloseToAutonext(partInstanceModel.partInstance, true)).toBeTruthy()
+					expect(partInstanceModel.isTooCloseToAutonext(true)).toBeTruthy()
 					await expect(service.queuePart({} as any, [{}] as any)).rejects.toThrow(
 						'Too close to an autonext to queue a part'
 					)
@@ -1141,6 +1176,7 @@ describe('Test blueprint api context', () => {
 
 				const partInstance = (await jobContext.mockCollections.PartInstances.findOne({
 					rundownId,
+					'part.externalId': 'MOCK_PART_0_0',
 				})) as DBPartInstance
 				expect(partInstance).toBeTruthy()
 				await setPartInstances(jobContext, playlistId, partInstance, undefined)
@@ -1185,15 +1221,677 @@ describe('Test blueprint api context', () => {
 					expect(newPartInstance.partInstance.part._rank).toBeLessThan(9000)
 					expect(newPartInstance.partInstance.part._rank).toEqual(0.5)
 					expect(newPartInstance.partInstance.orphaned).toEqual('adlib-part')
+					expect(newPartInstance.partInstance.segmentId).toEqual(partInstance.segmentId)
 
-					const newNextPartInstances = await service.getPieceInstances('next')
-					expect(newNextPartInstances).toHaveLength(1)
-					expect(newNextPartInstances[0].partInstanceId).toEqual(
+					const newNextPieceInstances = await service.getPieceInstances('next')
+					expect(newNextPieceInstances).toHaveLength(1)
+					expect(newNextPieceInstances[0].partInstanceId).toEqual(
 						unprotectString(newPartInstance.partInstance._id)
 					)
 
 					expect(service.nextPartState).toEqual(ActionPartChange.SAFE_CHANGE)
 					expect(service.currentPartState).toEqual(ActionPartChange.NONE)
+				})
+			})
+
+			test('good with explicit insert before part id', async () => {
+				const { jobContext, playlistId, rundownId } = await setupMyDefaultRundown()
+
+				const partInstance = (await jobContext.mockCollections.PartInstances.findOne({
+					rundownId,
+					'part.externalId': 'MOCK_PART_0_0',
+				})) as DBPartInstance
+				expect(partInstance).toBeTruthy()
+				await setPartInstances(jobContext, playlistId, partInstance, undefined)
+
+				const targetPart = await jobContext.mockCollections.Parts.findOne({
+					externalId: 'MOCK_PART_1_1',
+					rundownId,
+				})
+				expect(targetPart).toBeTruthy()
+
+				await wrapWithPlayoutModel(jobContext, playlistId, async (playoutModel) => {
+					const { service } = await getTestee(jobContext, playoutModel)
+
+					const newPiece: IBlueprintPiece = {
+						name: 'test piece',
+						sourceLayerId: 'sl1',
+						outputLayerId: 'o1',
+						externalId: '-',
+						enable: { start: 0 },
+						lifespan: PieceLifespan.OutOnRundownEnd,
+						content: {
+							timelineObjects: [],
+						},
+					}
+					const newPart: IBlueprintPart = {
+						externalId: 'nope',
+						title: 'something',
+					}
+
+					postProcessPiecesMock.mockImplementationOnce(postProcessPiecesOrig)
+					insertQueuedPartWithPiecesMock.mockImplementationOnce(insertQueuedPartWithPiecesOrig)
+					await service.queuePart(
+						newPart,
+						[newPiece],
+						targetPart ? { targetPartId: unprotectString(targetPart._id) } : undefined
+					)
+
+					const newPartInstance = playoutModel.getPartInstance(
+						playoutModel.playlist.nextPartInfo!.partInstanceId
+					)!
+					expect(newPartInstance.partInstance.segmentId).toEqual(targetPart!.segmentId)
+					expect(newPartInstance.partInstance.part._rank).toBeLessThan(targetPart!._rank)
+				})
+			})
+
+			test('good with explicit insert before part externalId', async () => {
+				const { jobContext, playlistId, rundownId } = await setupMyDefaultRundown()
+
+				const partInstance = (await jobContext.mockCollections.PartInstances.findOne({
+					rundownId,
+					'part.externalId': 'MOCK_PART_0_0',
+				})) as DBPartInstance
+				expect(partInstance).toBeTruthy()
+				await setPartInstances(jobContext, playlistId, partInstance, undefined)
+
+				const targetPart = await jobContext.mockCollections.Parts.findOne({
+					externalId: 'MOCK_PART_1_1',
+					rundownId,
+				})
+				expect(targetPart).toBeTruthy()
+
+				await wrapWithPlayoutModel(jobContext, playlistId, async (playoutModel) => {
+					const { service } = await getTestee(jobContext, playoutModel)
+
+					const newPiece: IBlueprintPiece = {
+						name: 'test piece',
+						sourceLayerId: 'sl1',
+						outputLayerId: 'o1',
+						externalId: '-',
+						enable: { start: 0 },
+						lifespan: PieceLifespan.OutOnRundownEnd,
+						content: {
+							timelineObjects: [],
+						},
+					}
+					const newPart: IBlueprintPart = {
+						externalId: 'nope',
+						title: 'something',
+					}
+
+					postProcessPiecesMock.mockImplementationOnce(postProcessPiecesOrig)
+					insertQueuedPartWithPiecesMock.mockImplementationOnce(insertQueuedPartWithPiecesOrig)
+					await service.queuePart(newPart, [newPiece], { targetPartId: 'MOCK_PART_1_1' })
+
+					const newPartInstance = playoutModel.getPartInstance(
+						playoutModel.playlist.nextPartInfo!.partInstanceId
+					)!
+					expect(newPartInstance.partInstance.segmentId).toEqual(targetPart!.segmentId)
+					expect(newPartInstance.partInstance.part._rank).toBeLessThan(targetPart!._rank)
+				})
+			})
+
+			test('unknown insert before part id', async () => {
+				const { jobContext, playlistId, rundownId } = await setupMyDefaultRundown()
+
+				const partInstance = (await jobContext.mockCollections.PartInstances.findOne({
+					rundownId,
+					'part.externalId': 'MOCK_PART_0_0',
+				})) as DBPartInstance
+				expect(partInstance).toBeTruthy()
+				await setPartInstances(jobContext, playlistId, partInstance, undefined)
+
+				await wrapWithPlayoutModel(jobContext, playlistId, async (playoutModel) => {
+					const { service } = await getTestee(jobContext, playoutModel)
+
+					postProcessPiecesMock.mockImplementationOnce(postProcessPiecesOrig)
+					await expect(
+						service.queuePart(
+							{ externalId: 'nope', title: 'something' },
+							[
+								{
+									name: 'test piece',
+									sourceLayerId: 'sl1',
+									outputLayerId: 'o1',
+									externalId: '-',
+									enable: { start: 0 },
+									lifespan: PieceLifespan.OutOnRundownEnd,
+									content: {
+										timelineObjects: [],
+									},
+								},
+							],
+							{ targetPartId: 'unknown_part_id' }
+						)
+					).rejects.toThrow('Cannot queue part: target "unknown_part_id" not found')
+				})
+			})
+
+			test('rejects insert target with incompatible showStyleVariantId', async () => {
+				const { jobContext, playlistId, rundownId } = await setupMyDefaultRundown()
+
+				const partInstance = (await jobContext.mockCollections.PartInstances.findOne({
+					rundownId,
+					'part.externalId': 'MOCK_PART_0_0',
+				})) as DBPartInstance
+				expect(partInstance).toBeTruthy()
+				await setPartInstances(jobContext, playlistId, partInstance, undefined)
+
+				const { otherRundownId, targetPart } = await addRundownWithDifferentShowStyle(
+					jobContext,
+					playlistId,
+					rundownId
+				)
+
+				await wrapWithPlayoutModel(jobContext, playlistId, async (playoutModel) => {
+					const { service } = await getTestee(jobContext, playoutModel)
+
+					await expect(
+						service.queuePart(
+							{ externalId: 'nope', title: 'something' },
+							[
+								{
+									name: 'test piece',
+									sourceLayerId: 'sl1',
+									outputLayerId: 'o1',
+									externalId: '-',
+									enable: { start: 0 },
+									lifespan: PieceLifespan.OutOnRundownEnd,
+									content: {
+										timelineObjects: [],
+									},
+								},
+							],
+							{ targetPartId: unprotectString(targetPart._id) }
+						)
+					).rejects.toThrow(
+						`Cannot queue part: target rundown "${otherRundownId}" is not compatible with the current show style`
+					)
+
+					expect(postProcessPiecesMock).toHaveBeenCalledTimes(0)
+					expect(insertQueuedPartWithPiecesMock).toHaveBeenCalledTimes(0)
+				})
+			})
+
+			test('prepareQueueablePartAndPieces rejects insert target with incompatible showStyleVariantId', async () => {
+				const { jobContext, playlistId, rundownId } = await setupMyDefaultRundown()
+
+				const partInstance = (await jobContext.mockCollections.PartInstances.findOne({
+					rundownId,
+					'part.externalId': 'MOCK_PART_0_0',
+				})) as DBPartInstance
+				expect(partInstance).toBeTruthy()
+				await setPartInstances(jobContext, playlistId, partInstance, undefined)
+
+				const { otherRundownId, targetPart } = await addRundownWithDifferentShowStyle(
+					jobContext,
+					playlistId,
+					rundownId
+				)
+
+				await wrapWithPlayoutModel(jobContext, playlistId, async (playoutModel) => {
+					const { service } = await getTestee(jobContext, playoutModel)
+
+					expect(() =>
+						service.prepareQueueablePartAndPieces(
+							{ externalId: 'nope', title: 'something' },
+							[
+								{
+									name: 'test piece',
+									sourceLayerId: 'sl1',
+									outputLayerId: 'o1',
+									externalId: '-',
+									enable: { start: 0 },
+									lifespan: PieceLifespan.OutOnRundownEnd,
+									content: {
+										timelineObjects: [],
+									},
+								},
+							],
+							playoutModel.currentPartInstance!,
+							{ targetPartId: unprotectString(targetPart._id) }
+						)
+					).toThrow(
+						`Cannot queue part: target rundown "${otherRundownId}" is not compatible with the current show style`
+					)
+
+					expect(postProcessPiecesMock).toHaveBeenCalledTimes(0)
+				})
+			})
+
+			test('good with explicit insert before part instance id', async () => {
+				const { jobContext, playlistId, rundownId } = await setupMyDefaultRundown()
+
+				const partInstance = (await jobContext.mockCollections.PartInstances.findOne({
+					rundownId,
+					'part.externalId': 'MOCK_PART_0_0',
+				})) as DBPartInstance
+				expect(partInstance).toBeTruthy()
+				await setPartInstances(jobContext, playlistId, partInstance, undefined)
+
+				const newPiece: IBlueprintPiece = {
+					name: 'test piece',
+					sourceLayerId: 'sl1',
+					outputLayerId: 'o1',
+					externalId: '-',
+					enable: { start: 0 },
+					lifespan: PieceLifespan.OutOnRundownEnd,
+					content: {
+						timelineObjects: [],
+					},
+				}
+				const newPart: IBlueprintPart = {
+					externalId: 'nope',
+					title: 'something',
+				}
+
+				await wrapWithPlayoutModel(jobContext, playlistId, async (playoutModel) => {
+					const { service } = await getTestee(jobContext, playoutModel)
+
+					postProcessPiecesMock.mockImplementation(postProcessPiecesOrig)
+					insertQueuedPartWithPiecesMock.mockImplementation(insertQueuedPartWithPiecesOrig)
+
+					await service.queuePart(newPart, [newPiece])
+					service.nextPartState = ActionPartChange.NONE
+
+					const existingAdlibPartInstanceId = playoutModel.playlist.nextPartInfo!.partInstanceId
+					const existingRank =
+						playoutModel.getPartInstance(existingAdlibPartInstanceId)!.partInstance.part._rank
+
+					const targetPart = await jobContext.mockCollections.Parts.findOne({
+						externalId: 'MOCK_PART_1_1',
+						rundownId,
+					})
+					expect(targetPart).toBeTruthy()
+
+					await service.queuePart(newPart, [newPiece], {
+						targetPartInstanceId: unprotectString(existingAdlibPartInstanceId),
+					})
+
+					const newPartInstance = playoutModel.getPartInstance(
+						playoutModel.playlist.nextPartInfo!.partInstanceId
+					)!
+					expect(newPartInstance.partInstance.part._rank).toBeLessThan(existingRank)
+					expect(newPartInstance.partInstance.part._rank).toBeLessThan(targetPart!._rank)
+				})
+			})
+
+			test('good with cross-segment insert before part id', async () => {
+				const { jobContext, playlistId, rundownId } = await setupMyDefaultRundown()
+
+				const partInstance = (await jobContext.mockCollections.PartInstances.findOne({
+					rundownId,
+					'part.externalId': 'MOCK_PART_0_0',
+				})) as DBPartInstance
+				expect(partInstance).toBeTruthy()
+				await setPartInstances(jobContext, playlistId, partInstance, undefined)
+
+				const targetPart = await jobContext.mockCollections.Parts.findOne({
+					externalId: 'MOCK_PART_1_1',
+					rundownId,
+				})
+				expect(targetPart).toBeTruthy()
+
+				await wrapWithPlayoutModel(jobContext, playlistId, async (playoutModel) => {
+					const { service } = await getTestee(jobContext, playoutModel)
+
+					const currentPartInstance = playoutModel.currentPartInstance!
+					expect(currentPartInstance.partInstance.segmentId).not.toEqual(targetPart!.segmentId)
+
+					const newPiece: IBlueprintPiece = {
+						name: 'test piece',
+						sourceLayerId: 'sl1',
+						outputLayerId: 'o1',
+						externalId: '-',
+						enable: { start: 0 },
+						lifespan: PieceLifespan.OutOnRundownEnd,
+						content: {
+							timelineObjects: [],
+						},
+					}
+					const newPart: IBlueprintPart = {
+						externalId: 'nope',
+						title: 'something',
+					}
+
+					postProcessPiecesMock.mockImplementationOnce(postProcessPiecesOrig)
+					insertQueuedPartWithPiecesMock.mockImplementationOnce(insertQueuedPartWithPiecesOrig)
+					await service.queuePart(
+						newPart,
+						[newPiece],
+						targetPart ? { targetPartId: unprotectString(targetPart._id) } : undefined
+					)
+
+					const newPartInstance = playoutModel.getPartInstance(
+						playoutModel.playlist.nextPartInfo!.partInstanceId
+					)!
+					expect(newPartInstance.partInstance.segmentId).toEqual(targetPart!.segmentId)
+					expect(newPartInstance.partInstance.segmentPlayoutId).not.toEqual(
+						currentPartInstance.partInstance.segmentPlayoutId
+					)
+				})
+			})
+
+			test('prepareQueueablePartAndPieces stores targetPartOrInstanceId and insertBefore', async () => {
+				const { jobContext, playlistId, rundownId } = await setupMyDefaultRundown()
+
+				const partInstance = (await jobContext.mockCollections.PartInstances.findOne({
+					rundownId,
+					'part.externalId': 'MOCK_PART_0_0',
+				})) as DBPartInstance
+				expect(partInstance).toBeTruthy()
+				await setPartInstances(jobContext, playlistId, partInstance, undefined)
+
+				const targetPart = await jobContext.mockCollections.Parts.findOne({
+					externalId: 'MOCK_PART_1_1',
+					rundownId,
+				})
+				expect(targetPart).toBeTruthy()
+
+				await wrapWithPlayoutModel(jobContext, playlistId, async (playoutModel) => {
+					const { service } = await getTestee(jobContext, playoutModel)
+
+					const currentPartInstance = playoutModel.currentPartInstance!
+					const newPiece: IBlueprintPiece = {
+						name: 'test piece',
+						sourceLayerId: 'sl1',
+						outputLayerId: 'o1',
+						externalId: '-',
+						enable: { start: 0 },
+						lifespan: PieceLifespan.OutOnRundownEnd,
+						content: {
+							timelineObjects: [],
+						},
+					}
+					const newPart: IBlueprintPart = {
+						externalId: 'nope',
+						title: 'something',
+					}
+
+					postProcessPiecesMock.mockImplementationOnce(postProcessPiecesOrig)
+
+					const queueable = service.prepareQueueablePartAndPieces(
+						newPart,
+						[newPiece],
+						currentPartInstance,
+						targetPart ? { targetPartId: unprotectString(targetPart._id) } : undefined
+					)
+
+					expect(queueable.target?.targetPartId).toEqual(targetPart!._id)
+					expect(queueable.target?.after).toBeFalsy()
+					expect(queueable.part.title).toEqual('something')
+					expect(queueable.pieces).toHaveLength(1)
+				})
+			})
+
+			test('prepareQueueablePartAndPieces converts targetPartId from externalId to _id', async () => {
+				const { jobContext, playlistId, rundownId } = await setupMyDefaultRundown()
+
+				const partInstance = (await jobContext.mockCollections.PartInstances.findOne({
+					rundownId,
+					'part.externalId': 'MOCK_PART_0_0',
+				})) as DBPartInstance
+				expect(partInstance).toBeTruthy()
+				await setPartInstances(jobContext, playlistId, partInstance, undefined)
+
+				const targetPart = await jobContext.mockCollections.Parts.findOne({
+					externalId: 'MOCK_PART_1_1',
+					rundownId,
+				})
+				expect(targetPart).toBeTruthy()
+
+				await wrapWithPlayoutModel(jobContext, playlistId, async (playoutModel) => {
+					const { service } = await getTestee(jobContext, playoutModel)
+
+					const currentPartInstance = playoutModel.currentPartInstance!
+					postProcessPiecesMock.mockImplementationOnce(postProcessPiecesOrig)
+
+					const queueable = service.prepareQueueablePartAndPieces(
+						{ externalId: 'nope', title: 'something' },
+						[
+							{
+								name: 'test piece',
+								sourceLayerId: 'sl1',
+								outputLayerId: 'o1',
+								externalId: '-',
+								enable: { start: 0 },
+								lifespan: PieceLifespan.OutOnRundownEnd,
+								content: {
+									timelineObjects: [],
+								},
+							},
+						],
+						currentPartInstance,
+						{ targetPartId: 'MOCK_PART_1_1' }
+					)
+
+					expect(queueable.target?.targetPartId).toEqual(unprotectString(targetPart!._id))
+					expect(queueable.target?.targetPartId).not.toEqual('MOCK_PART_1_1')
+				})
+			})
+
+			test('good with explicit insert after part id', async () => {
+				const { jobContext, playlistId, rundownId } = await setupMyDefaultRundown()
+
+				const partInstance = (await jobContext.mockCollections.PartInstances.findOne({
+					rundownId,
+					'part.externalId': 'MOCK_PART_0_0',
+				})) as DBPartInstance
+				expect(partInstance).toBeTruthy()
+				await setPartInstances(jobContext, playlistId, partInstance, undefined)
+
+				const targetPart = await jobContext.mockCollections.Parts.findOne({
+					externalId: 'MOCK_PART_1_0',
+					rundownId,
+				})
+				expect(targetPart).toBeTruthy()
+
+				const partAfterTarget = await jobContext.mockCollections.Parts.findOne({
+					externalId: 'MOCK_PART_1_1',
+					rundownId,
+				})
+				expect(partAfterTarget).toBeTruthy()
+
+				await wrapWithPlayoutModel(jobContext, playlistId, async (playoutModel) => {
+					const { service } = await getTestee(jobContext, playoutModel)
+
+					const newPiece: IBlueprintPiece = {
+						name: 'test piece',
+						sourceLayerId: 'sl1',
+						outputLayerId: 'o1',
+						externalId: '-',
+						enable: { start: 0 },
+						lifespan: PieceLifespan.OutOnRundownEnd,
+						content: {
+							timelineObjects: [],
+						},
+					}
+					const newPart: IBlueprintPart = {
+						externalId: 'nope',
+						title: 'something',
+					}
+
+					postProcessPiecesMock.mockImplementationOnce(postProcessPiecesOrig)
+					insertQueuedPartWithPiecesMock.mockImplementationOnce(insertQueuedPartWithPiecesOrig)
+					await service.queuePart(
+						newPart,
+						[newPiece],
+						targetPart ? { targetPartId: unprotectString(targetPart._id), after: true } : undefined
+					)
+
+					const newPartInstance = playoutModel.getPartInstance(
+						playoutModel.playlist.nextPartInfo!.partInstanceId
+					)!
+					expect(newPartInstance.partInstance.part._rank).toBeGreaterThan(targetPart!._rank)
+					expect(newPartInstance.partInstance.part._rank).toBeLessThan(partAfterTarget!._rank)
+				})
+			})
+
+			test('prepareQueueablePartAndPieces stores insertBefore false', async () => {
+				const { jobContext, playlistId, rundownId } = await setupMyDefaultRundown()
+
+				const partInstance = (await jobContext.mockCollections.PartInstances.findOne({
+					rundownId,
+					'part.externalId': 'MOCK_PART_0_0',
+				})) as DBPartInstance
+				expect(partInstance).toBeTruthy()
+				await setPartInstances(jobContext, playlistId, partInstance, undefined)
+
+				const targetPart = await jobContext.mockCollections.Parts.findOne({
+					externalId: 'MOCK_PART_1_0',
+					rundownId,
+				})
+				expect(targetPart).toBeTruthy()
+
+				await wrapWithPlayoutModel(jobContext, playlistId, async (playoutModel) => {
+					const { service } = await getTestee(jobContext, playoutModel)
+
+					const currentPartInstance = playoutModel.currentPartInstance!
+					postProcessPiecesMock.mockImplementationOnce(postProcessPiecesOrig)
+
+					const queueable = service.prepareQueueablePartAndPieces(
+						{ externalId: 'nope', title: 'something' },
+						[
+							{
+								name: 'test piece',
+								sourceLayerId: 'sl1',
+								outputLayerId: 'o1',
+								externalId: '-',
+								enable: { start: 0 },
+								lifespan: PieceLifespan.OutOnRundownEnd,
+								content: {
+									timelineObjects: [],
+								},
+							},
+						],
+						currentPartInstance,
+						targetPart ? { targetPartId: unprotectString(targetPart._id), after: true } : undefined
+					)
+
+					expect(queueable.target?.targetPartId).toEqual(targetPart!._id)
+					expect(queueable.target?.after).toEqual(true)
+				})
+			})
+
+			test('good with cross-segment insert after part id', async () => {
+				const { jobContext, playlistId, rundownId } = await setupMyDefaultRundown()
+
+				const partInstance = (await jobContext.mockCollections.PartInstances.findOne({
+					rundownId,
+					'part.externalId': 'MOCK_PART_0_0',
+				})) as DBPartInstance
+				expect(partInstance).toBeTruthy()
+				await setPartInstances(jobContext, playlistId, partInstance, undefined)
+
+				const targetPart = await jobContext.mockCollections.Parts.findOne({
+					externalId: 'MOCK_PART_1_0',
+					rundownId,
+				})
+				expect(targetPart).toBeTruthy()
+
+				await wrapWithPlayoutModel(jobContext, playlistId, async (playoutModel) => {
+					const { service } = await getTestee(jobContext, playoutModel)
+
+					const currentPartInstance = playoutModel.currentPartInstance!
+					expect(currentPartInstance.partInstance.segmentId).not.toEqual(targetPart!.segmentId)
+
+					postProcessPiecesMock.mockImplementationOnce(postProcessPiecesOrig)
+					insertQueuedPartWithPiecesMock.mockImplementationOnce(insertQueuedPartWithPiecesOrig)
+					await service.queuePart(
+						{ externalId: 'nope', title: 'something' },
+						[
+							{
+								name: 'test piece',
+								sourceLayerId: 'sl1',
+								outputLayerId: 'o1',
+								externalId: '-',
+								enable: { start: 0 },
+								lifespan: PieceLifespan.OutOnRundownEnd,
+								content: {
+									timelineObjects: [],
+								},
+							},
+						],
+						targetPart ? { targetPartId: unprotectString(targetPart._id), after: true } : undefined
+					)
+
+					const newPartInstance = playoutModel.getPartInstance(
+						playoutModel.playlist.nextPartInfo!.partInstanceId
+					)!
+					expect(newPartInstance.partInstance.segmentId).toEqual(targetPart!.segmentId)
+					expect(newPartInstance.partInstance.segmentPlayoutId).not.toEqual(
+						currentPartInstance.partInstance.segmentPlayoutId
+					)
+				})
+			})
+
+			test('queued part does not hijack infinites from following parts', async () => {
+				// makes sure that infinites which would normally start in the part AFTER the part that is being queued,
+				// are not starting in the queued part itself
+
+				const { jobContext, playlistId, rundownId } = await setupMyDefaultRundown(
+					async (context, rundownId) => {
+						const secondPart = await context.mockCollections.Parts.findOne({ externalId: 'MOCK_PART_0_1' })
+						if (!secondPart) throw Error('could not find mock part')
+						const piece001: Piece = {
+							_id: protectString(rundownId + '_piece012'),
+							externalId: 'MOCK_PIECE_012',
+							startRundownId: rundownId,
+							startSegmentId: secondPart.segmentId,
+							startPartId: secondPart._id,
+							name: 'Piece 012',
+							enable: {
+								start: 0,
+							},
+							sourceLayerId: '',
+							outputLayerId: '',
+							pieceType: IBlueprintPieceType.Normal,
+							lifespan: PieceLifespan.OutOnSegmentEnd,
+							invalid: false,
+							content: {},
+							timelineObjectsString: EmptyPieceTimelineObjectsBlob,
+						}
+						await context.mockCollections.Pieces.insertOne(piece001)
+					}
+				)
+
+				const partInstance = (await jobContext.mockCollections.PartInstances.findOne({
+					rundownId,
+					'part.externalId': 'MOCK_PART_0_0',
+				})) as DBPartInstance
+				expect(partInstance).toBeTruthy()
+				await setPartInstances(jobContext, playlistId, partInstance, undefined)
+
+				await wrapWithPlayoutModel(jobContext, playlistId, async (playoutModel) => {
+					const { service } = await getTestee(jobContext, playoutModel)
+
+					const newPiece: IBlueprintPiece = {
+						name: 'test piece',
+						sourceLayerId: 'sl1',
+						outputLayerId: 'o1',
+						externalId: '-',
+						enable: { start: 0 },
+						lifespan: PieceLifespan.OutOnRundownEnd,
+						content: {
+							timelineObjects: [],
+						},
+					}
+					const newPart: IBlueprintPart = {
+						externalId: 'nope',
+						title: 'something',
+					}
+
+					// Create it with most of the real flow
+					postProcessPiecesMock.mockImplementationOnce(postProcessPiecesOrig)
+					insertQueuedPartWithPiecesMock.mockImplementationOnce(insertQueuedPartWithPiecesOrig)
+					expect((await service.queuePart(newPart, [newPiece]))._id).toEqual(
+						playoutModel.playlist.nextPartInfo?.partInstanceId
+					)
+
+					const newNextPartInstances = await service.getPieceInstances('next')
+					expect(newNextPartInstances).toHaveLength(1)
+					expect(newNextPartInstances[0].piece.name).toBe('test piece')
 				})
 			})
 		})
@@ -1400,6 +2098,7 @@ describe('Test blueprint api context', () => {
 					expect(resultPiece).toEqual(convertPieceInstanceToBlueprints(pieceInstance1.pieceInstance))
 					const pieceInstance0After = {
 						...pieceInstance0Before,
+						neededExpectedPackageIds: [],
 						piece: {
 							...pieceInstance0Before.piece,
 							...omit(pieceInstance0Delta, 'badProperty', '_id'),
@@ -1419,6 +2118,81 @@ describe('Test blueprint api context', () => {
 
 					expect(service.nextPartState).toEqual(ActionPartChange.NONE)
 					expect(service.currentPartState).toEqual(ActionPartChange.SAFE_CHANGE)
+				})
+			})
+
+			test('can update infinite piece from previous part if in current part instance', async () => {
+				const { jobContext, playlistId, allPartInstances } = await setupMyDefaultRundown()
+
+				const currentPartInstance = allPartInstances[1]
+
+				// Create an infinite piece instance continued from previous part
+				const pieceInstance: PieceInstance = {
+					_id: protectString('piece_infinite'),
+					rundownId: currentPartInstance.partInstance.rundownId,
+					partInstanceId: currentPartInstance.partInstance._id,
+					playlistActivationId: currentPartInstance.partInstance.playlistActivationId,
+					piece: {
+						_id: protectString('piece_infinite_p'),
+						externalId: '-',
+						enable: { start: 0 },
+						name: 'infinite',
+						sourceLayerId: '',
+						outputLayerId: '',
+						startPartId: allPartInstances[0].partInstance.part._id,
+						content: {},
+						timelineObjectsString: EmptyPieceTimelineObjectsBlob,
+						lifespan: PieceLifespan.OutOnRundownEnd,
+						pieceType: IBlueprintPieceType.Normal,
+						invalid: false,
+					},
+					infinite: {
+						infiniteInstanceId: getRandomId(),
+						infiniteInstanceIndex: 1,
+						infinitePieceId: protectString('piece_infinite_p'),
+						fromPreviousPart: true,
+					},
+				}
+
+				await jobContext.mockCollections.PieceInstances.insertOne(pieceInstance)
+
+				await setPartInstances(jobContext, playlistId, currentPartInstance, undefined)
+
+				await wrapWithPlayoutModel(jobContext, playlistId, async (playoutModel) => {
+					const { service } = await getTestee(jobContext, playoutModel)
+
+					// Updating it in CURRENT part should succeed
+					await expect(
+						service.updatePieceInstance(unprotectString(pieceInstance._id), { name: 'updated' })
+					).resolves.toBeTruthy()
+				})
+			})
+
+			test('updating lifespan to infinite sets dynamicallyConvertedToInfinite', async () => {
+				const { jobContext, playlistId, allPartInstances } = await setupMyDefaultRundown()
+
+				const currentPartInstance = allPartInstances[0]
+				const pieceInstance = (await jobContext.mockCollections.PieceInstances.findOne({
+					partInstanceId: currentPartInstance.partInstance._id,
+				})) as PieceInstance
+				expect(pieceInstance).toBeTruthy()
+				expect(pieceInstance.piece.lifespan).toEqual(PieceLifespan.WithinPart)
+				expect(pieceInstance.infinite).toBeUndefined()
+
+				await setPartInstances(jobContext, playlistId, currentPartInstance, undefined)
+
+				await wrapWithPlayoutModel(jobContext, playlistId, async (playoutModel) => {
+					const { service } = await getTestee(jobContext, playoutModel)
+
+					await service.updatePieceInstance(unprotectString(pieceInstance._id), {
+						lifespan: PieceLifespan.OutOnRundownEnd,
+					})
+
+					const updatedPieceInstance = playoutModel.findPieceInstance(pieceInstance._id)?.pieceInstance
+					expect(updatedPieceInstance).toBeTruthy()
+					expect(updatedPieceInstance?.pieceInstance.piece.lifespan).toEqual(PieceLifespan.OutOnRundownEnd)
+					expect(updatedPieceInstance?.pieceInstance.infinite).toBeTruthy()
+					expect(updatedPieceInstance?.pieceInstance.dynamicallyConvertedToInfinite).toBeTruthy()
 				})
 			})
 		})
@@ -1602,14 +2376,13 @@ describe('Test blueprint api context', () => {
 
 					await expect(service.removePieceInstances('next', [])).resolves.toEqual([])
 					await expect(
-						// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 						service.removePieceInstances('next', [unprotectString(pieceInstanceFromOther._id)])
 					).resolves.toEqual([]) // Try and remove something belonging to a different part
 					expectCountsToEqual(getPieceInstanceCounts(playoutModel), beforePieceInstancesCounts)
 				})
 			})
 
-			test('good', async () => {
+			test('good - from next', async () => {
 				const { jobContext, playlistId, allPartInstances } = await setupMyDefaultRundown()
 
 				const partInstance = allPartInstances[0]
@@ -1637,6 +2410,37 @@ describe('Test blueprint api context', () => {
 					expect(service.nextPartState).toEqual(ActionPartChange.SAFE_CHANGE)
 				})
 			})
+
+			test('good - from current', async () => {
+				const { jobContext, playlistId, allPartInstances } = await setupMyDefaultRundown()
+
+				const partInstance = allPartInstances[0]
+				await setPartInstances(jobContext, playlistId, partInstance, undefined)
+
+				await wrapWithPlayoutModel(jobContext, playlistId, async (playoutModel) => {
+					const { service } = await getTestee(jobContext, playoutModel)
+
+					const beforePieceInstancesCounts = getPieceInstanceCounts(playoutModel)
+					expect(beforePieceInstancesCounts.previous).toEqual(0)
+					expect(beforePieceInstancesCounts.current).not.toEqual(0)
+					expect(beforePieceInstancesCounts.next).toEqual(0)
+					expect(beforePieceInstancesCounts.other).toEqual(0)
+
+					// Find the instance, and create its backing piece
+					const targetPieceInstance = playoutModel.currentPartInstance!.pieceInstances[0]
+					expect(targetPieceInstance).toBeTruthy()
+
+					await expect(
+						service.removePieceInstances('current', [
+							unprotectString(targetPieceInstance.pieceInstance._id),
+						])
+					).resolves.toEqual([unprotectString(targetPieceInstance.pieceInstance._id)])
+
+					// Ensure it was all removed
+					expect(playoutModel.findPieceInstance(targetPieceInstance.pieceInstance._id)).toBeFalsy()
+					expect(service.currentPartState).toEqual(ActionPartChange.SAFE_CHANGE)
+				})
+			})
 		})
 
 		describe('updatePartInstance', () => {
@@ -1645,6 +2449,7 @@ describe('Test blueprint api context', () => {
 
 				const partInstance = (await jobContext.mockCollections.PartInstances.findOne({
 					rundownId,
+					'part.externalId': 'MOCK_PART_0_0',
 				})) as DBPartInstance
 				expect(partInstance).toBeTruthy()
 				const partInstanceOther = (await jobContext.mockCollections.PartInstances.findOne({
@@ -1656,7 +2461,7 @@ describe('Test blueprint api context', () => {
 				await wrapWithPlayoutModel(jobContext, playlistId, async (playoutModel) => {
 					const { service } = await getTestee(jobContext, playoutModel)
 
-					await expect(service.updatePartInstance('current', { title: 'new' })).rejects.toThrow(
+					await expect(service.updatePartInstance('current', { title: 'new' }, {})).rejects.toThrow(
 						'PartInstance could not be found'
 					)
 				})
@@ -1665,17 +2470,17 @@ describe('Test blueprint api context', () => {
 				await setPartInstances(jobContext, playlistId, partInstance, undefined)
 				await wrapWithPlayoutModel(jobContext, playlistId, async (playoutModel) => {
 					const { service } = await getTestee(jobContext, playoutModel)
-					await expect(service.updatePartInstance('current', {})).rejects.toThrow(
+					await expect(service.updatePartInstance('current', {}, {})).rejects.toThrow(
 						'Some valid properties must be defined'
 					)
 					await expect(
-						service.updatePartInstance('current', { _id: 'bad', nope: 'ok' } as any)
+						service.updatePartInstance('current', { _id: 'bad', nope: 'ok' } as any, {})
 					).rejects.toThrow('Some valid properties must be defined')
 
-					await expect(service.updatePartInstance('next', { title: 'new' })).rejects.toThrow(
+					await expect(service.updatePartInstance('next', { title: 'new' }, {})).rejects.toThrow(
 						'PartInstance could not be found'
 					)
-					await service.updatePartInstance('current', { title: 'new' })
+					await service.updatePartInstance('current', { title: 'new' }, {})
 				})
 			})
 			test('good', async () => {
@@ -1703,7 +2508,7 @@ describe('Test blueprint api context', () => {
 						classes: ['123'],
 						badProperty: 9, // This will be dropped
 					}
-					const resultPart = await service.updatePartInstance('next', partInstance0Delta)
+					const resultPart = await service.updatePartInstance('next', partInstance0Delta, {})
 					const partInstance1 = playoutModel.nextPartInstance! as PlayoutPartInstanceModelImpl
 					expect(partInstance1).toBeTruthy()
 
@@ -1722,6 +2527,56 @@ describe('Test blueprint api context', () => {
 
 					expect(service.nextPartState).toEqual(ActionPartChange.SAFE_CHANGE)
 					expect(service.currentPartState).toEqual(ActionPartChange.NONE)
+				})
+			})
+			test('invalidReason on current - throws error', async () => {
+				const { jobContext, playlistId, rundownId } = await setupMyDefaultRundown()
+
+				const partInstance = (await jobContext.mockCollections.PartInstances.findOne({
+					rundownId,
+					'part.externalId': 'MOCK_PART_0_0',
+				})) as DBPartInstance
+				expect(partInstance).toBeTruthy()
+
+				// Set a current part instance
+				await setPartInstances(jobContext, playlistId, partInstance, undefined)
+				await wrapWithPlayoutModel(jobContext, playlistId, async (playoutModel) => {
+					const { service } = await getTestee(jobContext, playoutModel)
+
+					await expect(
+						service.updatePartInstance('current', {}, { invalidReason: { key: 'test' } })
+					).rejects.toThrow('Can only set invalidReason on the next PartInstance')
+				})
+			})
+			test('invalidReason on next - sets and clears', async () => {
+				const { jobContext, playlistId, rundownId } = await setupMyDefaultRundown()
+
+				const partInstance = (await jobContext.mockCollections.PartInstances.findOne({
+					rundownId,
+					'part.externalId': 'MOCK_PART_0_0',
+				})) as DBPartInstance
+				expect(partInstance).toBeTruthy()
+
+				// Set as next part instance
+				await setPartInstances(jobContext, playlistId, undefined, partInstance)
+				await wrapWithPlayoutModel(jobContext, playlistId, async (playoutModel) => {
+					const { service } = await getTestee(jobContext, playoutModel)
+
+					// Set invalidReason
+					const invalidReason = { key: 'test_error', args: { foo: 'bar' } }
+					await service.updatePartInstance('next', {}, { invalidReason })
+					const partInstance1 = playoutModel.nextPartInstance! as PlayoutPartInstanceModelImpl
+					expect(partInstance1.partInstance.invalidReason).toEqual({
+						message: {
+							...invalidReason,
+							namespaces: [expect.any(String)],
+						},
+						severity: NoteSeverity.ERROR,
+					})
+
+					// Clear invalidReason
+					await service.updatePartInstance('next', {}, { invalidReason: undefined })
+					expect(partInstance1.partInstance.invalidReason).toBeUndefined()
 				})
 			})
 		})

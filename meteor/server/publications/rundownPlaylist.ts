@@ -1,69 +1,53 @@
-import { RundownPlaylistReadAccess } from '../security/rundownPlaylist'
-import { meteorPublish, AutoFillSelector } from './lib'
-import { StudioReadAccess } from '../security/studio'
-import { OrganizationReadAccess } from '../security/organization'
-import { NoSecurityReadAccess } from '../security/noSecurity'
-import { isProtectedString } from '@sofie-automation/corelib/dist/protectedString'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import { RundownPlaylists } from '../collections'
 import { CorelibPubSub } from '@sofie-automation/corelib/dist/pubsub'
-import { MeteorPubSub } from '../../lib/api/pubsub'
+import { MeteorPubSub } from '@sofie-automation/meteor-lib/dist/api/pubsub'
 import { RundownPlaylistId, StudioId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { resolveCredentials } from '../security/lib/credentials'
-import { check, Match } from '../../lib/check'
+import { check, zAnyArray } from '../lib/check'
 import { MongoQuery } from '@sofie-automation/corelib/dist/mongo'
+import { triggerWriteAccessBecauseNoCheckNecessary } from '../security/securityVerify'
+import type { PublicationRegistry } from '../publicationRegistry'
 
-meteorPublish(
-	CorelibPubSub.rundownPlaylists,
-	async function (
-		rundownPlaylistIds: RundownPlaylistId[] | null,
-		studioIds: StudioId[] | null,
-		token: string | undefined
-	) {
-		check(rundownPlaylistIds, Match.Maybe(Array))
-		check(studioIds, Match.Maybe(Array))
+export function registerRundownPlaylistPublications(registry: PublicationRegistry): void {
+	registry.publish(
+		CorelibPubSub.rundownPlaylists,
+		async (
+			_context,
+			rundownPlaylistIds: RundownPlaylistId[] | null,
+			studioIds: StudioId[] | null,
+			_token: string | undefined
+		) => {
+			check(rundownPlaylistIds, zAnyArray.nullish())
+			check(studioIds, zAnyArray.nullish())
 
-		// If values were provided, they must have values
-		if (rundownPlaylistIds && rundownPlaylistIds.length === 0) return null
-		if (studioIds && studioIds.length === 0) return null
+			triggerWriteAccessBecauseNoCheckNecessary()
 
-		const { cred, selector } = await AutoFillSelector.organizationId<DBRundownPlaylist>(this.userId, {}, token)
+			// If values were provided, they must have values
+			if (rundownPlaylistIds && rundownPlaylistIds.length === 0) return null
+			if (studioIds && studioIds.length === 0) return null
 
-		// Add the requested filter
-		if (rundownPlaylistIds) selector._id = { $in: rundownPlaylistIds }
-		if (studioIds) selector.studioId = { $in: studioIds }
+			// Add the requested filter
+			const selector: MongoQuery<DBRundownPlaylist> = {}
+			if (rundownPlaylistIds) selector._id = { $in: rundownPlaylistIds }
+			if (studioIds) selector.studioId = { $in: studioIds }
 
-		if (
-			!cred ||
-			NoSecurityReadAccess.any() ||
-			(selector.organizationId &&
-				(await OrganizationReadAccess.organizationContent(selector.organizationId, cred))) ||
-			(selector.studioId && (await StudioReadAccess.studioContent(selector.studioId, cred))) ||
-			(isProtectedString(selector._id) && (await RundownPlaylistReadAccess.rundownPlaylist(selector._id, cred)))
-		) {
 			return RundownPlaylists.findWithCursor(selector)
 		}
-		return null
-	}
-)
+	)
 
-meteorPublish(MeteorPubSub.rundownPlaylistForStudio, async function (studioId: StudioId, isActive: boolean) {
-	if (!NoSecurityReadAccess.any()) {
-		const cred = await resolveCredentials({ userId: this.userId })
-		if (!cred) return null
+	registry.publish(MeteorPubSub.rundownPlaylistForStudio, async (_context, studioId: StudioId, isActive: boolean) => {
+		triggerWriteAccessBecauseNoCheckNecessary()
 
-		if (!(await StudioReadAccess.studioContent(studioId, cred))) return null
-	}
+		const selector: MongoQuery<DBRundownPlaylist> = {
+			studioId,
+		}
 
-	const selector: MongoQuery<DBRundownPlaylist> = {
-		studioId,
-	}
+		if (isActive) {
+			selector.activationId = { $exists: true }
+		} else {
+			selector.activationId = { $exists: false }
+		}
 
-	if (isActive) {
-		selector.activationId = { $exists: true }
-	} else {
-		selector.activationId = { $exists: false }
-	}
-
-	return RundownPlaylists.findWithCursor(selector)
-})
+		return RundownPlaylists.findWithCursor(selector)
+	})
+}

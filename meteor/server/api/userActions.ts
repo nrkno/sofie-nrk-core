@@ -1,38 +1,41 @@
-import { check, Match } from '../../lib/check'
-import { Meteor } from 'meteor/meteor'
-import { ClientAPI } from '../../lib/api/client'
-import { Time } from '../../lib/lib'
+import { z } from 'zod'
+import { check, zAnyArray, zPlainObject } from '../lib/check'
+import { ClientAPI } from '@sofie-automation/meteor-lib/dist/api/client'
+import type { Time } from '@sofie-automation/shared-lib/dist/lib/lib'
 import { ServerPlayoutAPI } from './playout/playout'
-import { NewUserActionAPI, UserActionAPIMethods } from '../../lib/api/userActions'
-import { EvaluationBase } from '../../lib/collections/Evaluations'
-import { IngestPart, IngestAdlib, ActionUserData } from '@sofie-automation/blueprints-integration'
+import {
+	NewUserActionAPI,
+	ReloadRundownPlaylistResponse,
+	TriggerReloadDataResponse,
+} from '@sofie-automation/meteor-lib/dist/api/userActions'
+import { EvaluationBase } from '@sofie-automation/meteor-lib/dist/collections/Evaluations'
+import { IngestPart, IngestAdlib, ActionUserData, UserOperationTarget } from '@sofie-automation/blueprints-integration'
 import { storeRundownPlaylistSnapshot } from './snapshot'
-import { registerClassToMeteorMethods, ReplaceOptionalWithNullInMethodArguments } from '../methods'
+import { ReplaceOptionalWithNullInMethodArguments } from '../methods'
 import { ServerRundownAPI } from './rundown'
 import { saveEvaluation } from './evaluations'
-import { MediaManagerAPI } from './mediaManager'
 import { MOSDeviceActions } from './ingest/mosDevice/actions'
-import { MethodContextAPI } from '../../lib/api/methods'
+import { MethodContextAPI } from './methodContext'
 import { ServerClientAPI } from './client'
-import { OrganizationContentWriteAccess } from '../security/organization'
-import { SystemWriteAccess } from '../security/system'
-import { triggerWriteAccessBecauseNoCheckNecessary } from '../security/lib/securityVerify'
-import { Bucket } from '../../lib/collections/Buckets'
+import { triggerWriteAccessBecauseNoCheckNecessary } from '../security/securityVerify'
+import { Bucket } from '@sofie-automation/corelib/dist/dataModel/Bucket'
 import { BucketsAPI } from './buckets'
 import { BucketAdLib } from '@sofie-automation/corelib/dist/dataModel/BucketAdLibPiece'
 import { AdLibActionCommon } from '@sofie-automation/corelib/dist/dataModel/AdlibAction'
 import { BucketAdLibAction } from '@sofie-automation/corelib/dist/dataModel/BucketAdLibAction'
-import { VerifiedRundownPlaylistContentAccess } from './lib'
-import { PackageManagerAPI } from './packageManager'
+import * as PackageManagerAPI from './packageManager'
 import { ServerPeripheralDeviceAPI } from './peripheralDevice'
-import { StudioJobs } from '@sofie-automation/corelib/dist/worker/studio'
-import { PeripheralDeviceContentWriteAccess } from '../security/peripheralDevice'
-import { StudioContentWriteAccess } from '../security/studio'
-import { BucketSecurity } from '../security/buckets'
+import {
+	ExecuteActionResult,
+	QueueNextSegmentResult,
+	StudioJobs,
+	TakeNextPartResult,
+} from '@sofie-automation/corelib/dist/worker/studio'
 import {
 	AdLibActionId,
+	BucketAdLibActionId,
+	BucketAdLibId,
 	BucketId,
-	MediaWorkFlowId,
 	PartId,
 	PartInstanceId,
 	PeripheralDeviceId,
@@ -44,38 +47,51 @@ import {
 	SegmentId,
 	ShowStyleBaseId,
 	ShowStyleVariantId,
+	SnapshotId,
 	StudioId,
 } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { IngestDataCache, Parts, Pieces, Rundowns } from '../collections'
-import { IngestCacheType } from '@sofie-automation/corelib/dist/dataModel/IngestDataCache'
+import { NrcsIngestDataCache, Parts, Pieces, Rundowns } from '../collections'
+import { NrcsIngestCacheType } from '@sofie-automation/corelib/dist/dataModel/NrcsIngestDataCache'
 import { verifyHashedToken } from './singleUseTokens'
+import { QuickLoopMarker } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import { runIngestOperation } from './ingest/lib'
 import { IngestJobs } from '@sofie-automation/corelib/dist/worker/ingest'
+import { UserPermissions } from '@sofie-automation/meteor-lib/dist/userPermissions'
+import { assertConnectionHasOneOfPermissions } from '../security/auth'
+import { checkAccessToRundown } from '../security/check'
+import { protectString, unprotectString } from '@sofie-automation/corelib/dist/protectedString'
+import { isInProductionMode } from '../lib'
+import { SofieError } from '@sofie-automation/corelib/dist/error'
+
+const PERMISSIONS_FOR_PLAYOUT_USERACTION: Array<keyof UserPermissions> = ['studio']
+const PERMISSIONS_FOR_BUCKET_MODIFICATION: Array<keyof UserPermissions> = ['studio']
+const PERMISSIONS_FOR_MEDIA_MANAGEMENT: Array<keyof UserPermissions> = ['studio', 'service', 'configure']
+const PERMISSIONS_FOR_SYSTEM_ACTION: Array<keyof UserPermissions> = ['service', 'configure']
 
 async function pieceSetInOutPoints(
-	access: VerifiedRundownPlaylistContentAccess,
+	playlistId: RundownPlaylistId,
 	partId: PartId,
 	pieceId: PieceId,
 	inPoint: number,
 	duration: number
 ): Promise<void> {
 	const part = await Parts.findOneAsync(partId)
-	if (!part) throw new Meteor.Error(404, `Part "${partId}" not found!`)
+	if (!part) throw new SofieError(404, `Part "${partId}" not found!`)
 
 	const rundown = await Rundowns.findOneAsync({
 		_id: part.rundownId,
-		playlistId: access.playlist._id,
+		playlistId: playlistId,
 	})
-	if (!rundown) throw new Meteor.Error(501, `Rundown "${part.rundownId}" not found!`)
+	if (!rundown) throw new SofieError(501, `Rundown "${part.rundownId}" not found!`)
 
-	const partCache = await IngestDataCache.findOneAsync({
+	const partCache = await NrcsIngestDataCache.findOneAsync({
 		rundownId: rundown._id,
 		partId: part._id,
-		type: IngestCacheType.PART,
+		type: NrcsIngestCacheType.PART,
 	})
-	if (!partCache) throw new Meteor.Error(404, `Part Cache for "${partId}" not found!`)
+	if (!partCache) throw new SofieError(404, `Part Cache for "${partId}" not found!`)
 	const piece = await Pieces.findOneAsync(pieceId)
-	if (!piece) throw new Meteor.Error(404, `Piece "${pieceId}" not found!`)
+	if (!piece) throw new SofieError(404, `Piece "${pieceId}" not found!`)
 
 	// TODO: replace this with a general, non-MOS specific method
 
@@ -88,7 +104,7 @@ async function pieceSetInOutPoints(
 	) // MOS data is in seconds
 }
 
-class ServerUserActionAPI
+export class ServerUserActionAPI
 	extends MethodContextAPI
 	implements ReplaceOptionalWithNullInMethodArguments<NewUserActionAPI>
 {
@@ -97,15 +113,15 @@ class ServerUserActionAPI
 		eventTime: Time,
 		rundownPlaylistId: RundownPlaylistId,
 		fromPartInstanceId: PartInstanceId | null
-	) {
+	): Promise<ClientAPI.ClientResponse<TakeNextPartResult>> {
 		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
 			this,
 			userEvent,
 			eventTime,
 			rundownPlaylistId,
 			() => {
-				check(rundownPlaylistId, String)
-				check(fromPartInstanceId, Match.OneOf(String, null))
+				check(rundownPlaylistId, z.string())
+				check(fromPartInstanceId, z.string().nullable())
 			},
 			StudioJobs.TakeNextPart,
 			{
@@ -118,22 +134,26 @@ class ServerUserActionAPI
 		userEvent: string,
 		eventTime: Time,
 		rundownPlaylistId: RundownPlaylistId,
-		nextPartId: PartId,
-		timeOffset: number | null
-	) {
+		nextPartOrInstanceId: PartId | PartInstanceId,
+		timeOffset: number | null,
+		isInstance: boolean | null
+	): Promise<ClientAPI.ClientResponse<void>> {
 		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
 			this,
 			userEvent,
 			eventTime,
 			rundownPlaylistId,
 			() => {
-				check(rundownPlaylistId, String)
-				check(nextPartId, String)
+				check(rundownPlaylistId, z.string())
+				check(nextPartOrInstanceId, z.string())
 			},
 			StudioJobs.SetNextPart,
 			{
 				playlistId: rundownPlaylistId,
-				nextPartId,
+				nextPartId: isInstance ? undefined : protectString<PartId>(unprotectString(nextPartOrInstanceId)),
+				nextPartInstanceId: isInstance
+					? protectString<PartInstanceId>(unprotectString(nextPartOrInstanceId))
+					: undefined,
 				setManually: true,
 				nextTimeOffset: timeOffset ?? undefined,
 			}
@@ -144,15 +164,15 @@ class ServerUserActionAPI
 		eventTime: Time,
 		rundownPlaylistId: RundownPlaylistId,
 		nextSegmentId: SegmentId
-	) {
+	): Promise<ClientAPI.ClientResponse<PartId>> {
 		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
 			this,
 			userEvent,
 			eventTime,
 			rundownPlaylistId,
 			() => {
-				check(rundownPlaylistId, String)
-				check(nextSegmentId, String)
+				check(rundownPlaylistId, z.string())
+				check(nextSegmentId, z.string())
 			},
 			StudioJobs.SetNextSegment,
 			{
@@ -166,15 +186,15 @@ class ServerUserActionAPI
 		eventTime: Time,
 		rundownPlaylistId: RundownPlaylistId,
 		queuedSegmentId: SegmentId | null
-	) {
+	): Promise<ClientAPI.ClientResponse<QueueNextSegmentResult>> {
 		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
 			this,
 			userEvent,
 			eventTime,
 			rundownPlaylistId,
 			() => {
-				check(rundownPlaylistId, String)
-				check(queuedSegmentId, Match.OneOf(String, null))
+				check(rundownPlaylistId, z.string())
+				check(queuedSegmentId, z.string().nullable())
 			},
 			StudioJobs.QueueNextSegment,
 			{
@@ -188,34 +208,40 @@ class ServerUserActionAPI
 		eventTime: Time,
 		rundownPlaylistId: RundownPlaylistId,
 		partDelta: number,
-		segmentDelta: number
-	) {
+		segmentDelta: number,
+		ignoreQuickLoop: boolean | null
+	): Promise<ClientAPI.ClientResponse<PartId | null>> {
 		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
 			this,
 			userEvent,
 			eventTime,
 			rundownPlaylistId,
 			() => {
-				check(rundownPlaylistId, String)
-				check(partDelta, Number)
-				check(segmentDelta, Number)
+				check(rundownPlaylistId, z.string())
+				check(partDelta, z.number())
+				check(segmentDelta, z.number())
 			},
 			StudioJobs.MoveNextPart,
 			{
 				playlistId: rundownPlaylistId,
 				partDelta: partDelta,
 				segmentDelta: segmentDelta,
+				ignoreQuickLoop: ignoreQuickLoop ?? undefined,
 			}
 		)
 	}
-	async prepareForBroadcast(userEvent: string, eventTime: Time, rundownPlaylistId: RundownPlaylistId) {
+	async prepareForBroadcast(
+		userEvent: string,
+		eventTime: Time,
+		rundownPlaylistId: RundownPlaylistId
+	): Promise<ClientAPI.ClientResponse<void>> {
 		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
 			this,
 			userEvent,
 			eventTime,
 			rundownPlaylistId,
 			() => {
-				check(rundownPlaylistId, String)
+				check(rundownPlaylistId, z.string())
 			},
 			StudioJobs.PrepareRundownForBroadcast,
 			{
@@ -223,14 +249,18 @@ class ServerUserActionAPI
 			}
 		)
 	}
-	async resetRundownPlaylist(userEvent: string, eventTime: Time, rundownPlaylistId: RundownPlaylistId) {
+	async resetRundownPlaylist(
+		userEvent: string,
+		eventTime: Time,
+		rundownPlaylistId: RundownPlaylistId
+	): Promise<ClientAPI.ClientResponse<void>> {
 		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
 			this,
 			userEvent,
 			eventTime,
 			rundownPlaylistId,
 			() => {
-				check(rundownPlaylistId, String)
+				check(rundownPlaylistId, z.string())
 			},
 			StudioJobs.ResetRundownPlaylist,
 			{
@@ -243,15 +273,15 @@ class ServerUserActionAPI
 		eventTime: Time,
 		rundownPlaylistId: RundownPlaylistId,
 		rehearsal: boolean | null
-	) {
+	): Promise<ClientAPI.ClientResponse<void>> {
 		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
 			this,
 			userEvent,
 			eventTime,
 			rundownPlaylistId,
 			() => {
-				check(rundownPlaylistId, String)
-				check(rehearsal, Match.Maybe(Boolean))
+				check(rundownPlaylistId, z.string())
+				check(rehearsal, z.boolean().nullish())
 			},
 			StudioJobs.ResetRundownPlaylist,
 			{
@@ -260,15 +290,20 @@ class ServerUserActionAPI
 			}
 		)
 	}
-	async activate(userEvent: string, eventTime: Time, rundownPlaylistId: RundownPlaylistId, rehearsal: boolean) {
+	async activate(
+		userEvent: string,
+		eventTime: Time,
+		rundownPlaylistId: RundownPlaylistId,
+		rehearsal: boolean
+	): Promise<ClientAPI.ClientResponse<void>> {
 		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
 			this,
 			userEvent,
 			eventTime,
 			rundownPlaylistId,
 			() => {
-				check(rundownPlaylistId, String)
-				check(rehearsal, Boolean)
+				check(rundownPlaylistId, z.string())
+				check(rehearsal, z.boolean())
 			},
 			StudioJobs.ActivateRundownPlaylist,
 			{
@@ -277,14 +312,18 @@ class ServerUserActionAPI
 			}
 		)
 	}
-	async deactivate(userEvent: string, eventTime: Time, rundownPlaylistId: RundownPlaylistId) {
+	async deactivate(
+		userEvent: string,
+		eventTime: Time,
+		rundownPlaylistId: RundownPlaylistId
+	): Promise<ClientAPI.ClientResponse<void>> {
 		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
 			this,
 			userEvent,
 			eventTime,
 			rundownPlaylistId,
 			() => {
-				check(rundownPlaylistId, String)
+				check(rundownPlaylistId, z.string())
 			},
 			StudioJobs.DeactivateRundownPlaylist,
 			{
@@ -297,15 +336,15 @@ class ServerUserActionAPI
 		eventTime: Time,
 		rundownPlaylistId: RundownPlaylistId,
 		rehearsal: boolean
-	) {
+	): Promise<ClientAPI.ClientResponse<void>> {
 		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
 			this,
 			userEvent,
 			eventTime,
 			rundownPlaylistId,
 			() => {
-				check(rundownPlaylistId, String)
-				check(rehearsal, Boolean)
+				check(rundownPlaylistId, z.string())
+				check(rehearsal, z.boolean())
 			},
 			StudioJobs.ResetRundownPlaylist,
 			{
@@ -320,15 +359,15 @@ class ServerUserActionAPI
 		eventTime: Time,
 		rundownPlaylistId: RundownPlaylistId,
 		undo: boolean | null
-	) {
+	): Promise<ClientAPI.ClientResponse<void>> {
 		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
 			this,
 			userEvent,
 			eventTime,
 			rundownPlaylistId,
 			() => {
-				check(rundownPlaylistId, String)
-				check(undo, Match.Maybe(Boolean))
+				check(rundownPlaylistId, z.string())
+				check(undo, z.boolean().nullish())
 			},
 			StudioJobs.DisableNextPiece,
 			{
@@ -343,16 +382,16 @@ class ServerUserActionAPI
 		rundownPlaylistId: RundownPlaylistId,
 		partInstanceId: PartInstanceId,
 		pieceInstanceIdOrPieceIdToCopy: PieceInstanceId | PieceId
-	) {
+	): Promise<ClientAPI.ClientResponse<void>> {
 		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
 			this,
 			userEvent,
 			eventTime,
 			rundownPlaylistId,
 			() => {
-				check(rundownPlaylistId, String)
-				check(partInstanceId, String)
-				check(pieceInstanceIdOrPieceIdToCopy, String)
+				check(rundownPlaylistId, z.string())
+				check(partInstanceId, z.string())
+				check(pieceInstanceIdOrPieceIdToCopy, z.string())
 			},
 			StudioJobs.TakePieceAsAdlibNow,
 			{
@@ -370,23 +409,23 @@ class ServerUserActionAPI
 		pieceId: PieceId,
 		inPoint: number,
 		duration: number
-	) {
+	): Promise<ClientAPI.ClientResponse<void>> {
 		return ServerClientAPI.runUserActionInLogForPlaylist(
 			this,
 			userEvent,
 			eventTime,
 			rundownPlaylistId,
 			() => {
-				check(rundownPlaylistId, String)
-				check(partId, String)
-				check(pieceId, String)
-				check(inPoint, Number)
-				check(duration, Number)
+				check(rundownPlaylistId, z.string())
+				check(partId, z.string())
+				check(pieceId, z.string())
+				check(inPoint, z.number())
+				check(duration, z.number())
 			},
 			'pieceSetInOutPoints',
 			{ rundownPlaylistId, partId, pieceId, inPoint, duration },
-			async (access) => {
-				return pieceSetInOutPoints(access, partId, pieceId, inPoint, duration)
+			async (playlist) => {
+				return pieceSetInOutPoints(playlist._id, partId, pieceId, inPoint, duration)
 			}
 		)
 	}
@@ -394,22 +433,22 @@ class ServerUserActionAPI
 		userEvent: string,
 		eventTime: Time,
 		rundownPlaylistId: RundownPlaylistId,
-		actionDocId: AdLibActionId | RundownBaselineAdLibActionId,
+		actionDocId: AdLibActionId | RundownBaselineAdLibActionId | BucketAdLibActionId | null,
 		actionId: string,
-		userData: ActionUserData,
+		userData: ActionUserData | null,
 		triggerMode: string | null
-	) {
+	): Promise<ClientAPI.ClientResponse<ExecuteActionResult>> {
 		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
 			this,
 			userEvent,
 			eventTime,
 			rundownPlaylistId,
 			() => {
-				check(rundownPlaylistId, String)
-				check(actionDocId, String)
-				check(actionId, String)
-				check(userData, Match.Any)
-				check(triggerMode, Match.Maybe(String))
+				check(rundownPlaylistId, z.string())
+				check(actionDocId, z.string().nullish())
+				check(actionId, z.string())
+				check(userData, z.any())
+				check(triggerMode, z.string().nullish())
 			},
 			StudioJobs.ExecuteAction,
 			{
@@ -428,17 +467,17 @@ class ServerUserActionAPI
 		partInstanceId: PartInstanceId,
 		adlibPieceId: PieceId,
 		queue: boolean
-	) {
+	): Promise<ClientAPI.ClientResponse<void>> {
 		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
 			this,
 			userEvent,
 			eventTime,
 			rundownPlaylistId,
 			() => {
-				check(rundownPlaylistId, String)
-				check(partInstanceId, String)
-				check(adlibPieceId, String)
-				check(queue, Boolean)
+				check(rundownPlaylistId, z.string())
+				check(partInstanceId, z.string())
+				check(adlibPieceId, z.string())
+				check(queue, z.boolean())
 			},
 			StudioJobs.AdlibPieceStart,
 			{
@@ -456,16 +495,16 @@ class ServerUserActionAPI
 		rundownPlaylistId: RundownPlaylistId,
 		partInstanceId: PartInstanceId,
 		sourceLayerIds: string[]
-	) {
+	): Promise<ClientAPI.ClientResponse<void>> {
 		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
 			this,
 			userEvent,
 			eventTime,
 			rundownPlaylistId,
 			() => {
-				check(rundownPlaylistId, String)
-				check(partInstanceId, String)
-				check(sourceLayerIds, [String])
+				check(rundownPlaylistId, z.string())
+				check(partInstanceId, z.string())
+				check(sourceLayerIds, z.array(z.string()))
 			},
 			StudioJobs.StopPiecesOnSourceLayers,
 			{
@@ -482,17 +521,17 @@ class ServerUserActionAPI
 		partInstanceId: PartInstanceId,
 		adlibPieceId: PieceId,
 		queue: boolean
-	) {
+	): Promise<ClientAPI.ClientResponse<void>> {
 		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
 			this,
 			userEvent,
 			eventTime,
 			rundownPlaylistId,
 			() => {
-				check(rundownPlaylistId, String)
-				check(partInstanceId, String)
-				check(adlibPieceId, String)
-				check(queue, Boolean)
+				check(rundownPlaylistId, z.string())
+				check(partInstanceId, z.string())
+				check(adlibPieceId, z.string())
+				check(queue, z.boolean())
 			},
 			StudioJobs.AdlibPieceStart,
 			{
@@ -509,15 +548,15 @@ class ServerUserActionAPI
 		eventTime: Time,
 		rundownPlaylistId: RundownPlaylistId,
 		sourceLayerId: string
-	) {
+	): Promise<ClientAPI.ClientResponse<void>> {
 		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
 			this,
 			userEvent,
 			eventTime,
 			rundownPlaylistId,
 			() => {
-				check(rundownPlaylistId, String)
-				check(sourceLayerId, String)
+				check(rundownPlaylistId, z.string())
+				check(sourceLayerId, z.string())
 			},
 			StudioJobs.StartStickyPieceOnSourceLayer,
 			{
@@ -532,7 +571,7 @@ class ServerUserActionAPI
 		bucketId: BucketId,
 		showStyleBaseId: ShowStyleBaseId,
 		ingestItem: IngestAdlib
-	) {
+	): Promise<ClientAPI.ClientResponse<void>> {
 		return ServerClientAPI.runUserActionInLog(
 			this,
 			userEvent,
@@ -540,12 +579,12 @@ class ServerUserActionAPI
 			'bucketAdlibImport',
 			{ bucketId, showStyleBaseId, ingestItem },
 			async () => {
-				check(bucketId, String)
-				check(showStyleBaseId, String)
-				check(ingestItem, Object)
+				check(bucketId, z.string())
+				check(showStyleBaseId, z.string())
+				check(ingestItem, zPlainObject)
 
-				const access = await BucketSecurity.allowWriteAccess(this, bucketId)
-				return BucketsAPI.importAdlibToBucket(access, showStyleBaseId, undefined, ingestItem)
+				assertConnectionHasOneOfPermissions(this.connection, ...PERMISSIONS_FOR_BUCKET_MODIFICATION)
+				return BucketsAPI.importAdlibToBucket(bucketId, showStyleBaseId, undefined, ingestItem)
 			}
 		)
 	}
@@ -554,19 +593,19 @@ class ServerUserActionAPI
 		eventTime: Time,
 		rundownPlaylistId: RundownPlaylistId,
 		partInstanceId: PartInstanceId,
-		bucketAdlibId: PieceId,
+		bucketAdlibId: BucketAdLibId,
 		queue: boolean | null
-	) {
+	): Promise<ClientAPI.ClientResponse<void>> {
 		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
 			this,
 			userEvent,
 			eventTime,
 			rundownPlaylistId,
 			() => {
-				check(rundownPlaylistId, String)
-				check(partInstanceId, String)
-				check(bucketAdlibId, String)
-				check(queue, Match.Maybe(Boolean))
+				check(rundownPlaylistId, z.string())
+				check(partInstanceId, z.string())
+				check(bucketAdlibId, z.string())
+				check(queue, z.boolean().nullish())
 			},
 			StudioJobs.AdlibPieceStart,
 			{
@@ -578,7 +617,12 @@ class ServerUserActionAPI
 			}
 		)
 	}
-	async activateHold(userEvent: string, eventTime: Time, rundownPlaylistId: RundownPlaylistId, undo: boolean | null) {
+	async activateHold(
+		userEvent: string,
+		eventTime: Time,
+		rundownPlaylistId: RundownPlaylistId,
+		undo: boolean | null
+	): Promise<ClientAPI.ClientResponse<void>> {
 		if (undo) {
 			return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
 				this,
@@ -586,7 +630,7 @@ class ServerUserActionAPI
 				eventTime,
 				rundownPlaylistId,
 				() => {
-					check(rundownPlaylistId, String)
+					check(rundownPlaylistId, z.string())
 				},
 				StudioJobs.DeactivateHold,
 				{
@@ -600,7 +644,7 @@ class ServerUserActionAPI
 				eventTime,
 				rundownPlaylistId,
 				() => {
-					check(rundownPlaylistId, String)
+					check(rundownPlaylistId, z.string())
 				},
 				StudioJobs.ActivateHold,
 				{
@@ -609,7 +653,11 @@ class ServerUserActionAPI
 			)
 		}
 	}
-	async saveEvaluation(userEvent: string, eventTime: Time, evaluation: EvaluationBase) {
+	async saveEvaluation(
+		userEvent: string,
+		eventTime: Time,
+		evaluation: EvaluationBase
+	): Promise<ClientAPI.ClientResponse<void>> {
 		return ServerClientAPI.runUserActionInLogForPlaylist(
 			this,
 			userEvent,
@@ -620,8 +668,8 @@ class ServerUserActionAPI
 			},
 			'saveEvaluation',
 			{ evaluation },
-			async (access) => {
-				return saveEvaluation(access, evaluation)
+			async (playlist) => {
+				return saveEvaluation(playlist, evaluation)
 			}
 		)
 	}
@@ -632,31 +680,38 @@ class ServerUserActionAPI
 		playlistId: RundownPlaylistId,
 		reason: string,
 		full: boolean
-	) {
+	): Promise<ClientAPI.ClientResponse<SnapshotId>> {
+		if (!verifyHashedToken(hashedToken)) {
+			throw new SofieError(401, `Idempotency token is invalid or has expired`)
+		}
 		return ServerClientAPI.runUserActionInLogForPlaylist(
 			this,
 			userEvent,
 			eventTime,
 			playlistId,
 			() => {
-				check(playlistId, String)
-				check(reason, String)
+				check(playlistId, z.string())
+				check(reason, z.string())
 			},
 			'storeRundownSnapshot',
 			{ playlistId, reason, full },
-			async (access) => {
-				return storeRundownPlaylistSnapshot(access, hashedToken, reason, full)
+			async (playlist) => {
+				return storeRundownPlaylistSnapshot(playlist, { withArchivedDocuments: full }, reason)
 			}
 		)
 	}
-	async removeRundownPlaylist(userEvent: string, eventTime: Time, rundownPlaylistId: RundownPlaylistId) {
+	async removeRundownPlaylist(
+		userEvent: string,
+		eventTime: Time,
+		rundownPlaylistId: RundownPlaylistId
+	): Promise<ClientAPI.ClientResponse<void>> {
 		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
 			this,
 			userEvent,
 			eventTime,
 			rundownPlaylistId,
 			() => {
-				check(rundownPlaylistId, String)
+				check(rundownPlaylistId, z.string())
 			},
 			StudioJobs.RemovePlaylist,
 			{
@@ -664,9 +719,13 @@ class ServerUserActionAPI
 			}
 		)
 	}
-	async DEBUG_crashStudioWorker(userEvent: string, eventTime: Time, rundownPlaylistId: RundownPlaylistId) {
+	async DEBUG_crashStudioWorker(
+		userEvent: string,
+		eventTime: Time,
+		rundownPlaylistId: RundownPlaylistId
+	): Promise<ClientAPI.ClientResponse<void>> {
 		// Make sure we never crash in production
-		if (Meteor.isProduction) return ClientAPI.responseSuccess(undefined)
+		if (isInProductionMode()) return ClientAPI.responseSuccess(undefined)
 
 		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
 			this,
@@ -674,7 +733,7 @@ class ServerUserActionAPI
 			eventTime,
 			rundownPlaylistId,
 			() => {
-				check(rundownPlaylistId, String)
+				check(rundownPlaylistId, z.string())
 			},
 			StudioJobs.DebugCrash,
 			{
@@ -682,138 +741,83 @@ class ServerUserActionAPI
 			}
 		)
 	}
-	async resyncRundownPlaylist(userEvent: string, eventTime: Time, playlistId: RundownPlaylistId) {
+	async resyncRundownPlaylist(
+		userEvent: string,
+		eventTime: Time,
+		playlistId: RundownPlaylistId
+	): Promise<ClientAPI.ClientResponse<ReloadRundownPlaylistResponse>> {
 		return ServerClientAPI.runUserActionInLogForPlaylist(
 			this,
 			userEvent,
 			eventTime,
 			playlistId,
 			() => {
-				check(playlistId, String)
+				check(playlistId, z.string())
 			},
 			'resyncRundownPlaylist',
 			{ playlistId },
-			async (access) => {
-				return ServerRundownAPI.resyncRundownPlaylist(access)
+			async (playlist) => {
+				return ServerRundownAPI.resyncRundownPlaylist(playlist)
 			}
 		)
 	}
-	async unsyncRundown(userEvent: string, eventTime: Time, rundownId: RundownId) {
+	async unsyncRundown(
+		userEvent: string,
+		eventTime: Time,
+		rundownId: RundownId
+	): Promise<ClientAPI.ClientResponse<void>> {
 		return ServerClientAPI.runUserActionInLogForRundown(
 			this,
 			userEvent,
 			eventTime,
 			rundownId,
 			() => {
-				check(rundownId, String)
+				check(rundownId, z.string())
 			},
 			'unsyncRundown',
 			{ rundownId },
-			async (access) => {
-				return ServerRundownAPI.unsyncRundown(access)
+			async (rundown) => {
+				return ServerRundownAPI.unsyncRundown(rundown)
 			}
 		)
 	}
-	async removeRundown(userEvent: string, eventTime: Time, rundownId: RundownId) {
+	async removeRundown(
+		userEvent: string,
+		eventTime: Time,
+		rundownId: RundownId
+	): Promise<ClientAPI.ClientResponse<void>> {
 		return ServerClientAPI.runUserActionInLogForRundown(
 			this,
 			userEvent,
 			eventTime,
 			rundownId,
 			() => {
-				check(rundownId, String)
+				check(rundownId, z.string())
 			},
 			'removeRundown',
 			{ rundownId },
-			async (access) => {
-				return ServerRundownAPI.removeRundown(access)
+			async (rundown) => {
+				return ServerRundownAPI.removeRundown(rundown)
 			}
 		)
 	}
-	async resyncRundown(userEvent: string, eventTime: Time, rundownId: RundownId) {
+	async resyncRundown(
+		userEvent: string,
+		eventTime: Time,
+		rundownId: RundownId
+	): Promise<ClientAPI.ClientResponse<TriggerReloadDataResponse>> {
 		return ServerClientAPI.runUserActionInLogForRundown(
 			this,
 			userEvent,
 			eventTime,
 			rundownId,
 			() => {
-				check(rundownId, String)
+				check(rundownId, z.string())
 			},
 			'resyncRundown',
 			{ rundownId },
-			async (access) => {
-				return ServerRundownAPI.resyncRundown(access)
-			}
-		)
-	}
-	async mediaRestartWorkflow(userEvent: string, eventTime: Time, workflowId: MediaWorkFlowId) {
-		return ServerClientAPI.runUserActionInLog(
-			this,
-			userEvent,
-			eventTime,
-			'mediaRestartWorkflow',
-			{ workflowId },
-			async () => {
-				check(workflowId, String)
-
-				const access = await PeripheralDeviceContentWriteAccess.mediaWorkFlow(this, workflowId)
-				return MediaManagerAPI.restartWorkflow(access)
-			}
-		)
-	}
-	async mediaAbortWorkflow(userEvent: string, eventTime: Time, workflowId: MediaWorkFlowId) {
-		return ServerClientAPI.runUserActionInLog(
-			this,
-			userEvent,
-			eventTime,
-			'mediaAbortWorkflow',
-			{ workflowId },
-			async () => {
-				check(workflowId, String)
-
-				const access = await PeripheralDeviceContentWriteAccess.mediaWorkFlow(this, workflowId)
-				return MediaManagerAPI.abortWorkflow(access)
-			}
-		)
-	}
-	async mediaPrioritizeWorkflow(userEvent: string, eventTime: Time, workflowId: MediaWorkFlowId) {
-		return ServerClientAPI.runUserActionInLog(
-			this,
-			userEvent,
-			eventTime,
-			'mediaPrioritizeWorkflow',
-			{ workflowId },
-			async () => {
-				check(workflowId, String)
-
-				const access = await PeripheralDeviceContentWriteAccess.mediaWorkFlow(this, workflowId)
-				return MediaManagerAPI.prioritizeWorkflow(access)
-			}
-		)
-	}
-	async mediaRestartAllWorkflows(userEvent: string, eventTime: Time) {
-		return ServerClientAPI.runUserActionInLog(
-			this,
-			userEvent,
-			eventTime,
-			'mediaRestartAllWorkflows',
-			{},
-			async () => {
-				const access = await OrganizationContentWriteAccess.mediaWorkFlows(this)
-				return MediaManagerAPI.restartAllWorkflows(access)
-			}
-		)
-	}
-	async mediaAbortAllWorkflows(userEvent: string, eventTime: Time) {
-		return ServerClientAPI.runUserActionInLog(
-			this,
-			userEvent,
-			eventTime,
-			'mediaAbortAllWorkflows',
-			{},
-			async () => {
-				const access = await OrganizationContentWriteAccess.mediaWorkFlows(this)
-				return MediaManagerAPI.abortAllWorkflows(access)
+			async (rundown) => {
+				return ServerRundownAPI.resyncRundown(rundown)
 			}
 		)
 	}
@@ -822,7 +826,7 @@ class ServerUserActionAPI
 		eventTime: Time,
 		deviceId: PeripheralDeviceId,
 		workId: string
-	) {
+	): Promise<ClientAPI.ClientResponse<void>> {
 		return ServerClientAPI.runUserActionInLog(
 			this,
 			userEvent,
@@ -830,15 +834,20 @@ class ServerUserActionAPI
 			'packageManagerRestartExpectation',
 			{ deviceId, workId },
 			async () => {
-				check(deviceId, String)
-				check(workId, String)
+				check(deviceId, z.string())
+				check(workId, z.string())
 
-				const access = await PeripheralDeviceContentWriteAccess.executeFunction(this, deviceId)
-				return PackageManagerAPI.restartExpectation(access, workId)
+				assertConnectionHasOneOfPermissions(this.connection, ...PERMISSIONS_FOR_MEDIA_MANAGEMENT)
+
+				return PackageManagerAPI.restartExpectation(deviceId, workId)
 			}
 		)
 	}
-	async packageManagerRestartAllExpectations(userEvent: string, eventTime: Time, studioId: StudioId) {
+	async packageManagerRestartAllExpectations(
+		userEvent: string,
+		eventTime: Time,
+		studioId: StudioId
+	): Promise<ClientAPI.ClientResponse<void>> {
 		return ServerClientAPI.runUserActionInLog(
 			this,
 			userEvent,
@@ -846,10 +855,11 @@ class ServerUserActionAPI
 			'packageManagerRestartAllExpectations',
 			{ studioId },
 			async () => {
-				check(studioId, String)
+				check(studioId, z.string())
 
-				const access = await StudioContentWriteAccess.executeFunction(this, studioId)
-				return PackageManagerAPI.restartAllExpectationsInStudio(access)
+				assertConnectionHasOneOfPermissions(this.connection, ...PERMISSIONS_FOR_MEDIA_MANAGEMENT)
+
+				return PackageManagerAPI.restartAllExpectationsInStudio(studioId)
 			}
 		)
 	}
@@ -858,7 +868,7 @@ class ServerUserActionAPI
 		eventTime: Time,
 		deviceId: PeripheralDeviceId,
 		workId: string
-	) {
+	): Promise<ClientAPI.ClientResponse<void>> {
 		return ServerClientAPI.runUserActionInLog(
 			this,
 			userEvent,
@@ -866,11 +876,12 @@ class ServerUserActionAPI
 			'packageManagerAbortExpectation',
 			{ deviceId, workId },
 			async () => {
-				check(deviceId, String)
-				check(workId, String)
+				check(deviceId, z.string())
+				check(workId, z.string())
 
-				const access = await PeripheralDeviceContentWriteAccess.executeFunction(this, deviceId)
-				return PackageManagerAPI.abortExpectation(access, workId)
+				assertConnectionHasOneOfPermissions(this.connection, ...PERMISSIONS_FOR_MEDIA_MANAGEMENT)
+
+				return PackageManagerAPI.abortExpectation(deviceId, workId)
 			}
 		)
 	}
@@ -879,7 +890,7 @@ class ServerUserActionAPI
 		eventTime: Time,
 		deviceId: PeripheralDeviceId,
 		containerId: string
-	) {
+	): Promise<ClientAPI.ClientResponse<void>> {
 		return ServerClientAPI.runUserActionInLog(
 			this,
 			userEvent,
@@ -887,22 +898,27 @@ class ServerUserActionAPI
 			'packageManagerRestartPackageContainer',
 			{ deviceId, containerId },
 			async () => {
-				check(deviceId, String)
-				check(containerId, String)
+				check(deviceId, z.string())
+				check(containerId, z.string())
 
-				const access = await PeripheralDeviceContentWriteAccess.executeFunction(this, deviceId)
-				return PackageManagerAPI.restartPackageContainer(access, containerId)
+				assertConnectionHasOneOfPermissions(this.connection, ...PERMISSIONS_FOR_MEDIA_MANAGEMENT)
+
+				return PackageManagerAPI.restartPackageContainer(deviceId, containerId)
 			}
 		)
 	}
-	async regenerateRundownPlaylist(userEvent: string, eventTime: Time, rundownPlaylistId: RundownPlaylistId) {
+	async regenerateRundownPlaylist(
+		userEvent: string,
+		eventTime: Time,
+		rundownPlaylistId: RundownPlaylistId
+	): Promise<ClientAPI.ClientResponse<void>> {
 		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
 			this,
 			userEvent,
 			eventTime,
 			rundownPlaylistId,
 			() => {
-				check(rundownPlaylistId, String)
+				check(rundownPlaylistId, z.string())
 			},
 			StudioJobs.RegeneratePlaylist,
 			{
@@ -910,7 +926,11 @@ class ServerUserActionAPI
 			}
 		)
 	}
-	async restartCore(userEvent: string, eventTime: Time, hashedToken: string) {
+	async restartCore(
+		userEvent: string,
+		eventTime: Time,
+		hashedToken: string
+	): Promise<ClientAPI.ClientResponse<string>> {
 		return ServerClientAPI.runUserActionInLog(
 			this,
 			userEvent,
@@ -918,16 +938,16 @@ class ServerUserActionAPI
 			'restartCore',
 			{ hashedToken },
 			async () => {
-				check(hashedToken, String)
+				check(hashedToken, z.string())
 
-				await SystemWriteAccess.systemActions(this)
+				assertConnectionHasOneOfPermissions(this.connection, ...PERMISSIONS_FOR_SYSTEM_ACTION)
 
 				if (!verifyHashedToken(hashedToken)) {
-					throw new Meteor.Error(401, `Restart token is invalid or has expired`)
+					throw new SofieError(401, `Restart token is invalid or has expired`)
 				}
 
 				setTimeout(() => {
-					// eslint-disable-next-line no-process-exit
+					// eslint-disable-next-line n/no-process-exit
 					process.exit(0)
 				}, 3000)
 				return `Restarting Core in 3s.`
@@ -935,18 +955,30 @@ class ServerUserActionAPI
 		)
 	}
 
-	async guiFocused(userEvent: string, eventTime: Time, viewInfo: unknown | null) {
+	async guiFocused(
+		userEvent: string,
+		eventTime: Time,
+		viewInfo: unknown | null
+	): Promise<ClientAPI.ClientResponse<void>> {
 		return ServerClientAPI.runUserActionInLog(this, userEvent, eventTime, 'guiFocused', { viewInfo }, async () => {
 			triggerWriteAccessBecauseNoCheckNecessary()
 		})
 	}
-	async guiBlurred(userEvent: string, eventTime: Time, viewInfo: unknown | null) {
+	async guiBlurred(
+		userEvent: string,
+		eventTime: Time,
+		viewInfo: unknown | null
+	): Promise<ClientAPI.ClientResponse<void>> {
 		return ServerClientAPI.runUserActionInLog(this, userEvent, eventTime, 'guiBlurred', { viewInfo }, async () => {
 			triggerWriteAccessBecauseNoCheckNecessary()
 		})
 	}
 
-	async bucketsRemoveBucket(userEvent: string, eventTime: Time, bucketId: BucketId) {
+	async bucketsRemoveBucket(
+		userEvent: string,
+		eventTime: Time,
+		bucketId: BucketId
+	): Promise<ClientAPI.ClientResponse<void>> {
 		return ServerClientAPI.runUserActionInLog(
 			this,
 			userEvent,
@@ -954,10 +986,10 @@ class ServerUserActionAPI
 			'bucketsRemoveBucket',
 			{ bucketId },
 			async () => {
-				check(bucketId, String)
+				check(bucketId, z.string())
 
-				const access = await BucketSecurity.allowWriteAccess(this, bucketId)
-				return BucketsAPI.removeBucket(access)
+				assertConnectionHasOneOfPermissions(this.connection, ...PERMISSIONS_FOR_BUCKET_MODIFICATION)
+				return BucketsAPI.removeBucket(bucketId)
 			}
 		)
 	}
@@ -966,7 +998,7 @@ class ServerUserActionAPI
 		eventTime: Time,
 		bucketId: BucketId,
 		bucketProps: Partial<Omit<Bucket, '_id'>>
-	) {
+	): Promise<ClientAPI.ClientResponse<void>> {
 		return ServerClientAPI.runUserActionInLog(
 			this,
 			userEvent,
@@ -974,15 +1006,19 @@ class ServerUserActionAPI
 			'bucketsModifyBucket',
 			{ bucketId, bucketProps },
 			async () => {
-				check(bucketId, String)
-				check(bucketProps, Object)
+				check(bucketId, z.string())
+				check(bucketProps, zPlainObject)
 
-				const access = await BucketSecurity.allowWriteAccess(this, bucketId)
-				return BucketsAPI.modifyBucket(access, bucketProps)
+				assertConnectionHasOneOfPermissions(this.connection, ...PERMISSIONS_FOR_BUCKET_MODIFICATION)
+				return BucketsAPI.modifyBucket(bucketId, bucketProps)
 			}
 		)
 	}
-	async bucketsEmptyBucket(userEvent: string, eventTime: Time, bucketId: BucketId) {
+	async bucketsEmptyBucket(
+		userEvent: string,
+		eventTime: Time,
+		bucketId: BucketId
+	): Promise<ClientAPI.ClientResponse<void>> {
 		return ServerClientAPI.runUserActionInLog(
 			this,
 			userEvent,
@@ -990,14 +1026,19 @@ class ServerUserActionAPI
 			'bucketsEmptyBucket',
 			{ bucketId },
 			async () => {
-				check(bucketId, String)
+				check(bucketId, z.string())
 
-				const access = await BucketSecurity.allowWriteAccess(this, bucketId)
-				return BucketsAPI.emptyBucket(access)
+				assertConnectionHasOneOfPermissions(this.connection, ...PERMISSIONS_FOR_BUCKET_MODIFICATION)
+				return BucketsAPI.emptyBucket(bucketId)
 			}
 		)
 	}
-	async bucketsCreateNewBucket(userEvent: string, eventTime: Time, studioId: StudioId, name: string) {
+	async bucketsCreateNewBucket(
+		userEvent: string,
+		eventTime: Time,
+		studioId: StudioId,
+		name: string
+	): Promise<ClientAPI.ClientResponse<Bucket>> {
 		return ServerClientAPI.runUserActionInLog(
 			this,
 			userEvent,
@@ -1005,16 +1046,20 @@ class ServerUserActionAPI
 			'bucketsCreateNewBucket',
 			{ name, studioId },
 			async () => {
-				check(studioId, String)
-				check(name, String)
+				check(studioId, z.string())
+				check(name, z.string())
 
-				const access = await StudioContentWriteAccess.bucket(this, studioId)
-				return BucketsAPI.createNewBucket(access, name)
+				assertConnectionHasOneOfPermissions(this.connection, ...PERMISSIONS_FOR_BUCKET_MODIFICATION)
+				return BucketsAPI.createNewBucket(studioId, name)
 			}
 		)
 	}
-	async bucketsRemoveBucketAdLib(userEvent: string, eventTime: Time, adlibId: PieceId) {
-		check(adlibId, String)
+	async bucketsRemoveBucketAdLib(
+		userEvent: string,
+		eventTime: Time,
+		adlibId: BucketAdLibId
+	): Promise<ClientAPI.ClientResponse<void>> {
+		check(adlibId, z.string())
 
 		return ServerClientAPI.runUserActionInLog(
 			this,
@@ -1023,12 +1068,16 @@ class ServerUserActionAPI
 			'bucketsRemoveBucketAdLib',
 			{ adlibId },
 			async () => {
-				const access = await BucketSecurity.allowWriteAccessPiece(this, adlibId)
-				return BucketsAPI.removeBucketAdLib(access)
+				assertConnectionHasOneOfPermissions(this.connection, ...PERMISSIONS_FOR_BUCKET_MODIFICATION)
+				return BucketsAPI.removeBucketAdLib(adlibId)
 			}
 		)
 	}
-	async bucketsRemoveBucketAdLibAction(userEvent: string, eventTime: Time, actionId: AdLibActionId) {
+	async bucketsRemoveBucketAdLibAction(
+		userEvent: string,
+		eventTime: Time,
+		actionId: BucketAdLibActionId
+	): Promise<ClientAPI.ClientResponse<void>> {
 		return ServerClientAPI.runUserActionInLog(
 			this,
 			userEvent,
@@ -1036,19 +1085,19 @@ class ServerUserActionAPI
 			'bucketsRemoveBucketAdLibAction',
 			{ actionId },
 			async () => {
-				check(actionId, String)
+				check(actionId, z.string())
 
-				const access = await BucketSecurity.allowWriteAccessAction(this, actionId)
-				return BucketsAPI.removeBucketAdLibAction(access)
+				assertConnectionHasOneOfPermissions(this.connection, ...PERMISSIONS_FOR_BUCKET_MODIFICATION)
+				return BucketsAPI.removeBucketAdLibAction(actionId)
 			}
 		)
 	}
 	async bucketsModifyBucketAdLib(
 		userEvent: string,
 		eventTime: Time,
-		adlibId: PieceId,
+		adlibId: BucketAdLibId,
 		adlibProps: Partial<Omit<BucketAdLib, '_id'>>
-	) {
+	): Promise<ClientAPI.ClientResponse<void>> {
 		return ServerClientAPI.runUserActionInLog(
 			this,
 			userEvent,
@@ -1056,20 +1105,20 @@ class ServerUserActionAPI
 			'bucketsModifyBucketAdLib',
 			{ adlibId, adlibProps },
 			async () => {
-				check(adlibId, String)
-				check(adlibProps, Object)
+				check(adlibId, z.string())
+				check(adlibProps, zPlainObject)
 
-				const access = await BucketSecurity.allowWriteAccessPiece(this, adlibId)
-				return BucketsAPI.modifyBucketAdLib(access, adlibProps)
+				assertConnectionHasOneOfPermissions(this.connection, ...PERMISSIONS_FOR_BUCKET_MODIFICATION)
+				return BucketsAPI.modifyBucketAdLib(adlibId, adlibProps)
 			}
 		)
 	}
 	async bucketsModifyBucketAdLibAction(
 		userEvent: string,
 		eventTime: Time,
-		actionId: AdLibActionId,
+		actionId: BucketAdLibActionId,
 		actionProps: Partial<Omit<BucketAdLibAction, '_id'>>
-	) {
+	): Promise<ClientAPI.ClientResponse<void>> {
 		return ServerClientAPI.runUserActionInLog(
 			this,
 			userEvent,
@@ -1077,11 +1126,11 @@ class ServerUserActionAPI
 			'bucketsModifyBucketAdLib',
 			{ actionId, actionProps },
 			async () => {
-				check(actionId, String)
-				check(actionProps, Object)
+				check(actionId, z.string())
+				check(actionProps, zPlainObject)
 
-				const access = await BucketSecurity.allowWriteAccessAction(this, actionId)
-				return BucketsAPI.modifyBucketAdLibAction(access, actionProps)
+				assertConnectionHasOneOfPermissions(this.connection, ...PERMISSIONS_FOR_BUCKET_MODIFICATION)
+				return BucketsAPI.modifyBucketAdLibAction(actionId, actionProps)
 			}
 		)
 	}
@@ -1099,12 +1148,12 @@ class ServerUserActionAPI
 			'bucketsSaveActionIntoBucket',
 			{ studioId, bucketId, action },
 			async () => {
-				check(studioId, String)
-				check(bucketId, String)
-				check(action, Object)
+				check(studioId, z.string())
+				check(bucketId, z.string())
+				check(action, zPlainObject)
 
-				const access = await BucketSecurity.allowWriteAccess(this, bucketId)
-				return BucketsAPI.saveAdLibActionIntoBucket(access, action)
+				assertConnectionHasOneOfPermissions(this.connection, ...PERMISSIONS_FOR_BUCKET_MODIFICATION)
+				return BucketsAPI.saveAdLibActionIntoBucket(bucketId, action)
 			}
 		)
 	}
@@ -1113,21 +1162,22 @@ class ServerUserActionAPI
 		eventTime: Time,
 		studioId: StudioId,
 		routeSetId: string,
-		state: boolean
+		state: boolean | 'toggle'
 	): Promise<ClientAPI.ClientResponse<void>> {
 		return ServerClientAPI.runUserActionInLog(
 			this,
 			userEvent,
 			eventTime,
-			'packageManagerRestartAllExpectations',
+			'switchRouteSet',
 			{ studioId, routeSetId, state },
 			async () => {
-				check(studioId, String)
-				check(routeSetId, String)
-				check(state, Boolean)
+				check(studioId, z.string())
+				check(routeSetId, z.string())
+				check(state, z.union([z.literal('toggle'), z.boolean()]))
 
-				const access = await StudioContentWriteAccess.routeSet(this, studioId)
-				return ServerPlayoutAPI.switchRouteSet(access, routeSetId, state)
+				assertConnectionHasOneOfPermissions(this.connection, ...PERMISSIONS_FOR_PLAYOUT_USERACTION)
+
+				return ServerPlayoutAPI.switchRouteSet(studioId, routeSetId, state)
 			}
 		)
 	}
@@ -1144,9 +1194,9 @@ class ServerUserActionAPI
 			eventTime,
 			rundownId,
 			() => {
-				check(rundownId, String)
-				check(intoPlaylistId, Match.OneOf(String, null))
-				check(rundownsIdsInPlaylistInOrder, Array)
+				check(rundownId, z.string())
+				check(intoPlaylistId, z.string().nullable())
+				check(rundownsIdsInPlaylistInOrder, zAnyArray)
 			},
 			StudioJobs.OrderMoveRundownToPlaylist,
 			{
@@ -1167,7 +1217,7 @@ class ServerUserActionAPI
 			eventTime,
 			playlistId,
 			() => {
-				check(playlistId, String)
+				check(playlistId, z.string())
 			},
 			StudioJobs.OrderRestoreToDefault,
 			{
@@ -1189,12 +1239,17 @@ class ServerUserActionAPI
 			'packageManagerRestartAllExpectations',
 			{ peripheralDeviceId, subDeviceId, disable },
 			async () => {
-				check(peripheralDeviceId, String)
-				check(subDeviceId, String)
-				check(disable, Boolean)
+				check(peripheralDeviceId, z.string())
+				check(subDeviceId, z.string())
+				check(disable, z.boolean())
 
-				const access = await PeripheralDeviceContentWriteAccess.peripheralDevice(this, peripheralDeviceId)
-				return ServerPeripheralDeviceAPI.disableSubDevice(access, subDeviceId, disable)
+				assertConnectionHasOneOfPermissions(
+					this.connection,
+					...PERMISSIONS_FOR_PLAYOUT_USERACTION,
+					...PERMISSIONS_FOR_SYSTEM_ACTION
+				)
+
+				return ServerPeripheralDeviceAPI.disableSubDevice(peripheralDeviceId, subDeviceId, disable)
 			}
 		)
 	}
@@ -1211,8 +1266,8 @@ class ServerUserActionAPI
 			eventTime,
 			playlistId,
 			() => {
-				check(playlistId, String)
-				check(rundownId, String)
+				check(playlistId, z.string())
+				check(rundownId, z.string())
 			},
 			StudioJobs.ActivateAdlibTesting,
 			{
@@ -1222,12 +1277,102 @@ class ServerUserActionAPI
 		)
 	}
 
+	async setQuickLoopStart(
+		userEvent: string,
+		eventTime: number,
+		playlistId: RundownPlaylistId,
+		marker: QuickLoopMarker | null
+	): Promise<ClientAPI.ClientResponse<void>> {
+		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
+			this,
+			userEvent,
+			eventTime,
+			playlistId,
+			() => {
+				check(playlistId, z.string())
+			},
+			StudioJobs.SetQuickLoopMarker,
+			{
+				playlistId,
+				marker,
+				type: 'start',
+			}
+		)
+	}
+
+	async setQuickLoopEnd(
+		userEvent: string,
+		eventTime: number,
+		playlistId: RundownPlaylistId,
+		marker: QuickLoopMarker | null
+	): Promise<ClientAPI.ClientResponse<void>> {
+		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
+			this,
+			userEvent,
+			eventTime,
+			playlistId,
+			() => {
+				check(playlistId, z.string())
+			},
+			StudioJobs.SetQuickLoopMarker,
+			{
+				playlistId,
+				marker,
+				type: 'end',
+			}
+		)
+	}
+
+	async executeUserChangeOperation(
+		userEvent: string,
+		eventTime: Time,
+		rundownId: RundownId,
+		operationTarget: UserOperationTarget,
+		operation: { id: string; [key: string]: any }
+	): Promise<ClientAPI.ClientResponse<void>> {
+		return ServerClientAPI.runUserActionInLog(
+			this,
+			userEvent,
+			eventTime,
+			'executeUserChangeOperation',
+			{ operationTarget, operation },
+			async () => {
+				const rundown = await checkAccessToRundown(this.connection, rundownId)
+
+				await runIngestOperation(rundown.studioId, IngestJobs.UserExecuteChangeOperation, {
+					rundownExternalId: rundown.externalId,
+					operationTarget,
+					operation,
+				})
+			}
+		)
+	}
+	async clearQuickLoop(
+		userEvent: string,
+		eventTime: number,
+		playlistId: RundownPlaylistId
+	): Promise<ClientAPI.ClientResponse<void>> {
+		return ServerClientAPI.runUserActionInLogForPlaylistOnWorker(
+			this,
+			userEvent,
+			eventTime,
+			playlistId,
+			() => {
+				check(playlistId, z.string())
+			},
+			StudioJobs.ClearQuickLoopMarkers,
+			{
+				playlistId,
+			}
+		)
+	}
+
 	async createAdlibTestingRundownForShowStyleVariant(
 		userEvent: string,
 		eventTime: number,
 		studioId: StudioId,
 		showStyleVariantId: ShowStyleVariantId
-	) {
+	): Promise<ClientAPI.ClientResponse<RundownId>> {
 		const jobName = IngestJobs.CreateAdlibTestingRundownForShowStyleVariant
 		return ServerClientAPI.runUserActionInLog(
 			this,
@@ -1236,10 +1381,11 @@ class ServerUserActionAPI
 			`worker.ingest.${jobName}`,
 			{ showStyleVariantId },
 			async (_credentials) => {
-				check(studioId, String)
-				check(showStyleVariantId, String)
+				check(studioId, z.string())
+				check(showStyleVariantId, z.string())
 
-				// TODO - checkAccessToStudio?
+				assertConnectionHasOneOfPermissions(this.connection, ...PERMISSIONS_FOR_PLAYOUT_USERACTION)
+
 				return runIngestOperation(studioId, IngestJobs.CreateAdlibTestingRundownForShowStyleVariant, {
 					showStyleVariantId,
 				})
@@ -1247,4 +1393,3 @@ class ServerUserActionAPI
 		)
 	}
 }
-registerClassToMeteorMethods(UserActionAPIMethods, ServerUserActionAPI, false)

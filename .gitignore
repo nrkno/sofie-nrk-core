@@ -1,9 +1,11 @@
 _gsdata_/
 settings.json
+.env
 meteor/.coverage/
 node_modules
 **/yarn-error.log
 scratch/
+meteor-settings.json
 
 # Exclude JetBrains IDE specific files
 .idea
@@ -13,6 +15,8 @@ scratch/
 .github/workflows/deps.yaml
 .github/workflows/forkSync.yml
 .github/workflows/forkSynk.yml
+
+**/*.tsbuildinfo
 
 .pnp.*
 .yarn/*

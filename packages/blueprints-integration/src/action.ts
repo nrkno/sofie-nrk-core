@@ -1,9 +1,10 @@
-import { ExpectedPackage } from './package'
-import { SomeContent } from './content'
-import { ITranslatableMessage } from './translations'
-import { ExpectedPlayoutItemGeneric } from './documents'
+import type { ExpectedPackage } from './package.js'
+import type { SomeContent } from './content.js'
+import type { ITranslatableMessage } from './translations.js'
+import { ExpectedPlayoutItemGeneric } from './documents/index.js'
 import { JSONBlob } from '@sofie-automation/shared-lib/dist/lib/JSONBlob'
 import { JSONSchema } from '@sofie-automation/shared-lib/dist/lib/JSONSchemaTypes'
+import type { UserEditingDefinition, UserEditingProperties } from './index.js'
 
 export interface ActionUserData {
 	[key: string]: any
@@ -41,6 +42,8 @@ export interface IBlueprintActionManifestDisplay {
 	uniquenessId?: string
 	/** When not playing, display in the UI as playing, and vice versa. Useful for Adlibs that toggle something off when taken */
 	invertOnAirState?: boolean
+	/** Hide this adLib from the shelf - it is accessible only through the API */
+	hidden?: boolean
 }
 
 export interface IBlueprintActionManifestDisplayContent extends IBlueprintActionManifestDisplay {
@@ -62,6 +65,11 @@ export interface IBlueprintActionTriggerMode {
 		label: ITranslatableMessage
 		/** An optional, longer description that will not be immediately visible to the user */
 		description?: ITranslatableMessage
+		/** An icon to be displayed to the user next to the label
+		 *
+		 * This can either be a relative URL to an image in the Blueprints assets or a `data:` URL
+		 */
+		icon?: string
 	}
 }
 
@@ -90,6 +98,9 @@ export interface IBlueprintActionManifest<TPrivateData = unknown, TPublicData = 
 	 */
 	partId?: string
 
+	/** When something bad has happened, we can mark the action as invalid, which will prevent the user from executing it */
+	invalid?: boolean
+
 	/**
 	 * Set to true if ad-lib action should can be used in any showstyle-variant. Default: false = only used by the current variant.
 	 * This is useful for actions in Buckets, so that they can be easily shared between rundowns.
@@ -99,8 +110,8 @@ export interface IBlueprintActionManifest<TPrivateData = unknown, TPublicData = 
 	allVariants?: boolean
 
 	userDataManifest: {
-		/** List of editable fields in userData, to allow for customising */
-		editableFields?: JSONBlob<JSONSchema>
+		/** Schema for the executeAdLib adLibOptions property to allow for customising */
+		optionsSchema?: JSONBlob<JSONSchema>
 		// Potential future properties:
 		// /** Execute the action after userData is changed. If not present ActionExecuteAfterChanged.none is assumed. */
 		// executeOnUserDataChanged?: ActionExecuteAfterChanged
@@ -118,4 +129,15 @@ export interface IBlueprintActionManifest<TPrivateData = unknown, TPublicData = 
 	 * An array of which Packages this Action uses. This is used by a Package Manager to ensure that the Package is in place for playout.
 	 */
 	expectedPackages?: ExpectedPackage.Any[]
+
+	/**
+	 * User editing definitions for this action
+	 */
+	userEditOperations?: UserEditingDefinition[]
+
+	/**
+	 * Properties that are user editable from the properties panel in the Sofie UI, if the user saves changes to these
+	 * it will trigger a user edit operation of type DefaultUserOperationsTypes.UPDATE_PROPS
+	 */
+	userEditProperties?: UserEditingProperties
 }

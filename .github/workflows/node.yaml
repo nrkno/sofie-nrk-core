@@ -11,33 +11,48 @@ on:
 
 permissions:
   contents: read
+<<<<<<< HEAD
   packages: write
+=======
+>>>>>>> nrk/release/26.09
 
 jobs:
   lint-core:
     name: Typecheck and Lint Core
     runs-on: ubuntu-latest
-    continue-on-error: true
     timeout-minutes: 15
     steps:
+<<<<<<< HEAD
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Use Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+=======
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Use Node.js
+        uses: actions/setup-node@v7
+>>>>>>> nrk/release/26.09
         with:
           node-version-file: ".node-version"
-      - uses: ./.github/actions/setup-meteor
       - name: restore node_modules
+<<<<<<< HEAD
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+=======
+        uses: actions/cache@v6
+>>>>>>> nrk/release/26.09
         with:
           path: |
             node_modules
             meteor/node_modules
             packages/node_modules
-          key: ${{ runner.os }}-${{ hashFiles('yarn.lock', 'meteor/yarn.lock', 'meteor/.meteor/release', 'packages/yarn.lock') }}
+          key: ${{ runner.os }}-${{ hashFiles('yarn.lock', 'meteor/yarn.lock', 'packages/yarn.lock') }}
       - name: Prepare Environment
         run: |
+          corepack enable
+
           yarn config set cacheFolder /home/runner/lint-core-cache
           yarn
           yarn build:packages
@@ -46,11 +61,7 @@ jobs:
       - name: Run typecheck and linter
         run: |
           cd meteor
-
-          # setup zodern:types. No linters are setup, so this simply installs the packages
-          meteor lint
-
-          meteor yarn ci:lint
+          yarn ci:lint
         env:
           CI: true
 
@@ -59,24 +70,37 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
+<<<<<<< HEAD
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Use Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+=======
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Use Node.js
+        uses: actions/setup-node@v7
+>>>>>>> nrk/release/26.09
         with:
           node-version-file: ".node-version"
-      - uses: ./.github/actions/setup-meteor
       - name: restore node_modules
+<<<<<<< HEAD
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+=======
+        uses: actions/cache@v6
+>>>>>>> nrk/release/26.09
         with:
           path: |
             node_modules
             meteor/node_modules
             packages/node_modules
-          key: ${{ runner.os }}-${{ hashFiles('yarn.lock', 'meteor/yarn.lock', 'meteor/.meteor/release', 'packages/yarn.lock') }}
+          key: ${{ runner.os }}-${{ hashFiles('yarn.lock', 'meteor/yarn.lock', 'packages/yarn.lock') }}
       - name: Prepare Environment
         run: |
+          corepack enable
+
           yarn config set cacheFolder /home/runner/test-core-cache
           yarn
           yarn build:packages
@@ -85,16 +109,16 @@ jobs:
       - name: Run Tests
         run: |
           cd meteor
-
-          # setup zodern:types. No linters are setup, so this simply installs the packages
-          meteor lint
-
-          NODE_OPTIONS="--max-old-space-size=6144" meteor yarn unitci --force-exit
+          NODE_OPTIONS="--max-old-space-size=6144" yarn unitci --force-exit
         env:
           CI: true
       - name: Send coverage
         if: ((github.event_name == 'pull_request') && (!startsWith(github.head_ref, 'release'))) || ((github.event_name == 'push') && (!startsWith(github.ref_name, 'release')))
+<<<<<<< HEAD
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+=======
+        uses: codecov/codecov-action@v7
+>>>>>>> nrk/release/26.09
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
@@ -102,13 +126,99 @@ jobs:
     name: Build Core and publish docker image
     runs-on: ubuntu-latest
     timeout-minutes: 30
+
+    permissions:
+      contents: read
+      packages: write
+
     steps:
+<<<<<<< HEAD
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+=======
+      - uses: actions/checkout@v7
+>>>>>>> nrk/release/26.09
         with:
           persist-credentials: false
+      - name: Use Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: ".node-version"
+      - name: restore node_modules
+        uses: actions/cache@v6
+        with:
+          path: |
+            node_modules
+            meteor/node_modules
+            packages/node_modules
+          key: ${{ runner.os }}-${{ hashFiles('yarn.lock', 'meteor/yarn.lock', 'packages/yarn.lock') }}
+      - name: Prepare Environment
+        run: |
+          corepack enable
+
+          yarn install
+      - name: Build libs
+        run: |
+          yarn build:packages
+      - name: Build webui
+        run: |
+          cd packages/webui
+          yarn build
+          rm -Rf dist/dev # Remove some dev only assets
+      - name: Persist Built Version information
+        run: |
+          cd meteor
+          yarn inject-git-hash
+      - name: Purge dev-dependencies
+        # Everything is built by this point, so the build tooling does not need to ship in the image
+        run: |
+          cd packages
+          yarn workspaces focus --production \
+            @sofie-automation/blueprints-integration \
+            @sofie-automation/corelib \
+            @sofie-automation/job-worker \
+            @sofie-automation/meteor-lib \
+            @sofie-automation/shared-lib
+          cd ../meteor
+          yarn workspaces focus --production
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      # Check how the image should be built and pushed
+      - name: Check if push to GHCR is enabled
+        id: check-ghcr
+        env:
+          GHCR_ENABLED: ${{ secrets.GHCR_ENABLED }}
+        run: |
+          echo "Enable push to GHCR: ${{ env.GHCR_ENABLED != '' }}"
+          echo "enable=${{ env.GHCR_ENABLED != '' }}" >> $GITHUB_OUTPUT
+      - name: Check if there is access to repo secrets (needed for build and push)
+        if: steps.check-ghcr.outputs.enable == 'true'
+        id: check-build-and-push
+        env:
+          SECRET_ACCESS: ${{ secrets.DOCKERHUB_IMAGE_PREFIX }}
+        run: |
+          echo "Enable build and push: ${{ env.SECRET_ACCESS != '' }}"
+          echo "enable=${{ env.SECRET_ACCESS != '' }}" >> $GITHUB_OUTPUT
+
+      # No-push build if no destination
+      - name: Build without push
+        if: steps.check-build-and-push.outputs.enable != 'true'
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./meteor/Dockerfile.circle
+          push: false
+          provenance: false
+
+      # GHCR build
       - name: Get the Docker tag for GHCR
         id: ghcr-tag
+<<<<<<< HEAD
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+=======
+        if: steps.check-build-and-push.outputs.enable == 'true'
+        uses: docker/metadata-action@v6
+>>>>>>> nrk/release/26.09
         with:
           images: |
             ghcr.io/${{ github.repository }}-server-core
@@ -117,6 +227,7 @@ jobs:
             type=ref,event=branch
             type=ref,event=tag
             type=raw,value=latest,enable={{is_default_branch}}
+<<<<<<< HEAD
       - name: Use Node.js
         if: steps.ghcr-tag.outputs.tags != 0
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -162,13 +273,23 @@ jobs:
       - name: Login to GitHub Container Registry
         if: steps.ghcr-tag.outputs.tags != 0
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+=======
+      - name: Login to GitHub Container Registry
+        if: steps.check-build-and-push.outputs.enable == 'true' && steps.check-ghcr.outputs.enable == 'true'
+        uses: docker/login-action@v4
+>>>>>>> nrk/release/26.09
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push to GHCR
+<<<<<<< HEAD
         if: steps.ghcr-tag.outputs.tags != 0
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+=======
+        if: steps.check-build-and-push.outputs.enable == 'true' && steps.check-ghcr.outputs.enable == 'true' && steps.ghcr-tag.outputs.tags != 0
+        uses: docker/build-push-action@v7
+>>>>>>> nrk/release/26.09
         with:
           context: .
           file: ./meteor/Dockerfile.circle
@@ -188,13 +309,77 @@ jobs:
       matrix:
         gateway-name: [playout-gateway, mos-gateway, "live-status-gateway"]
 
+    permissions:
+      contents: read
+      packages: write
+
     steps:
+<<<<<<< HEAD
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+=======
+      - uses: actions/checkout@v7
+>>>>>>> nrk/release/26.09
         with:
           persist-credentials: false
+
+      - name: Use Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: ".node-version"
+      - name: restore node_modules
+        uses: actions/cache@v6
+        with:
+          path: |
+            packages/node_modules
+          key: ${{ runner.os }}-${{ hashFiles('packages/yarn.lock') }}
+      - name: Build
+        run: |
+          corepack enable
+
+          cd packages
+          yarn install
+          yarn build:single ${{ matrix.gateway-name }}/tsconfig.build.json
+          yarn run pinst --disable
+          yarn workspaces focus ${{ matrix.gateway-name }} --production
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      # Check how the image should be built and pushed
+      - name: Check if push to GHCR is enabled
+        id: check-ghcr
+        env:
+          GHCR_ENABLED: ${{ secrets.GHCR_ENABLED }}
+        run: |
+          echo "Enable push to GHCR: ${{ env.GHCR_ENABLED != '' }}"
+          echo "enable=${{ env.GHCR_ENABLED != '' }}" >> $GITHUB_OUTPUT
+      - name: Check if there is access to repo secrets (needed for build and push)
+        if: steps.check-ghcr.outputs.enable == 'true'
+        id: check-build-and-push
+        env:
+          SECRET_ACCESS: ${{ secrets.DOCKERHUB_IMAGE_PREFIX }}
+        run: |
+          echo "Enable build and push: ${{ env.SECRET_ACCESS != '' }}"
+          echo "enable=${{ env.SECRET_ACCESS != '' }}" >> $GITHUB_OUTPUT
+
+      # No-push build if no destination
+      - name: Build without push
+        if: steps.check-build-and-push.outputs.enable != 'true'
+        uses: docker/build-push-action@v7
+        with:
+          context: ./packages
+          file: ./packages/${{ matrix.gateway-name }}/Dockerfile.circle
+          push: false
+          provenance: false
+
+      # GHCR build
       - name: Get the Docker tag for GHCR
         id: ghcr-tag
+<<<<<<< HEAD
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+=======
+        if: steps.check-build-and-push.outputs.enable == 'true'
+        uses: docker/metadata-action@v6
+>>>>>>> nrk/release/26.09
         with:
           images: |
             ghcr.io/${{ github.repository }}-${{ matrix.gateway-name }}
@@ -203,6 +388,7 @@ jobs:
             type=ref,event=branch
             type=ref,event=tag
             type=raw,value=latest,enable={{is_default_branch}}
+<<<<<<< HEAD
       - name: Use Node.js
         if: steps.ghcr-tag.outputs.tags != 0
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -229,13 +415,23 @@ jobs:
       - name: Login to GitHub Container Registry
         if: steps.ghcr-tag.outputs.tags != 0
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+=======
+      - name: Login to GitHub Container Registry
+        if: steps.check-build-and-push.outputs.enable == 'true' && steps.check-ghcr.outputs.enable == 'true'
+        uses: docker/login-action@v4
+>>>>>>> nrk/release/26.09
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push to GHCR
+<<<<<<< HEAD
         if: steps.ghcr-tag.outputs.tags != 0
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+=======
+        if: steps.check-build-and-push.outputs.enable == 'true' && steps.check-ghcr.outputs.enable == 'true' && steps.ghcr-tag.outputs.tags != 0
+        uses: docker/build-push-action@v7
+>>>>>>> nrk/release/26.09
         with:
           context: ./packages
           file: ./packages/${{ matrix.gateway-name }}/Dockerfile.circle
@@ -245,26 +441,12 @@ jobs:
           tags: "${{ steps.ghcr-tag.outputs.tags }}"
 
   lint-packages:
-    name: Lint Package
+    name: Lint Packages
     runs-on: ubuntu-latest
-    continue-on-error: true
     timeout-minutes: 15
 
-    strategy:
-      fail-fast: false
-      matrix:
-        package-name:
-          - blueprints-integration
-          - server-core-integration
-          - playout-gateway
-          - mos-gateway
-          - corelib
-          - shared-lib
-          - job-worker
-          - openapi
-          - live-status-gateway
-
     steps:
+<<<<<<< HEAD
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -274,27 +456,42 @@ jobs:
           node-version-file: ".node-version"
       - name: restore node_modules
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+=======
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Use Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: ".node-version"
+      - name: restore node_modules
+        uses: actions/cache@v6
+>>>>>>> nrk/release/26.09
         with:
           path: |
+            node_modules
+            meteor/node_modules
             packages/node_modules
-          key: ${{ runner.os }}-${{ hashFiles('packages/yarn.lock') }}
+          key: ${{ runner.os }}-${{ hashFiles('yarn.lock', 'meteor/yarn.lock', 'packages/yarn.lock') }}
       - name: Prepare Environment
         run: |
-          cd packages
-          yarn config set cacheFolder /home/runner/${{ matrix.package-name }}-cache
+          corepack enable
+
+          yarn config set cacheFolder /home/runner/publish-docs-cache
           yarn install
-          yarn lerna run --scope \*\*/${{ matrix.package-name }} --include-dependencies --stream build
+          cd packages
+          yarn build:all
         env:
           CI: true
       - name: Run typecheck and linter
         run: |
-          cd packages/${{ matrix.package-name }}
+          cd packages
           yarn lint
         env:
           CI: true
 
   test-packages:
-    name: Test Package
+    name: Test Package ${{ matrix.package-name }} (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -305,31 +502,38 @@ jobs:
           - blueprints-integration
           - server-core-integration
           - shared-lib
-        node-version: [14.x, 16.x, 18.x, 20.x]
+          # - live-status-gateway-api # no tests yet
+          - openapi
+        node-version: [22.x]
         include:
           # include additional configs, to run certain packages only for a certain version of node
-          - node-version: 14.x
+          - node-version: 22.x
             package-name: corelib
             send-coverage: true
-          - node-version: 14.x
+          - node-version: 22.x
             package-name: job-worker
             send-coverage: true
-          # manual openapi to avoid testing for 14.x
-          - node-version: 16.x
-            package-name: openapi
-          - node-version: 18.x
-            package-name: openapi
-          - node-version: 20.x
-            package-name: openapi
-          # No tests for the gateways yet
-          # - node-version: 18.x
+          # No tests for some gateways yet
+          # - node-version: 22.x
           #   package-name: playout-gateway
-          # - node-version: 18.x
-          #   package-name: mos-gateway
-          - node-version: 18.x
+          #   send-coverage: true
+          - node-version: 22.x
+            package-name: mos-gateway
+            send-coverage: true
+          - node-version: 22.x
             package-name: live-status-gateway
+            send-coverage: true
+          - node-version: 22.x
+            package-name: webui
+            send-coverage: true
+            tsconfig-name: tsconfig.json
+          # manual meteor-lib as it only needs a couple of versions
+          - node-version: 22.x
+            package-name: meteor-lib
+            send-coverage: true
 
     steps:
+<<<<<<< HEAD
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -339,16 +543,34 @@ jobs:
           node-version: ${{ matrix.node-version }}
       - name: restore node_modules
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+=======
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: restore node_modules
+        uses: actions/cache@v6
+>>>>>>> nrk/release/26.09
         with:
           path: |
             packages/node_modules
           key: ${{ runner.os }}-${{ hashFiles('packages/yarn.lock') }}
       - name: Prepare Environment
         run: |
+          corepack enable
+
           cd packages
           yarn config set cacheFolder /home/runner/test-packages-cache
-          node is_node_14.js && yarn lerna run --ignore openapi install || yarn install
-          yarn lerna run --scope \*\*/${{ matrix.package-name }} --include-dependencies --stream build
+          yarn install
+
+          if [ "${{ matrix.package-name }}" = "openapi" ]; then
+            yarn workspace @sofie-automation/openapi run build
+          else
+            yarn build:single ${{ matrix.package-name }}/${{ matrix.tsconfig-name || 'tsconfig.build.json' }}
+          fi
         env:
           CI: true
       - name: Run tests
@@ -358,8 +580,13 @@ jobs:
         env:
           CI: true
       - name: Send coverage
+<<<<<<< HEAD
         if: (matrix.node-version == '16.x' || matrix.send-coverage == true) && ((github.event_name == 'pull_request') && ((!startsWith(github.head_ref, 'release'))) || ((github.event_name == 'push') && (!startsWith(github.ref_name, 'release'))))
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+=======
+        if: (matrix.node-version == '22.x' || matrix.send-coverage == true) && (((github.event_name == 'pull_request') && (!startsWith(github.head_ref, 'release'))) || ((github.event_name == 'push') && (!startsWith(github.ref_name, 'release'))))
+        uses: codecov/codecov-action@v7
+>>>>>>> nrk/release/26.09
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
@@ -368,25 +595,37 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+<<<<<<< HEAD
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Use Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+=======
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Use Node.js
+        uses: actions/setup-node@v7
+>>>>>>> nrk/release/26.09
         with:
           node-version-file: ".node-version"
       - name: Prepare Environment
         run: |
+          corepack enable
+
           cd packages
           yarn
         env:
           CI: true
       - name: Run generator
         run: |
-          cd packages/live-status-gateway
+          cd packages/live-status-gateway-api
 
           yarn gendocs
           yarn genserver
+
+          yarn generate-schema-types
         env:
           CI: true
 
@@ -395,15 +634,25 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+<<<<<<< HEAD
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Use Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+=======
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Use Node.js
+        uses: actions/setup-node@v7
+>>>>>>> nrk/release/26.09
         with:
           node-version-file: ".node-version"
       - name: Prepare Environment
         run: |
+          corepack enable
+
           cd packages
           yarn
         env:
@@ -422,13 +671,14 @@ jobs:
         env:
           CI: true
 
-  publish-docs:
-    name: Publish Docs
+  build-docs:
+    name: Build Docs
     runs-on: ubuntu-latest
-    continue-on-error: true
     timeout-minutes: 15
 
+    # This is just to ensure the docs build, another job performs the build & publish
     steps:
+<<<<<<< HEAD
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -438,16 +688,29 @@ jobs:
           node-version-file: ".node-version"
       - name: restore node_modules
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+=======
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Use Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: ".node-version"
+      - name: restore node_modules
+        uses: actions/cache@v6
+>>>>>>> nrk/release/26.09
         with:
           path: |
             packages/node_modules
           key: ${{ runner.os }}-${{ hashFiles('packages/yarn.lock') }}
       - name: Prepare Environment
         run: |
-          cd packages
+          corepack enable
+
           yarn config set cacheFolder /home/runner/publish-docs-cache
           yarn install
-          yarn build
+          cd packages
+          yarn build:all
         env:
           CI: true
       - name: Run docusaurus
@@ -463,6 +726,7 @@ jobs:
           cp docs documentation/build/typedoc -R
         env:
           CI: true
+<<<<<<< HEAD
       - name: Publish
         if: github.ref == 'refs/heads/master' # always publish for just the master branch
         uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4.1.0
@@ -552,31 +816,45 @@ jobs:
           echo "**Published:** $NEW_VERSION" >> $GITHUB_STEP_SUMMARY
         env:
           CI: true
+=======
+>>>>>>> nrk/release/26.09
 
   check-for-multiple-library-versions:
     name: Check for multiple library versions
     runs-on: ubuntu-latest
-    continue-on-error: true
     timeout-minutes: 15
     steps:
+<<<<<<< HEAD
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Use Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+=======
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Use Node.js
+        uses: actions/setup-node@v7
+>>>>>>> nrk/release/26.09
         with:
           node-version-file: ".node-version"
-      - uses: ./.github/actions/setup-meteor
       - name: restore node_modules
+<<<<<<< HEAD
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+=======
+        uses: actions/cache@v6
+>>>>>>> nrk/release/26.09
         with:
           path: |
             node_modules
             meteor/node_modules
             packages/node_modules
-          key: ${{ runner.os }}-${{ hashFiles('yarn.lock', 'meteor/yarn.lock', 'meteor/.meteor/release', 'packages/yarn.lock') }}
+          key: ${{ runner.os }}-${{ hashFiles('yarn.lock', 'meteor/yarn.lock', 'packages/yarn.lock') }}
       - name: Prepare Environment
         run: |
+          corepack enable
+
           yarn config set cacheFolder /home/runner/check-for-multiple-library-versions-cache
           yarn
         env:

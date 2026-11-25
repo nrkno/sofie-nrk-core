@@ -1,9 +1,10 @@
 import { PieceLifespan } from '@sofie-automation/shared-lib/dist/core/model/Rundown'
-import type { PieceAbSessionInfo } from '../abPlayback'
-import type { ActionUserData } from '../action'
-import type { SomeContent, WithTimeline } from '../content'
-import type { ExpectedPackage } from '../package'
-import type { ExpectedPlayoutItemGeneric } from './expectedPlayoutItem'
+import type { UserEditingDefinition, UserEditingProperties } from '../userEditing.js'
+import type { PieceAbSessionInfo } from '../abPlayback.js'
+import type { ActionUserData } from '../action.js'
+import type { SomeContent, WithTimeline } from '../content.js'
+import type { ExpectedPackage } from '../package.js'
+import type { ExpectedPlayoutItemGeneric } from './expectedPlayoutItem.js'
 
 export { PieceLifespan }
 
@@ -15,11 +16,13 @@ export interface IBlueprintDirectPlayBase {
 	type: IBlueprintDirectPlayType
 }
 export interface IBlueprintDirectPlayAdLibPiece extends IBlueprintDirectPlayBase {
+	/** Copy the Piece and insert it dynamically at the playhead, as if it were an adlib */
 	type: IBlueprintDirectPlayType.AdLibPiece
 }
 export interface IBlueprintDirectPlayAdLibAction extends IBlueprintDirectPlayBase {
+	/** When direct playing a Piece execute a specified AdLib Action */
 	type: IBlueprintDirectPlayType.AdLibAction
-	/** Id of the action */
+	/** Id of the action to be executed when user requests to direct play a Piece */
 	actionId: string
 	/** Properties defining the action behaviour */
 	userData: ActionUserData
@@ -34,6 +37,7 @@ export interface IBlueprintPieceGeneric<TPrivateData = unknown, TPublicData = un
 	externalId: string
 	/** User-presentable name for the timeline item */
 	name: string
+
 	/** Arbitraty data storage for internal use in the blueprints */
 	privateData?: TPrivateData
 	/** Arbitraty data relevant for other systems, made available to them through APIs */
@@ -68,7 +72,7 @@ export interface IBlueprintPieceGeneric<TPrivateData = unknown, TPublicData = un
 	/** User-defined tags that can be used for filtering adlibs in the shelf and identifying pieces by actions */
 	tags?: string[]
 
-	/** Allow this part to be direct played (eg, by double clicking in the rundown timeline view) */
+	/** Allow this piece to be direct played (eg, by double clicking in the rundown timeline view) */
 	allowDirectPlay?: IBlueprintDirectPlay
 
 	/**
@@ -84,4 +88,15 @@ export interface IBlueprintPieceGeneric<TPrivateData = unknown, TPublicData = un
 	 * AB playback sessions needed for this Piece
 	 */
 	abSessions?: PieceAbSessionInfo[]
+
+	/**
+	 * User editing definitions for this piece
+	 */
+	userEditOperations?: UserEditingDefinition[]
+
+	/**
+	 * Properties that are user editable from the properties panel in the Sofie UI, if the user saves changes to these
+	 * it will trigger a user edit operation of type DefaultUserOperationEditProperties
+	 */
+	userEditProperties?: UserEditingProperties
 }

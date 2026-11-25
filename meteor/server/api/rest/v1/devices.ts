@@ -1,26 +1,27 @@
+import { z } from 'zod'
 import { protectString, unprotectString } from '@sofie-automation/corelib/dist/protectedString'
 import {
 	APIPeripheralDevice,
 	DevicesRestAPI,
 	PeripheralDeviceActionRestart,
 	PeripheralDeviceActionType,
-} from '../../../../lib/api/rest/v1'
+} from '../../../lib/rest/v1'
 import { logger } from '../../../logging'
 import { APIFactory, APIRegisterHook, ServerAPIContext } from './types'
 import { PeripheralDeviceId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { check } from '../../../../lib/check'
-import { Meteor } from 'meteor/meteor'
-import { ClientAPI } from '../../../../lib/api/client'
+import { check } from '../../../lib/check'
+import { ClientAPI } from '@sofie-automation/meteor-lib/dist/api/client'
 import { PeripheralDevices } from '../../../collections'
 import { PeripheralDevice } from '@sofie-automation/corelib/dist/dataModel/PeripheralDevice'
 import { UserError, UserErrorMessage } from '@sofie-automation/corelib/dist/error'
 import { APIPeripheralDeviceFrom } from './typeConversion'
 import { executePeripheralDeviceFunction } from '../../peripheralDevice/executeFunction'
 import { assertNever } from '@sofie-automation/corelib/dist/lib'
+import type { DDPClientConnection } from '../../../ddp-server/types'
 
 class DevicesServerAPI implements DevicesRestAPI {
 	async getPeripheralDevices(
-		_connection: Meteor.Connection,
+		_connection: DDPClientConnection,
 		_event: string
 	): Promise<ClientAPI.ClientResponse<Array<{ id: string }>>> {
 		const peripheralDevices = (await PeripheralDevices.findFetchAsync({}, { projection: { _id: 1 } })) as Array<
@@ -30,7 +31,7 @@ class DevicesServerAPI implements DevicesRestAPI {
 	}
 
 	async getPeripheralDevice(
-		_connection: Meteor.Connection,
+		_connection: DDPClientConnection,
 		_event: string,
 		deviceId: PeripheralDeviceId
 	): Promise<ClientAPI.ClientResponse<APIPeripheralDevice>> {
@@ -39,15 +40,16 @@ class DevicesServerAPI implements DevicesRestAPI {
 			return ClientAPI.responseError(
 				UserError.from(
 					new Error(`Device ${deviceId} does not exist`),
-					UserErrorMessage.PeripheralDeviceNotFound
-				),
-				404
+					UserErrorMessage.PeripheralDeviceNotFound,
+					undefined,
+					404
+				)
 			)
 		return ClientAPI.responseSuccess(APIPeripheralDeviceFrom(device))
 	}
 
 	async peripheralDeviceAction(
-		_connection: Meteor.Connection,
+		_connection: DDPClientConnection,
 		_event: string,
 		deviceId: PeripheralDeviceId,
 		action: PeripheralDeviceActionRestart
@@ -57,9 +59,10 @@ class DevicesServerAPI implements DevicesRestAPI {
 			return ClientAPI.responseError(
 				UserError.from(
 					new Error(`Device ${deviceId} does not exist`),
-					UserErrorMessage.PeripheralDeviceNotFound
-				),
-				404
+					UserErrorMessage.PeripheralDeviceNotFound,
+					undefined,
+					404
+				)
 			)
 
 		switch (action.type) {
@@ -104,7 +107,7 @@ export function registerRoutes(registerRoute: APIRegisterHook<DevicesRestAPI>): 
 			const deviceId = protectString<PeripheralDeviceId>(params.deviceId)
 			logger.info(`API GET: peripheral device ${deviceId}`)
 
-			check(deviceId, String)
+			check(deviceId, z.string())
 			return await serverAPI.getPeripheralDevice(connection, event, deviceId)
 		}
 	)
@@ -118,8 +121,8 @@ export function registerRoutes(registerRoute: APIRegisterHook<DevicesRestAPI>): 
 			const deviceId = protectString<PeripheralDeviceId>(params.deviceId)
 			logger.info(`API POST: peripheral device ${deviceId} action ${body.action}`)
 
-			check(deviceId, String)
-			check(body.action, String)
+			check(deviceId, z.string())
+			check(body.action, z.string())
 			const peripheralAction = { type: body.action as PeripheralDeviceActionType }
 			return await serverAPI.peripheralDeviceAction(connection, event, deviceId, peripheralAction)
 		}

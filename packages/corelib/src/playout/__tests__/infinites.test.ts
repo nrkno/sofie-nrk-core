@@ -1,14 +1,14 @@
 import { IBlueprintPieceType, PieceLifespan, PlaylistTimingType } from '@sofie-automation/blueprints-integration'
-import { DBPartInstance } from '../../dataModel/PartInstance'
-import { PartId, PartInstanceId, RundownId, RundownPlaylistId } from '../../dataModel/Ids'
-import { DBPart } from '../../dataModel/Part'
-import { EmptyPieceTimelineObjectsBlob, Piece } from '../../dataModel/Piece'
-import { PieceInstance, PieceInstancePiece } from '../../dataModel/PieceInstance'
-import { Rundown, DBRundown } from '../../dataModel/Rundown'
-import { literal } from '../../lib'
-import { protectString } from '../../protectedString'
-import { getPlayheadTrackingInfinitesForPart } from '../infinites'
-import { DBSegment, SegmentOrphanedReason } from '../../dataModel/Segment'
+import { DBPartInstance } from '../../dataModel/PartInstance.js'
+import { PartId, PartInstanceId, RundownId, RundownPlaylistId } from '../../dataModel/Ids.js'
+import { DBPart } from '../../dataModel/Part.js'
+import { EmptyPieceTimelineObjectsBlob, Piece } from '../../dataModel/Piece.js'
+import { PieceInstance, PieceInstancePiece } from '../../dataModel/PieceInstance.js'
+import { Rundown, DBRundown } from '../../dataModel/Rundown.js'
+import { literal } from '../../lib.js'
+import { protectString } from '../../protectedString.js'
+import { getPlayheadTrackingInfinitesForPart } from '../infinites.js'
+import { DBSegment, SegmentOrphanedReason } from '../../dataModel/Segment.js'
 
 describe('Infinites', () => {
 	describe('getPlayheadTrackingInfinitesForPart', () => {
@@ -35,6 +35,7 @@ describe('Infinites', () => {
 				segment,
 				newInstanceId,
 				true,
+				false,
 				false
 			)
 			return resolvedInstances.map((p) => ({
@@ -91,7 +92,6 @@ describe('Infinites', () => {
 			return literal<DBRundown>({
 				_id: id,
 				externalId,
-				organizationId: protectString('test'),
 				name,
 				showStyleVariantId: protectString('test-variant'),
 				showStyleBaseId: protectString('test-base'),
@@ -173,6 +173,47 @@ describe('Infinites', () => {
 				},
 				{
 					_id: 'newInstance0_two_p_continue',
+					start: 0,
+				},
+			])
+		})
+		test('piece dynamically converted to infinite should be continued', () => {
+			const playlistId = protectString('playlist0')
+			const rundownId = protectString('rundown0')
+			const segmentId = protectString('segment0')
+			const partId = protectString('part0')
+			const previousPartInstance = { rundownId, segmentId, partId }
+			const previousSegment = { _id: previousPartInstance.segmentId }
+			const previousPartPieces: PieceInstance[] = [
+				{
+					...createPieceInstanceAsInfinite(
+						'one',
+						rundownId,
+						partId,
+						{ start: 0 },
+						'one',
+						PieceLifespan.OutOnRundownEnd
+					),
+					dynamicallyConvertedToInfinite: Date.now(),
+				},
+			]
+			const segment = { _id: segmentId }
+			const part = { rundownId, segmentId }
+			const instanceId = protectString('newInstance0')
+			const rundown = createRundown(rundownId, playlistId, 'Test Rundown', 'rundown0')
+
+			const continuedInstances = runAndTidyResult(
+				previousPartInstance,
+				previousSegment,
+				previousPartPieces,
+				rundown,
+				segment,
+				part,
+				instanceId
+			)
+			expect(continuedInstances).toEqual([
+				{
+					_id: 'newInstance0_one_p_continue',
 					start: 0,
 				},
 			])

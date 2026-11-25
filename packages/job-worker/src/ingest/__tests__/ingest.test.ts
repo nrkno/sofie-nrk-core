@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/unbound-method */
-import '../../__mocks__/_extendJest'
+import '../../__mocks__/_extendJest.js'
 import {
 	IBlueprintPiece,
 	IngestPart,
@@ -20,52 +19,78 @@ import {
 	RundownOrphanedReason,
 	RundownSource,
 } from '@sofie-automation/corelib/dist/dataModel/Rundown'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import { DBSegment, SegmentOrphanedReason } from '@sofie-automation/corelib/dist/dataModel/Segment'
 import { clone, getRandomString, literal } from '@sofie-automation/corelib/dist/lib'
 import { sortPartsInSortedSegments, sortSegmentsInRundowns } from '@sofie-automation/corelib/dist/playout/playlist'
-import { MongoQuery } from '../../db'
-import { MockJobContext, setupDefaultJobEnvironment } from '../../__mocks__/context'
-import { setupMockPeripheralDevice, setupMockShowStyleCompound } from '../../__mocks__/presetCollections'
+import { MongoQuery } from '../../db/index.js'
+import { MockJobContext, setupDefaultJobEnvironment } from '../../__mocks__/context.js'
+import { setupMockPeripheralDevice, setupMockShowStyleCompound } from '../../__mocks__/presetCollections.js'
 import {
 	handleRemovedRundown,
 	handleUpdatedRundown,
 	handleUpdatedRundownMetaData,
 	handleUserRemoveRundown,
-} from '../../ingest/ingestRundownJobs'
-import { handleRemovedPart, handleUpdatedPart } from '../../ingest/ingestPartJobs'
-import { handleRemovedSegment, handleUpdatedSegment, handleUpdatedSegmentRanks } from '../../ingest/ingestSegmentJobs'
-import { handleTakeNextPart } from '../../playout/take'
-import { handleActivateRundownPlaylist } from '../../playout/activePlaylistJobs'
+} from '../../ingest/ingestRundownJobs.js'
+import { handleRemovedPart, handleUpdatedPart } from '../../ingest/ingestPartJobs.js'
+import {
+	handleRemovedSegment,
+	handleUpdatedSegment,
+	handleUpdatedSegmentRanks,
+} from '../../ingest/ingestSegmentJobs.js'
+import { handleTakeNextPart } from '../../playout/take.js'
+import { handleActivateRundownPlaylist } from '../../playout/activePlaylistJobs.js'
 import { PartInstanceId, SegmentId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { getSelectedPartInstances } from '../../playout/__tests__/lib'
+import { getSelectedPartInstances } from '../../playout/__tests__/lib.js'
 import { DBPartInstance } from '@sofie-automation/corelib/dist/dataModel/PartInstance'
-import { runJobWithPlayoutModel } from '../../playout/lock'
+import { runJobWithPlayoutModel } from '../../playout/lock.js'
 import { protectString } from '@sofie-automation/corelib/dist/protectedString'
-import { insertQueuedPartWithPieces } from '../../playout/adlibUtils'
+import { insertQueuedPartWithPieces } from '../../playout/adlibUtils.js'
 import { UserErrorMessage } from '@sofie-automation/corelib/dist/error'
-import { PlayoutPartInstanceModel } from '../../playout/model/PlayoutPartInstanceModel'
+import { PlayoutPartInstanceModel } from '../../playout/model/PlayoutPartInstanceModel.js'
+import { NrcsIngestCacheType } from '@sofie-automation/corelib/dist/dataModel/NrcsIngestDataCache'
+import { wrapGenericIngestJob, wrapGenericIngestJobWithPrecheck } from '../jobWrappers.js'
+import { wrapDefaultObject } from '@sofie-automation/corelib/dist/settings/objectWithOverrides'
+
+const handleRemovedRundownWrapped = wrapGenericIngestJob(handleRemovedRundown)
+const handleUpdatedRundownWrapped = wrapGenericIngestJob(handleUpdatedRundown)
+const handleUpdatedRundownMetaDataWrapped = wrapGenericIngestJob(handleUpdatedRundownMetaData)
+const handleRemovedSegmentWrapped = wrapGenericIngestJob(handleRemovedSegment)
+const handleUpdatedSegmentWrapped = wrapGenericIngestJobWithPrecheck(handleUpdatedSegment)
+const handleUpdatedSegmentRanksWrapped = wrapGenericIngestJob(handleUpdatedSegmentRanks)
+const handleRemovedPartWrapped = wrapGenericIngestJob(handleRemovedPart)
+const handleUpdatedPartWrapped = wrapGenericIngestJob(handleUpdatedPart)
+
+/** Op types recorded by the mock collections that represent a write to the database */
+const WRITE_OP_TYPES = ['insertOne', 'update', 'replace', 'bulkWrite', 'remove', 'removeOne']
+function countWriteOps(collection: { operations: ReadonlyArray<{ type: string }> }): number {
+	return collection.operations.filter((op) => WRITE_OP_TYPES.includes(op.type)).length
+}
 
 const externalId = 'abcde'
 const rundownData1: IngestRundown = {
 	externalId: externalId,
 	name: 'MyMockRundown',
 	type: 'mock',
+	payload: undefined,
 	segments: [
 		{
 			externalId: 'segment0',
 			name: 'Segment 0',
 			rank: 0,
+			payload: undefined,
 			parts: [
 				{
 					externalId: 'part0',
 					name: 'Part 0',
 					rank: 0,
+					payload: undefined,
 				},
 				{
 					externalId: 'part1',
 					name: 'Part 1',
 					rank: 0,
+					payload: undefined,
 				},
 			],
 		},
@@ -73,11 +98,13 @@ const rundownData1: IngestRundown = {
 			externalId: 'segment1',
 			name: 'Segment 1',
 			rank: 0,
+			payload: undefined,
 			parts: [
 				{
 					externalId: 'part2',
 					name: 'Part 2',
 					rank: 0,
+					payload: undefined,
 				},
 			],
 		},
@@ -104,11 +131,11 @@ describe('Test ingest actions for rundowns and segments', () => {
 		const showStyleCompound = await setupMockShowStyleCompound(context)
 
 		context.setStudio({
-			...context.studio,
-			settings: {
+			...context.rawStudio,
+			settingsWithOverrides: wrapDefaultObject({
 				...context.studio.settings,
 				minimumTakeSpan: 0,
-			},
+			}),
 			supportedShowStyleBase: [showStyleCompound._id],
 		})
 
@@ -161,7 +188,7 @@ describe('Test ingest actions for rundowns and segments', () => {
 	async function recreateRundown(data: IngestRundown): Promise<DBRundown> {
 		await context.clearAllRundownsAndPlaylists()
 
-		await handleUpdatedRundown(context, {
+		await handleUpdatedRundownWrapped(context, {
 			rundownExternalId: data.externalId,
 			ingestRundown: data,
 			isCreateAction: true,
@@ -177,6 +204,7 @@ describe('Test ingest actions for rundowns and segments', () => {
 		await expect(context.mockCollections.Rundowns.findOne()).resolves.toBeTruthy()
 
 		await context.mockCollections.Rundowns.update({}, { $set: { orphaned: RundownOrphanedReason.DELETED } })
+		await context.mockCollections.NrcsIngestDataCache.remove({})
 	}
 
 	test('dataRundownCreate', async () => {
@@ -184,7 +212,7 @@ describe('Test ingest actions for rundowns and segments', () => {
 
 		await expect(context.mockCollections.Rundowns.findOne()).resolves.toBeFalsy()
 
-		await handleUpdatedRundown(context, {
+		await handleUpdatedRundownWrapped(context, {
 			rundownExternalId: rundownData1.externalId,
 			ingestRundown: rundownData1,
 			isCreateAction: true,
@@ -219,7 +247,7 @@ describe('Test ingest actions for rundowns and segments', () => {
 			name: 'MyMockRundownRenamed',
 		}
 
-		await handleUpdatedRundown(context, {
+		await handleUpdatedRundownWrapped(context, {
 			rundownExternalId: rundownData.externalId,
 			ingestRundown: rundownData,
 			isCreateAction: false,
@@ -259,16 +287,18 @@ describe('Test ingest actions for rundowns and segments', () => {
 			externalId: 'segment2',
 			name: 'Segment 2',
 			rank: 0,
+			payload: undefined,
 			parts: [
 				{
 					externalId: 'part3',
 					name: 'Part 3',
 					rank: 0,
+					payload: undefined,
 				},
 			],
 		})
 
-		await handleUpdatedRundown(context, {
+		await handleUpdatedRundownWrapped(context, {
 			rundownExternalId: rundownData.externalId,
 			ingestRundown: rundownData,
 			isCreateAction: false,
@@ -303,11 +333,13 @@ describe('Test ingest actions for rundowns and segments', () => {
 			externalId: 'segment2',
 			name: 'Segment 2',
 			rank: 0,
+			payload: undefined,
 			parts: [
 				{
 					externalId: 'part3',
 					name: 'Part 3',
 					rank: 0,
+					payload: undefined,
 				},
 			],
 		})
@@ -315,9 +347,10 @@ describe('Test ingest actions for rundowns and segments', () => {
 			externalId: 'partZ',
 			name: 'Part Z',
 			rank: 0,
+			payload: undefined,
 		})
 
-		await handleUpdatedRundown(context, {
+		await handleUpdatedRundownWrapped(context, {
 			rundownExternalId: rundownData.externalId,
 			ingestRundown: rundownData,
 			isCreateAction: false,
@@ -355,17 +388,19 @@ describe('Test ingest actions for rundowns and segments', () => {
 			externalId: 'segment2',
 			name: 'Segment 2',
 			rank: 0,
+			payload: undefined,
 			parts: [
 				{
 					externalId: 'part3',
 					name: 'Part 3',
 					rank: 0,
+					payload: undefined,
 				},
 			],
 		})
 		await recreateRundown(initialRundownData)
 
-		await handleUpdatedRundown(context, {
+		await handleUpdatedRundownWrapped(context, {
 			rundownExternalId: rundownData1.externalId,
 			ingestRundown: rundownData1,
 			isCreateAction: false,
@@ -399,7 +434,7 @@ describe('Test ingest actions for rundowns and segments', () => {
 		const rundownData = clone(rundownData1)
 		expect(rundownData.segments[0].parts.shift()).toBeTruthy()
 
-		await handleUpdatedRundown(context, {
+		await handleUpdatedRundownWrapped(context, {
 			rundownExternalId: rundownData.externalId,
 			ingestRundown: rundownData,
 			isCreateAction: false,
@@ -434,9 +469,10 @@ describe('Test ingest actions for rundowns and segments', () => {
 			externalId: externalId,
 			name: 'MyMockRundownRenamed',
 			type: 'mock',
+			payload: undefined,
 		}
 
-		await handleUpdatedRundownMetaData(context, {
+		await handleUpdatedRundownMetaDataWrapped(context, {
 			rundownExternalId: rundownData.externalId,
 			ingestRundown: rundownData,
 			rundownSource: createRundownSource(device),
@@ -469,7 +505,7 @@ describe('Test ingest actions for rundowns and segments', () => {
 	test('dataRundownDelete', async () => {
 		await recreateRundown(rundownData1)
 
-		await handleRemovedRundown(context, {
+		await handleRemovedRundownWrapped(context, {
 			rundownExternalId: externalId,
 		})
 
@@ -482,7 +518,7 @@ describe('Test ingest actions for rundowns and segments', () => {
 		await expect(context.mockCollections.Rundowns.findOne()).resolves.toBeFalsy()
 
 		await expect(
-			handleRemovedRundown(context, {
+			handleRemovedRundownWrapped(context, {
 				rundownExternalId: externalId,
 			})
 		).rejects.toThrow(/Rundown.*not found/i)
@@ -518,16 +554,19 @@ describe('Test ingest actions for rundowns and segments', () => {
 			externalId: externalId,
 			name: 'MyMockRundown',
 			type: 'mock',
+			payload: undefined,
 			segments: [
 				{
 					externalId: 'segment0',
 					name: 'Segment 0',
 					rank: 0,
+					payload: undefined,
 					parts: [
 						{
 							externalId: 'part1',
 							name: 'Part 1',
 							rank: 0,
+							payload: undefined,
 						},
 					],
 				},
@@ -535,11 +574,13 @@ describe('Test ingest actions for rundowns and segments', () => {
 					externalId: 'segment2',
 					name: 'Segment 2',
 					rank: 0,
+					payload: undefined,
 					parts: [
 						{
 							externalId: 'part3',
 							name: 'Part 3',
 							rank: 0,
+							payload: undefined,
 						},
 					],
 				},
@@ -547,7 +588,7 @@ describe('Test ingest actions for rundowns and segments', () => {
 		}
 
 		await expect(
-			handleUpdatedRundown(context, {
+			handleUpdatedRundownWrapped(context, {
 				rundownExternalId: rundownData.externalId,
 				ingestRundown: rundownData,
 				isCreateAction: false,
@@ -571,16 +612,19 @@ describe('Test ingest actions for rundowns and segments', () => {
 			externalId: externalId,
 			name: 'MyMockRundown',
 			type: 'mock',
+			payload: undefined,
 			segments: [
 				{
 					externalId: 'segment0',
 					name: 'Segment 0',
 					rank: 0,
+					payload: undefined,
 					parts: [
 						{
 							externalId: 'part1',
 							name: 'Part 1',
 							rank: 0,
+							payload: undefined,
 						},
 					],
 				},
@@ -588,12 +632,14 @@ describe('Test ingest actions for rundowns and segments', () => {
 		}
 
 		// Submit an update trying to remove a segment
-		await handleUpdatedRundown(context, {
-			rundownExternalId: rundownData.externalId,
-			ingestRundown: rundownData,
-			isCreateAction: false,
-			rundownSource: createRundownSource(device),
-		})
+		await expect(
+			handleUpdatedRundownWrapped(context, {
+				rundownExternalId: rundownData.externalId,
+				ingestRundown: rundownData,
+				isCreateAction: false,
+				rundownSource: createRundownSource(device2),
+			})
+		).rejects.toThrow(/Rundown(.+)not found/)
 
 		// Segment count should not have changed
 		const rundown1 = (await context.mockCollections.Rundowns.findOne({ externalId: externalId })) as DBRundown
@@ -606,7 +652,7 @@ describe('Test ingest actions for rundowns and segments', () => {
 		await recreateRundown(rundownData1)
 		await setRundownsOrphaned()
 
-		await handleUpdatedRundown(context, {
+		await handleUpdatedRundownWrapped(context, {
 			rundownExternalId: rundownData1.externalId,
 			ingestRundown: rundownData1,
 			isCreateAction: true,
@@ -631,14 +677,17 @@ describe('Test ingest actions for rundowns and segments', () => {
 			externalId: segExternalId,
 			name: 'MyMockSegment',
 			rank: 0,
+			payload: undefined,
 			parts: [],
 		}
 
-		await handleUpdatedSegment(context, {
-			rundownExternalId: externalId,
-			ingestSegment: ingestSegment,
-			isCreateAction: true,
-		})
+		await expect(
+			handleUpdatedSegmentWrapped(context, {
+				rundownExternalId: externalId,
+				ingestSegment: ingestSegment,
+				isCreateAction: true,
+			})
+		).rejects.toThrow(/Rundown(.+)not found/)
 
 		await expect(context.mockCollections.Segments.findOne({ externalId: segExternalId })).resolves.toBeFalsy()
 
@@ -656,10 +705,11 @@ describe('Test ingest actions for rundowns and segments', () => {
 			externalId: segExternalId,
 			name: 'MyMockSegment',
 			rank: 0,
+			payload: undefined,
 			parts: [],
 		}
 
-		await handleUpdatedSegment(context, {
+		await handleUpdatedSegmentWrapped(context, {
 			rundownExternalId: externalId,
 			ingestSegment: ingestSegment,
 			isCreateAction: true,
@@ -694,10 +744,11 @@ describe('Test ingest actions for rundowns and segments', () => {
 			externalId: segExternalId,
 			name: 'MyMockSegment2',
 			rank: 0,
+			payload: undefined,
 			parts: [],
 		}
 
-		await handleUpdatedSegment(context, {
+		await handleUpdatedSegmentWrapped(context, {
 			rundownExternalId: externalId,
 			ingestSegment: ingestSegment,
 			isCreateAction: true,
@@ -719,16 +770,18 @@ describe('Test ingest actions for rundowns and segments', () => {
 			externalId: segExternalId,
 			name: 'MyMockSegment',
 			rank: 0,
+			payload: undefined,
 			parts: [
 				{
 					externalId: 'part42',
 					name: 'Part 42',
 					rank: 0,
+					payload: undefined,
 				},
 			],
 		}
 
-		await handleUpdatedSegment(context, {
+		await handleUpdatedSegmentWrapped(context, {
 			rundownExternalId: externalId,
 			ingestSegment: ingestSegment,
 			isCreateAction: false,
@@ -754,6 +807,10 @@ describe('Test ingest actions for rundowns and segments', () => {
 			{ rundownId: rundown._id },
 			{ $set: { orphaned: SegmentOrphanedReason.DELETED } }
 		)
+		await context.mockCollections.NrcsIngestDataCache.remove({
+			type: NrcsIngestCacheType.SEGMENT,
+			rundownId: rundown._id,
+		})
 
 		const segExternalId = rundownData1.segments[0].externalId
 
@@ -766,20 +823,24 @@ describe('Test ingest actions for rundowns and segments', () => {
 			externalId: segExternalId,
 			name: 'MyMockSegment2',
 			rank: 0,
+			payload: undefined,
 			parts: [
 				{
 					externalId: 'part423',
 					name: 'Part 423',
 					rank: 0,
+					payload: undefined,
 				},
 			],
 		}
 
-		await handleUpdatedSegment(context, {
-			rundownExternalId: externalId,
-			ingestSegment: ingestSegment,
-			isCreateAction: false,
-		})
+		await expect(
+			handleUpdatedSegmentWrapped(context, {
+				rundownExternalId: externalId,
+				ingestSegment: ingestSegment,
+				isCreateAction: false,
+			})
+		).rejects.toThrow(/Segment.*not found/)
 
 		await expect(context.mockCollections.Segments.findFetch({ rundownId: rundown._id })).resolves.toHaveLength(2)
 
@@ -805,20 +866,24 @@ describe('Test ingest actions for rundowns and segments', () => {
 			externalId: segExternalId,
 			name: 'MyMockSegment2',
 			rank: 0,
+			payload: undefined,
 			parts: [
 				{
 					externalId: 'part423',
 					name: 'Part 423',
 					rank: 0,
+					payload: undefined,
 				},
 			],
 		}
 
-		await handleUpdatedSegment(context, {
-			rundownExternalId: externalId,
-			ingestSegment: ingestSegment,
-			isCreateAction: false,
-		})
+		await expect(
+			handleUpdatedSegmentWrapped(context, {
+				rundownExternalId: externalId,
+				ingestSegment: ingestSegment,
+				isCreateAction: false,
+			})
+		).rejects.toThrow(/Rundown.*not found/)
 
 		await expect(context.mockCollections.Segments.findFetch({ rundownId: rundown._id })).resolves.toHaveLength(2)
 
@@ -835,13 +900,14 @@ describe('Test ingest actions for rundowns and segments', () => {
 			externalId: segExternalId2,
 			name: 'MyMockSegment',
 			rank: 0,
+			payload: undefined,
 			parts: [],
 		}
 
 		await expect(context.mockCollections.Segments.findOne({ externalId: segExternalId2 })).resolves.toBeFalsy()
 
 		await expect(
-			handleUpdatedSegment(context, {
+			handleUpdatedSegmentWrapped(context, {
 				rundownExternalId: 'wibble',
 				ingestSegment: ingestSegment,
 				isCreateAction: false,
@@ -864,7 +930,7 @@ describe('Test ingest actions for rundowns and segments', () => {
 
 		const ingestSegment = rundownData1.segments[0]
 
-		await handleUpdatedSegment(context, {
+		await handleUpdatedSegmentWrapped(context, {
 			rundownExternalId: externalId,
 			ingestSegment: ingestSegment,
 			isCreateAction: false,
@@ -878,6 +944,150 @@ describe('Test ingest actions for rundowns and segments', () => {
 			segmentId: segmentsBefore[0]._id,
 		})
 		expect(partsAfter).toEqual(partsBefore)
+	})
+
+	const rundownDataDistinct: IngestRundown = {
+		externalId: externalId,
+		name: 'MyMockRundown',
+		type: 'mock',
+		payload: undefined,
+		segments: [
+			{
+				externalId: 'segment0',
+				name: 'Segment 0',
+				rank: 0,
+				payload: undefined,
+				parts: [
+					{ externalId: 'part0', name: 'Part 0', rank: 0, payload: undefined },
+					{ externalId: 'part1', name: 'Part 1', rank: 1, payload: undefined },
+				],
+			},
+			{
+				externalId: 'segment1',
+				name: 'Segment 1',
+				rank: 1,
+				payload: undefined,
+				parts: [{ externalId: 'part2', name: 'Part 2', rank: 0, payload: undefined }],
+			},
+		],
+	}
+
+	test('dataSegmentUpdate identical re-ingest skips the commit (no playlist rewrite)', async () => {
+		await recreateRundown(rundownDataDistinct)
+
+		// Discard the op-log recorded during the initial create
+		context.mockCollections.RundownPlaylists.clearOpLog()
+
+		const ingestSegment = clone(rundownDataDistinct.segments[0])
+		await handleUpdatedSegmentWrapped(context, {
+			rundownExternalId: externalId,
+			ingestSegment: ingestSegment,
+			isCreateAction: false,
+		})
+
+		// The segment regenerated to identical content, so the model has no changes and the commit
+		// phase must be skipped entirely. The RundownPlaylist must not be rewritten - that rewrite
+		// (and the PartInstance re-sync it drives) is the source of the UI "part jitter".
+		expect(countWriteOps(context.mockCollections.RundownPlaylists)).toBe(0)
+	})
+
+	test('dataSegmentUpdate with a real change still commits (playlist rewritten)', async () => {
+		await recreateRundown(rundownDataDistinct)
+
+		context.mockCollections.RundownPlaylists.clearOpLog()
+
+		const ingestSegment = clone(rundownDataDistinct.segments[0])
+		expect(ingestSegment.parts.pop()).toBeTruthy() // remove a part -> a genuine change
+
+		await handleUpdatedSegmentWrapped(context, {
+			rundownExternalId: externalId,
+			ingestSegment: ingestSegment,
+			isCreateAction: false,
+		})
+
+		// A genuine change must still run the commit, which rewrites the RundownPlaylist
+		expect(countWriteOps(context.mockCollections.RundownPlaylists)).toBeGreaterThan(0)
+	})
+
+	test('dataSegmentUpdate changing only the segment name still commits', async () => {
+		await recreateRundown(rundownDataDistinct)
+
+		context.mockCollections.RundownPlaylists.clearOpLog()
+
+		const ingestSegment = clone(rundownDataDistinct.segments[0])
+		ingestSegment.name = 'A different segment name' // segment-doc field change only
+
+		await handleUpdatedSegmentWrapped(context, {
+			rundownExternalId: externalId,
+			ingestSegment: ingestSegment,
+			isCreateAction: false,
+		})
+
+		expect(countWriteOps(context.mockCollections.RundownPlaylists)).toBeGreaterThan(0)
+
+		const segment = (await context.mockCollections.Segments.findOne({
+			externalId: ingestSegment.externalId,
+		})) as DBSegment
+		expect(segment.name).toBe('A different segment name')
+	})
+
+	test('dataSegmentUpdate identical re-ingest with pieces skips the commit', async () => {
+		// A rundown whose part carries pieces, so the ExpectedPackages/pieces change-tracking is exercised
+		const rundownWithPieces: IngestRundown = {
+			externalId: externalId,
+			name: 'MyMockRundown',
+			type: 'mock',
+			payload: undefined,
+			segments: [
+				{
+					externalId: 'segment0',
+					name: 'Segment 0',
+					rank: 0,
+					payload: undefined,
+					parts: [
+						{
+							externalId: 'part0',
+							name: 'Part 0',
+							rank: 0,
+							payload: {
+								pieces: [
+									literal<IBlueprintPiece>({
+										externalId: 'piece0',
+										name: 'Piece 0',
+										enable: { start: 0 },
+										sourceLayerId: '',
+										outputLayerId: '',
+										lifespan: PieceLifespan.WithinPart,
+										content: { timelineObjects: [] },
+									}),
+								],
+							},
+						},
+					],
+				},
+				{
+					externalId: 'segment1',
+					name: 'Segment 1',
+					rank: 1,
+					payload: undefined,
+					parts: [{ externalId: 'part2', name: 'Part 2', rank: 0, payload: undefined }],
+				},
+			],
+		}
+
+		await recreateRundown(rundownWithPieces)
+		await expect(context.mockCollections.Pieces.findFetch()).resolves.toHaveLength(1)
+
+		context.mockCollections.RundownPlaylists.clearOpLog()
+
+		// Re-ingest the (unchanged) segment that carries the piece, via the segment-level path
+		await handleUpdatedSegmentWrapped(context, {
+			rundownExternalId: externalId,
+			ingestSegment: clone(rundownWithPieces.segments[0]),
+			isCreateAction: false,
+		})
+
+		expect(countWriteOps(context.mockCollections.RundownPlaylists)).toBe(0)
 	})
 
 	test('dataSegmentUpdate remove a part', async () => {
@@ -895,7 +1105,7 @@ describe('Test ingest actions for rundowns and segments', () => {
 		})
 		expect(partsBefore).toHaveLength(2)
 
-		await handleUpdatedSegment(context, {
+		await handleUpdatedSegmentWrapped(context, {
 			rundownExternalId: externalId,
 			ingestSegment: ingestSegment,
 			isCreateAction: false,
@@ -915,20 +1125,25 @@ describe('Test ingest actions for rundowns and segments', () => {
 			externalId: '',
 			name: 'MyMockSegment',
 			rank: 0,
+			payload: undefined,
 			parts: [],
 		}
 
 		await expect(
-			handleUpdatedSegment(context, {
+			handleUpdatedSegmentWrapped(context, {
 				rundownExternalId: externalId,
 				ingestSegment: ingestSegment,
 				isCreateAction: false,
 			})
-		).rejects.toThrow(`getSegmentId: segmentExternalId must be set!`)
+		).rejects.toThrow(`Segment externalId must be set!`)
 	})
 
 	test('dataSegmentDelete already orphaned segment', async () => {
 		const rundown = await recreateRundown(rundownData1)
+		await context.mockCollections.NrcsIngestDataCache.remove({
+			type: NrcsIngestCacheType.SEGMENT,
+			rundownId: rundown._id,
+		})
 
 		const segExternalId = rundownData1.segments[0].externalId
 
@@ -937,10 +1152,12 @@ describe('Test ingest actions for rundowns and segments', () => {
 			{ $set: { orphaned: SegmentOrphanedReason.DELETED } }
 		)
 
-		await handleRemovedSegment(context, {
-			rundownExternalId: externalId,
-			segmentExternalId: segExternalId,
-		})
+		await expect(
+			handleRemovedSegmentWrapped(context, {
+				rundownExternalId: externalId,
+				segmentExternalId: segExternalId,
+			})
+		).rejects.toThrow(/Rundown(.*) does not have a Segment(.*) to remove/)
 
 		await expect(context.mockCollections.Segments.findFetch({ rundownId: rundown._id })).resolves.toHaveLength(2)
 		await expect(context.mockCollections.Segments.findOne({ externalId: segExternalId })).resolves.toBeTruthy()
@@ -952,16 +1169,19 @@ describe('Test ingest actions for rundowns and segments', () => {
 			externalId: externalId,
 			name: 'MyMockRundown',
 			type: 'mock',
+			payload: undefined,
 			segments: [
 				{
 					externalId: 'segment0',
 					name: 'Segment 0',
 					rank: 0,
+					payload: undefined,
 					parts: [
 						{
 							externalId: 'part1',
 							name: 'Part 1',
 							rank: 0,
+							payload: undefined,
 						},
 					],
 				},
@@ -969,11 +1189,13 @@ describe('Test ingest actions for rundowns and segments', () => {
 					externalId: 'segment2',
 					name: 'Segment 2',
 					rank: 0,
+					payload: undefined,
 					parts: [
 						{
 							externalId: 'part2',
 							name: 'Part 2',
 							rank: 0,
+							payload: undefined,
 						},
 					],
 				},
@@ -981,18 +1203,20 @@ describe('Test ingest actions for rundowns and segments', () => {
 					externalId: segExternalId,
 					name: 'Segment 3',
 					rank: 0,
+					payload: undefined,
 					parts: [
 						{
 							externalId: 'part3',
 							name: 'Part 3',
 							rank: 0,
+							payload: undefined,
 						},
 					],
 				},
 			],
 		}
 
-		await handleUpdatedRundown(context, {
+		await handleUpdatedRundownWrapped(context, {
 			rundownExternalId: externalId,
 			ingestRundown: rundownData,
 			isCreateAction: true,
@@ -1006,14 +1230,17 @@ describe('Test ingest actions for rundowns and segments', () => {
 		).resolves.toHaveLength(1)
 
 		await context.mockCollections.Rundowns.update({}, { $set: { orphaned: RundownOrphanedReason.DELETED } })
+		await context.mockCollections.NrcsIngestDataCache.remove({})
 		await context.mockCollections.Segments.update({ rundownId: rundown._id }, { $unset: { orphaned: 1 } })
 
 		await expect(context.mockCollections.Segments.findFetch({ rundownId: rundown._id })).resolves.toHaveLength(3)
 
-		await handleRemovedSegment(context, {
-			rundownExternalId: externalId,
-			segmentExternalId: segExternalId,
-		})
+		await expect(
+			handleRemovedSegmentWrapped(context, {
+				rundownExternalId: externalId,
+				segmentExternalId: segExternalId,
+			})
+		).rejects.toThrow(/Rundown(.+)not found/)
 
 		await expect(context.mockCollections.Segments.findFetch({ rundownId: rundown._id })).resolves.toHaveLength(3)
 		await expect(context.mockCollections.Segments.findOne({ externalId: segExternalId })).resolves.toBeTruthy()
@@ -1024,7 +1251,7 @@ describe('Test ingest actions for rundowns and segments', () => {
 
 		const segExternalId = rundownData1.segments[1].externalId
 
-		await handleRemovedSegment(context, {
+		await handleRemovedSegmentWrapped(context, {
 			rundownExternalId: externalId,
 			segmentExternalId: segExternalId,
 		})
@@ -1040,7 +1267,7 @@ describe('Test ingest actions for rundowns and segments', () => {
 		).resolves.toHaveLength(0)
 
 		await expect(
-			handleRemovedSegment(context, {
+			handleRemovedSegmentWrapped(context, {
 				rundownExternalId: externalId,
 				segmentExternalId: segExternalId,
 			})
@@ -1054,7 +1281,7 @@ describe('Test ingest actions for rundowns and segments', () => {
 		expect(rundown).toBeFalsy()
 
 		await expect(
-			handleRemovedSegment(context, {
+			handleRemovedSegmentWrapped(context, {
 				rundownExternalId: 'wibble',
 				segmentExternalId: segExternalId,
 			})
@@ -1069,10 +1296,11 @@ describe('Test ingest actions for rundowns and segments', () => {
 			externalId: segExternalId,
 			name: 'MyMockSegment',
 			rank: 0,
+			payload: undefined,
 			parts: [],
 		}
 		await expect(
-			handleUpdatedSegment(context, {
+			handleUpdatedSegmentWrapped(context, {
 				rundownExternalId: 'wibble',
 				ingestSegment: ingestSegment,
 				isCreateAction: true,
@@ -1093,9 +1321,10 @@ describe('Test ingest actions for rundowns and segments', () => {
 			externalId: 'party',
 			name: 'Part Y',
 			rank: 0,
+			payload: undefined,
 		}
 
-		await handleUpdatedPart(context, {
+		await handleUpdatedPartWrapped(context, {
 			rundownExternalId: externalId,
 			segmentExternalId: segment.externalId,
 			ingestPart: ingestPart,
@@ -1125,7 +1354,7 @@ describe('Test ingest actions for rundowns and segments', () => {
 		const ingestPart = clone(rundownData1.segments[0].parts[0])
 		ingestPart.name = 'My special part'
 
-		await handleUpdatedPart(context, {
+		await handleUpdatedPartWrapped(context, {
 			rundownExternalId: externalId,
 			segmentExternalId: segment.externalId,
 			ingestPart: ingestPart,
@@ -1158,7 +1387,7 @@ describe('Test ingest actions for rundowns and segments', () => {
 			})
 		).resolves.toHaveLength(1)
 
-		await handleRemovedPart(context, {
+		await handleRemovedPartWrapped(context, {
 			rundownExternalId: externalId,
 			segmentExternalId: segment.externalId,
 			partExternalId: partExternalId,
@@ -1180,52 +1409,53 @@ describe('Test ingest actions for rundowns and segments', () => {
 			externalId: externalId,
 			name: 'MyMockRundown',
 			type: 'mock',
+			payload: undefined,
 			segments: [
 				{
 					externalId: 'segment0',
 					name: 'Segment 0',
 					rank: 1,
-					// payload?: any,
+					payload: undefined,
 					parts: [],
 				},
 				{
 					externalId: 'segment1',
 					name: 'Segment 1',
 					rank: 2,
-					// payload?: any,
+					payload: undefined,
 					parts: [],
 				},
 				{
 					externalId: 'segment2',
 					name: 'Segment 2',
 					rank: 3,
-					// payload?: any,
+					payload: undefined,
 					parts: [],
 				},
 				{
 					externalId: 'segment3',
 					name: 'Segment 3',
 					rank: 4,
-					// payload?: any,
+					payload: undefined,
 					parts: [],
 				},
 				{
 					externalId: 'segment4',
 					name: 'Segment 4',
 					rank: 5,
-					// payload?: any,
+					payload: undefined,
 					parts: [],
 				},
 				{
 					externalId: 'segment5',
 					name: 'Segment 5',
 					rank: 6,
-					// payload?: any,
+					payload: undefined,
 					parts: [],
 				},
 			],
 		}
-		await handleUpdatedRundown(context, {
+		await handleUpdatedRundownWrapped(context, {
 			rundownExternalId: externalId,
 			ingestRundown: rundownData,
 			isCreateAction: true,
@@ -1235,7 +1465,7 @@ describe('Test ingest actions for rundowns and segments', () => {
 		const rundown = (await context.mockCollections.Rundowns.findOne({ externalId: externalId })) as DBRundown
 		expect(rundown).toBeTruthy()
 
-		await handleUpdatedSegmentRanks(context, {
+		await handleUpdatedSegmentRanksWrapped(context, {
 			rundownExternalId: externalId,
 			newRanks: {
 				['segment0']: 6,
@@ -1247,19 +1477,19 @@ describe('Test ingest actions for rundowns and segments', () => {
 		const segments = await context.mockCollections.Segments.findFetch({ rundownId: rundown._id })
 		expect(segments).toHaveLength(6)
 
-		expect(segments.find((s) => s.externalId === 'segment0')?._rank).toBe(6)
-		expect(segments.find((s) => s.externalId === 'segment1')?._rank).toBe(2)
-		expect(segments.find((s) => s.externalId === 'segment2')?._rank).toBe(1)
-		expect(segments.find((s) => s.externalId === 'segment3')?._rank).toBe(4)
-		expect(segments.find((s) => s.externalId === 'segment4')?._rank).toBe(5)
-		expect(segments.find((s) => s.externalId === 'segment5')?._rank).toBe(3)
+		expect(segments.find((s) => s.externalId === 'segment0')?._rank).toBe(5)
+		expect(segments.find((s) => s.externalId === 'segment1')?._rank).toBe(1)
+		expect(segments.find((s) => s.externalId === 'segment2')?._rank).toBe(0)
+		expect(segments.find((s) => s.externalId === 'segment3')?._rank).toBe(3)
+		expect(segments.find((s) => s.externalId === 'segment4')?._rank).toBe(4)
+		expect(segments.find((s) => s.externalId === 'segment5')?._rank).toBe(2)
 	})
 
 	test('unsyncing of rundown', async () => {
 		// Preparation: set up rundown
 		await expect(context.mockCollections.Rundowns.findOne()).resolves.toBeFalsy()
 
-		await handleUpdatedRundown(context, {
+		await handleUpdatedRundownWrapped(context, {
 			rundownExternalId: rundownData1.externalId,
 			ingestRundown: rundownData1,
 			isCreateAction: true,
@@ -1285,7 +1515,7 @@ describe('Test ingest actions for rundowns and segments', () => {
 
 		const resyncRundown = async () => {
 			// simulate a resync. we don't have a gateway to call out to, but this is how it will respond
-			await handleUpdatedRundown(context, {
+			await handleUpdatedRundownWrapped(context, {
 				rundownExternalId: rundownData1.externalId,
 				ingestRundown: rundownData1,
 				isCreateAction: true,
@@ -1307,7 +1537,7 @@ describe('Test ingest actions for rundowns and segments', () => {
 		await expect(getRundownOrphaned()).resolves.toBeUndefined()
 
 		await expect(
-			handleRemovedRundown(context, {
+			handleRemovedRundownWrapped(context, {
 				rundownExternalId: rundownData1.externalId,
 			})
 		).rejects.toMatchUserError(UserErrorMessage.RundownRemoveWhileActive)
@@ -1324,7 +1554,7 @@ describe('Test ingest actions for rundowns and segments', () => {
 		})
 		expect(partInstance[0].segmentId).toEqual(segments[0]._id)
 
-		await handleRemovedSegment(context, {
+		await handleRemovedSegmentWrapped(context, {
 			rundownExternalId: rundown.externalId,
 			segmentExternalId: segments[0].externalId,
 		})
@@ -1335,7 +1565,7 @@ describe('Test ingest actions for rundowns and segments', () => {
 		await expect(getRundownOrphaned()).resolves.toBeUndefined()
 		await expect(getSegmentOrphaned(segments[0]._id)).resolves.toBeUndefined()
 
-		await handleRemovedPart(context, {
+		await handleRemovedPartWrapped(context, {
 			rundownExternalId: rundown.externalId,
 			segmentExternalId: segments[0].externalId,
 			partExternalId: parts[0].externalId,
@@ -1353,11 +1583,13 @@ describe('Test ingest actions for rundowns and segments', () => {
 			externalId: externalId,
 			name: 'MyMockRundown',
 			type: 'mock',
+			payload: undefined,
 			segments: [
 				{
 					externalId: 'segment0',
 					name: 'Segment 0',
 					rank: 0,
+					payload: undefined,
 					parts: [
 						{
 							externalId: 'part0',
@@ -1405,11 +1637,13 @@ describe('Test ingest actions for rundowns and segments', () => {
 					externalId: 'segment1',
 					name: 'Segment 1',
 					rank: 1,
+					payload: undefined,
 					parts: [
 						{
 							externalId: 'part2',
 							name: 'Part 2',
 							rank: 0,
+							payload: undefined,
 						},
 					],
 				},
@@ -1419,7 +1653,7 @@ describe('Test ingest actions for rundowns and segments', () => {
 		// Preparation: set up rundown
 		await expect(context.mockCollections.Rundowns.findOne()).resolves.toBeFalsy()
 
-		await handleUpdatedRundown(context, {
+		await handleUpdatedRundownWrapped(context, {
 			rundownExternalId: rundownData.externalId,
 			ingestRundown: rundownData,
 			isCreateAction: true,
@@ -1479,7 +1713,7 @@ describe('Test ingest actions for rundowns and segments', () => {
 		const updatedSegmentData: IngestSegment = rundownData.segments[0]
 		updatedSegmentData.parts[1].externalId = 'new-part'
 
-		await handleUpdatedSegment(context, {
+		await handleUpdatedSegmentWrapped(context, {
 			rundownExternalId: rundownData.externalId,
 			ingestSegment: updatedSegmentData,
 			isCreateAction: false,
@@ -1529,11 +1763,13 @@ describe('Test ingest actions for rundowns and segments', () => {
 			externalId: externalId,
 			name: 'MyMockRundown',
 			type: 'mock',
+			payload: undefined,
 			segments: [
 				{
 					externalId: 'segment0',
 					name: 'Segment 0',
 					rank: 0,
+					payload: undefined,
 					parts: [
 						{
 							externalId: 'part0',
@@ -1581,11 +1817,13 @@ describe('Test ingest actions for rundowns and segments', () => {
 					externalId: 'segment1',
 					name: 'Segment 1',
 					rank: 1,
+					payload: undefined,
 					parts: [
 						{
 							externalId: 'part2',
 							name: 'Part 2',
 							rank: 0,
+							payload: undefined,
 						},
 					],
 				},
@@ -1593,18 +1831,20 @@ describe('Test ingest actions for rundowns and segments', () => {
 					externalId: 'segment2',
 					name: 'Segment 2',
 					rank: 1,
+					payload: undefined,
 					parts: [
 						{
 							externalId: 'part3',
 							name: 'Part 3',
 							rank: 0,
+							payload: undefined,
 						},
 					],
 				},
 			],
 		}
 
-		await handleUpdatedRundown(context, {
+		await handleUpdatedRundownWrapped(context, {
 			rundownExternalId: rundownData.externalId,
 			ingestRundown: rundownData,
 			isCreateAction: true,
@@ -1642,16 +1882,16 @@ describe('Test ingest actions for rundowns and segments', () => {
 					const newPartInstance = await insertQueuedPartWithPieces(
 						context,
 						playoutModel,
-						rundown0,
 						currentPartInstance,
 						{
-							_id: protectString(`after_${currentPartInstance.partInstance._id}_part`),
-							_rank: 0,
-							externalId: `after_${currentPartInstance.partInstance._id}_externalId`,
-							title: 'New part',
-							expectedDurationWithTransition: undefined,
+							part: {
+								_id: protectString(`after_${currentPartInstance.partInstance._id}_part`),
+								externalId: `after_${currentPartInstance.partInstance._id}_externalId`,
+								title: 'New part',
+								expectedDurationWithTransition: undefined,
+							},
+							pieces: [],
 						},
-						[],
 						undefined
 					)
 
@@ -1692,11 +1932,13 @@ describe('Test ingest actions for rundowns and segments', () => {
 			externalId: 'segment2',
 			name: 'Segment 2a',
 			rank: 1,
+			payload: undefined,
 			parts: [
 				{
 					externalId: 'part3',
 					name: 'Part 3',
 					rank: 0,
+					payload: undefined,
 				},
 			],
 		}
@@ -1711,7 +1953,7 @@ describe('Test ingest actions for rundowns and segments', () => {
 			expect(segment2.name).not.toBe(ingestSegment.name)
 		}
 
-		await handleUpdatedSegment(context, {
+		await handleUpdatedSegmentWrapped(context, {
 			rundownExternalId: rundownData.externalId,
 			ingestSegment: ingestSegment,
 			isCreateAction: false,
@@ -1762,7 +2004,7 @@ describe('Test ingest actions for rundowns and segments', () => {
 			)) as DBRundownPlaylist
 			expect(playlist).toBeTruthy()
 			expect(playlist.currentPartInfo?.partInstanceId).toBe(partInstanceId1)
-			expect(playlist.previousPartInfo?.partInstanceId).toBe(partInstanceId0)
+			expect(playlist.previousPartsInfo?.[0]?.partInstanceId).toBe(partInstanceId0)
 
 			const currentPartInstance = (await getSelectedPartInstances(context, playlist))
 				.currentPartInstance as DBPartInstance
@@ -1788,7 +2030,7 @@ describe('Test ingest actions for rundowns and segments', () => {
 			expect(segment2.name).not.toBe(ingestSegment.name)
 		}
 
-		await handleUpdatedSegment(context, {
+		await handleUpdatedSegmentWrapped(context, {
 			rundownExternalId: rundownData.externalId,
 			ingestSegment: ingestSegment,
 			isCreateAction: false,
@@ -1811,7 +2053,7 @@ describe('Test ingest actions for rundowns and segments', () => {
 			)) as DBRundownPlaylist
 			expect(playlist).toBeTruthy()
 			expect(playlist.currentPartInfo?.partInstanceId).toBe(partInstanceId1)
-			expect(playlist.previousPartInfo?.partInstanceId).toBe(partInstanceId0)
+			expect(playlist.previousPartsInfo?.[0]?.partInstanceId).toBe(partInstanceId0)
 
 			const currentPartInstance = (await getSelectedPartInstances(context, playlist))
 				.currentPartInstance as DBPartInstance
@@ -1829,6 +2071,7 @@ describe('Test ingest actions for rundowns and segments', () => {
 			externalId: externalId,
 			name: 'MyMockRundown',
 			type: 'mock',
+			payload: undefined,
 			segments: [
 				{
 					externalId: 'segment0',
@@ -1884,6 +2127,7 @@ describe('Test ingest actions for rundowns and segments', () => {
 							externalId: 'part2',
 							name: 'Part 2',
 							rank: 0,
+							payload: undefined,
 						},
 					],
 				},
@@ -1892,7 +2136,7 @@ describe('Test ingest actions for rundowns and segments', () => {
 
 		// Preparation: set up rundown
 		await expect(context.mockCollections.Rundowns.findOne()).resolves.toBeFalsy()
-		await handleUpdatedRundown(context, {
+		await handleUpdatedRundownWrapped(context, {
 			rundownExternalId: rundownData.externalId,
 			ingestRundown: rundownData,
 			isCreateAction: true,
@@ -1944,7 +2188,7 @@ describe('Test ingest actions for rundowns and segments', () => {
 
 		// Delete segment 0, while on air
 		const segmentExternalId = rundownData.segments[0].externalId
-		await handleRemovedSegment(context, {
+		await handleRemovedSegmentWrapped(context, {
 			rundownExternalId: rundownData.externalId,
 			segmentExternalId: segmentExternalId,
 		})
@@ -1972,7 +2216,7 @@ describe('Test ingest actions for rundowns and segments', () => {
 
 		// Trigger an 'resync' of the rundown
 		rundownData.segments.splice(0, 1)
-		await handleUpdatedRundown(context, {
+		await handleUpdatedRundownWrapped(context, {
 			rundownExternalId: rundownData.externalId,
 			ingestRundown: rundownData,
 			isCreateAction: false,
@@ -1995,6 +2239,7 @@ describe('Test ingest actions for rundowns and segments', () => {
 			externalId: externalId,
 			name: 'MyMockRundown',
 			type: 'mock',
+			payload: undefined,
 			segments: [
 				{
 					externalId: 'segment0',
@@ -2050,6 +2295,7 @@ describe('Test ingest actions for rundowns and segments', () => {
 							externalId: 'part2',
 							name: 'Part 2',
 							rank: 0,
+							payload: undefined,
 						},
 					],
 				},
@@ -2058,7 +2304,7 @@ describe('Test ingest actions for rundowns and segments', () => {
 
 		// Preparation: set up rundown
 		await expect(context.mockCollections.Rundowns.findOne()).resolves.toBeFalsy()
-		await handleUpdatedRundown(context, {
+		await handleUpdatedRundownWrapped(context, {
 			rundownExternalId: rundownData.externalId,
 			ingestRundown: rundownData,
 			isCreateAction: true,

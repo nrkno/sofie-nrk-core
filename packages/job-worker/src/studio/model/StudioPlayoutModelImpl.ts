@@ -1,23 +1,30 @@
 import { RundownPlaylistId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { PeripheralDevice, PeripheralDeviceType } from '@sofie-automation/corelib/dist/dataModel/PeripheralDevice'
-import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist'
+import { DBRundownPlaylist } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/RundownPlaylist'
 import {
 	serializeTimelineBlob,
 	TimelineComplete,
 	TimelineCompleteGenerationVersions,
 	TimelineObjGeneric,
 } from '@sofie-automation/corelib/dist/dataModel/Timeline'
-import { JobContext } from '../../jobs'
+import { JobContext } from '../../jobs/index.js'
 import { ReadonlyDeep } from 'type-fest'
 import { getRandomId } from '@sofie-automation/corelib/dist/lib'
-import { getCurrentTime } from '../../lib'
-import { IS_PRODUCTION } from '../../environment'
-import { logger } from '../../logging'
-import { StudioPlayoutModel } from './StudioPlayoutModel'
-import { DatabasePersistedModel } from '../../modelBase'
-import { ExpectedPackageDBFromStudioBaselineObjects } from '@sofie-automation/corelib/dist/dataModel/ExpectedPackages'
+import { getCurrentTime } from '../../lib/index.js'
+import { IS_PRODUCTION } from '../../environment.js'
+import { logger } from '../../logging.js'
+import { StudioPlayoutModel } from './StudioPlayoutModel.js'
+import { DatabasePersistedModel } from '../../modelBase.js'
 import { ExpectedPlayoutItemStudio } from '@sofie-automation/corelib/dist/dataModel/ExpectedPlayoutItem'
-import { StudioBaselineHelper } from './StudioBaselineHelper'
+import { StudioBaselineHelper } from './StudioBaselineHelper.js'
+import { ExpectedPackage } from '@sofie-automation/blueprints-integration'
+import {
+	getStudioTimeline,
+	flattenAndProcessTimelineObjects,
+	preserveOrReplaceNowTimesInObjects,
+	logAnyRemainingNowTimes,
+} from '../../playout/timeline/generate.js'
+import { stringifyError } from '@sofie-automation/shared-lib/dist/lib/stringifyError'
 
 /**
  * This is a model used for studio operations.
@@ -33,7 +40,9 @@ export class StudioPlayoutModelImpl implements StudioPlayoutModel {
 	public readonly rundownPlaylists: ReadonlyDeep<DBRundownPlaylist[]>
 
 	#timelineHasChanged = false
+	#timelineNeedsRegeneration = false
 	#timeline: TimelineComplete | null
+
 	public get timeline(): TimelineComplete | null {
 		return this.#timeline
 	}
@@ -77,7 +86,11 @@ export class StudioPlayoutModelImpl implements StudioPlayoutModel {
 		return this.#isMultiGatewayMode
 	}
 
-	setExpectedPackagesForStudioBaseline(packages: ExpectedPackageDBFromStudioBaselineObjects[]): void {
+	public get multiGatewayNowSafeLatency(): number | undefined {
+		return this.context.studio.settings.multiGatewayNowSafeLatency
+	}
+
+	setExpectedPackagesForStudioBaseline(packages: ExpectedPackage.Any[]): void {
 		this.#baselineHelper.setExpectedPackages(packages)
 	}
 	setExpectedPlayoutItemsForStudioBaseline(playoutItems: ExpectedPlayoutItemStudio[]): void {
@@ -86,7 +99,8 @@ export class StudioPlayoutModelImpl implements StudioPlayoutModel {
 
 	setTimeline(
 		timelineObjs: TimelineObjGeneric[],
-		generationVersions: TimelineCompleteGenerationVersions
+		generationVersions: TimelineCompleteGenerationVersions,
+		regenerateTimelineToken: string | undefined
 	): ReadonlyDeep<TimelineComplete> {
 		this.#timeline = {
 			_id: this.context.studioId,
@@ -94,10 +108,19 @@ export class StudioPlayoutModelImpl implements StudioPlayoutModel {
 			generated: getCurrentTime(),
 			timelineBlob: serializeTimelineBlob(timelineObjs),
 			generationVersions: generationVersions,
+			regenerateTimelineToken: regenerateTimelineToken,
 		}
 		this.#timelineHasChanged = true
 
 		return this.#timeline
+	}
+
+	switchRouteSet(routeSetId: string, isActive: boolean | 'toggle'): boolean {
+		return this.context.setRouteSetActive(routeSetId, isActive)
+	}
+
+	markTimelineNeedsUpdate(): void {
+		this.#timelineNeedsRegeneration = true
 	}
 
 	/**
@@ -107,6 +130,30 @@ export class StudioPlayoutModelImpl implements StudioPlayoutModel {
 		this.#disposed = true
 	}
 
+	async #regenerateStudioTimeline(): Promise<void> {
+		const span = this.context.startSpan('StudioPlayoutModelImpl.regenerateStudioTimeline')
+		logger.debug('Regenerating studio timeline...')
+
+		try {
+			const { versions, objs: timelineObjs } = await getStudioTimeline(this.context, this)
+
+			flattenAndProcessTimelineObjects(this.context, timelineObjs)
+			preserveOrReplaceNowTimesInObjects(this, timelineObjs)
+
+			if (this.isMultiGatewayMode) {
+				logAnyRemainingNowTimes(this.context, timelineObjs)
+			}
+
+			const timelineHash = this.setTimeline(timelineObjs, versions, undefined).timelineHash
+			logger.verbose(`Studio timeline regeneration done, hash: "${timelineHash}"`)
+		} catch (err) {
+			logger.error(`Error regenerating studio timeline: ${stringifyError(err)}`)
+			throw err
+		} finally {
+			if (span) span.end()
+		}
+	}
+
 	async saveAllToDatabase(): Promise<void> {
 		if (this.#disposed) {
 			throw new Error('Cannot save disposed PlayoutModel')
@@ -114,13 +161,26 @@ export class StudioPlayoutModelImpl implements StudioPlayoutModel {
 
 		const span = this.context.startSpan('StudioPlayoutModelImpl.saveAllToDatabase')
 
+		// Generate timeline if needed
+		if (this.#timelineNeedsRegeneration) {
+			await this.#regenerateStudioTimeline()
+			this.#timelineNeedsRegeneration = false
+		}
+
 		// Prioritise the timeline for publication reasons
 		if (this.#timelineHasChanged && this.#timeline) {
+			// Do a fast-track for the timeline to be published faster:
+			this.context.hackPublishTimelineToFastTrack(this.#timeline)
+
 			await this.context.directCollections.Timelines.replace(this.#timeline)
 		}
 		this.#timelineHasChanged = false
 
-		await this.#baselineHelper.saveAllToDatabase()
+		await Promise.all([
+			this.#baselineHelper.saveAllToDatabase(),
+			this.context.saveRouteSetChanges(),
+			//
+		])
 
 		if (span) span.end()
 	}
@@ -168,7 +228,7 @@ export async function loadStudioPlayoutModel(
 	const studioId = context.studioId
 
 	const collections = await Promise.all([
-		context.directCollections.PeripheralDevices.findFetch({ studioId }),
+		context.directCollections.PeripheralDevices.findFetch({ 'studioAndConfigId.studioId': studioId }),
 		context.directCollections.RundownPlaylists.findFetch({ studioId }),
 		context.directCollections.Timelines.findOne(studioId),
 	])

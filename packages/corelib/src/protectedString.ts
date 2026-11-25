@@ -1,1 +1,15 @@
-export * from '@sofie-automation/shared-lib/dist/lib/protectedString'
+export {
+	type ProtectedString,
+	type ProtectedStringProperties,
+	protectString,
+	protectStringArray,
+	protectStringObject,
+	unpartialString,
+	unprotectString,
+	unprotectStringArray,
+	unprotectObjectArray,
+	unDeepString,
+	isProtectedString,
+	type ProtectId,
+	type UnprotectedStringProperties,
+} from '@sofie-automation/shared-lib/dist/lib/protectedString'

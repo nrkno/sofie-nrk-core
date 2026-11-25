@@ -1,4 +1,3 @@
-import { Meteor } from 'meteor/meteor'
 import { ShowStyleBaseId, StudioId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { Complete, literal } from '@sofie-automation/corelib/dist/lib'
 import { applyAndValidateOverrides } from '@sofie-automation/corelib/dist/settings/objectWithOverrides'
@@ -7,29 +6,47 @@ import {
 	createAction,
 	ExecutableAction,
 	isPreviewableAction,
-	ReactivePlaylistActionContext,
-} from '../../../lib/api/triggers/actionFactory'
+} from '@sofie-automation/meteor-lib/dist/triggers/actionFactory'
 import {
 	DeviceActionId,
 	DeviceTriggerMountedActionId,
 	PreviewWrappedAdLib,
 	PreviewWrappedAdLibId,
 	ShiftRegisterActionArguments,
-} from '../../../lib/api/triggers/MountedTriggers'
-import { isDeviceTrigger } from '../../../lib/api/triggers/triggerTypeSelectors'
-import { DBTriggeredActions, UITriggeredActionsObj } from '../../../lib/collections/TriggeredActions'
-import { DummyReactiveVar, protectString } from '../../../lib/lib'
+} from '@sofie-automation/meteor-lib/dist/api/MountedTriggers'
+import { isDeviceTrigger } from '@sofie-automation/meteor-lib/dist/triggers/triggerTypeSelectors'
+import {
+	DBTriggeredActions,
+	UITriggeredActionsObj,
+} from '@sofie-automation/meteor-lib/dist/collections/TriggeredActions'
+import { protectString } from '@sofie-automation/corelib/dist/protectedString'
 import { StudioActionManager, StudioActionManagers } from './StudioActionManagers'
 import { DeviceTriggerMountedActionAdlibsPreview, DeviceTriggerMountedActions } from './observer'
 import { ContentCache } from './reactiveContentCache'
+import { ContentCache as PieceInstancesContentCache } from './reactiveContentCacheForPieceInstances'
 import { logger } from '../../logging'
 import { SomeAction, SomeBlueprintTrigger } from '@sofie-automation/blueprints-integration'
 import { DeviceActions } from '@sofie-automation/shared-lib/dist/core/model/ShowStyle'
+import { TriggersContext } from '@sofie-automation/meteor-lib/dist/triggers/triggersContext'
+import { createContextFromCache, TriggersContextFactory } from './triggersContext'
+import { TagsService } from './TagsService'
+import { SofieError } from '@sofie-automation/corelib/dist/error'
 
 export class StudioDeviceTriggerManager {
 	#lastShowStyleBaseId: ShowStyleBaseId | null = null
 
-	constructor(public studioId: StudioId) {
+	lastCache: ContentCache | undefined
+
+	private readonly triggersContext: TriggersContext
+
+	constructor(
+		public studioId: StudioId,
+		protected tagsService: TagsService,
+		createTriggersContext: TriggersContextFactory
+	) {
+		// `lastCache` is reassigned during the lifetime, so pass a getter
+		this.triggersContext = createTriggersContext(() => this.lastCache)
+
 		if (StudioActionManagers.get(studioId)) {
 			logger.error(`A StudioActionManager for "${studioId}" already exists`)
 			return
@@ -40,24 +57,27 @@ export class StudioDeviceTriggerManager {
 
 	async updateTriggers(cache: ContentCache, showStyleBaseId: ShowStyleBaseId): Promise<void> {
 		const studioId = this.studioId
-		this.#lastShowStyleBaseId = showStyleBaseId
 
-		const [showStyleBase, rundownPlaylist] = await Promise.all([
-			cache.ShowStyleBases.findOneAsync(showStyleBaseId),
-			cache.RundownPlaylists.findOneAsync({
-				activationId: {
-					$exists: true,
-				},
-			}),
-		])
+		const showStyleBase = cache.ShowStyleBases.findOne(showStyleBaseId)
+		const rundownPlaylist = cache.RundownPlaylists.findOne({
+			activationId: {
+				$exists: true,
+			},
+		})
 		if (!showStyleBase || !rundownPlaylist) {
+			// The observer doesn't clear before re-running an update, so tear down anything mounted from a
+			// previous (valid) cache rather than leaving it active against this one
+			await this.clearTriggers()
 			return
 		}
 
-		const context = await createCurrentContextFromCache(cache)
+		this.lastCache = cache
+		this.#lastShowStyleBaseId = showStyleBaseId
+
+		const context = createContextFromCache(cache, studioId, rundownPlaylist)
 		const actionManager = StudioActionManagers.get(studioId)
 		if (!actionManager)
-			throw new Meteor.Error(
+			throw new SofieError(
 				500,
 				`No Studio Action Manager available to handle action context in Studio "${studioId}"`
 			)
@@ -65,14 +85,16 @@ export class StudioDeviceTriggerManager {
 
 		const { obj: sourceLayers } = applyAndValidateOverrides(showStyleBase.sourceLayersWithOverrides)
 
-		const allTriggeredActions = await cache.TriggeredActions.find({
+		const allTriggeredActions = cache.TriggeredActions.findFetch({
 			showStyleBaseId: {
 				$in: [showStyleBaseId, null],
 			},
-		}).fetchAsync()
+		})
 
 		const upsertedDeviceTriggerMountedActionIds: DeviceTriggerMountedActionId[] = []
 		const touchedActionIds: DeviceActionId[] = []
+
+		this.tagsService.clearObservedTags()
 
 		for (const rawTriggeredAction of allTriggeredActions) {
 			const triggeredAction = convertDocument(rawTriggeredAction)
@@ -94,7 +116,7 @@ export class StudioDeviceTriggerManager {
 					if (existingAction) {
 						thisAction = existingAction
 					} else {
-						const compiledAction = createAction(action, sourceLayers)
+						const compiledAction = createAction(this.triggersContext, action, sourceLayers)
 						actionManager.setAction(actionId, compiledAction)
 						thisAction = compiledAction
 					}
@@ -124,18 +146,17 @@ export class StudioDeviceTriggerManager {
 							`${actionId}_${key}`
 						)
 						upsertedDeviceTriggerMountedActionIds.push(deviceTriggerMountedActionId)
-						return DeviceTriggerMountedActions.upsertAsync(deviceTriggerMountedActionId, {
-							$set: {
-								studioId,
-								showStyleBaseId,
-								actionType: thisAction.action,
-								actionId,
-								deviceId: trigger.deviceId,
-								deviceTriggerId: trigger.triggerId,
-								values: trigger.values,
-								deviceActionArguments,
-								name: triggeredAction.name,
-							},
+						return DeviceTriggerMountedActions.replace({
+							_id: deviceTriggerMountedActionId,
+							studioId,
+							showStyleBaseId,
+							actionType: thisAction.action,
+							actionId,
+							deviceId: trigger.deviceId,
+							deviceTriggerId: trigger.triggerId,
+							values: trigger.values ?? {},
+							deviceActionArguments,
+							name: triggeredAction.name,
 						})
 					})
 
@@ -143,8 +164,8 @@ export class StudioDeviceTriggerManager {
 						const adLibPreviewId = protectString(`${actionId}_preview`)
 
 						addedPreviewIds.push(adLibPreviewId)
-						await DeviceTriggerMountedActionAdlibsPreview.upsertAsync(adLibPreviewId, {
-							$set: literal<PreviewWrappedAdLib>({
+						DeviceTriggerMountedActionAdlibsPreview.replace(
+							literal<PreviewWrappedAdLib>({
 								_id: adLibPreviewId,
 								_rank: 0,
 								partId: null,
@@ -158,10 +179,12 @@ export class StudioDeviceTriggerManager {
 								sourceLayerType: undefined,
 								sourceLayerName: undefined,
 								styleClassNames: triggeredAction.styleClassNames,
-							}),
-						})
+								isActive: undefined,
+								isNext: undefined,
+							})
+						)
 					} else {
-						const previewedAdLibs = thisAction.preview(context)
+						const previewedAdLibs = await thisAction.preview(context, null)
 
 						const previewedAdlibsUpdatePromises = previewedAdLibs.map(async (adLib) => {
 							const adLibPreviewId = protectString<PreviewWrappedAdLibId>(
@@ -169,8 +192,11 @@ export class StudioDeviceTriggerManager {
 							)
 
 							addedPreviewIds.push(adLibPreviewId)
-							return DeviceTriggerMountedActionAdlibsPreview.upsertAsync(adLibPreviewId, {
-								$set: literal<PreviewWrappedAdLib>({
+
+							this.tagsService.observeTallyTags(adLib)
+							const { isActive, isNext } = this.tagsService.getTallyStateFromTags(adLib)
+							return DeviceTriggerMountedActionAdlibsPreview.replace(
+								literal<PreviewWrappedAdLib>({
 									...adLib,
 									_id: adLibPreviewId,
 									triggeredActionId: triggeredAction._id,
@@ -184,11 +210,13 @@ export class StudioDeviceTriggerManager {
 										? {
 												name: sourceLayers[adLib.sourceLayerId]?.name,
 												abbreviation: sourceLayers[adLib.sourceLayerId]?.abbreviation,
-										  }
+											}
 										: undefined,
 									styleClassNames: triggeredAction.styleClassNames,
-								}),
-							})
+									isActive,
+									isNext,
+								})
+							)
 						})
 
 						await Promise.all(previewedAdlibsUpdatePromises)
@@ -200,7 +228,7 @@ export class StudioDeviceTriggerManager {
 
 			await Promise.all(updateActionsPromises)
 
-			await DeviceTriggerMountedActionAdlibsPreview.removeAsync({
+			DeviceTriggerMountedActionAdlibsPreview.remove({
 				triggeredActionId: triggeredAction._id,
 				_id: {
 					$nin: addedPreviewIds,
@@ -208,7 +236,7 @@ export class StudioDeviceTriggerManager {
 			})
 		}
 
-		await DeviceTriggerMountedActions.removeAsync({
+		DeviceTriggerMountedActions.remove({
 			studioId,
 			showStyleBaseId,
 			_id: {
@@ -217,6 +245,18 @@ export class StudioDeviceTriggerManager {
 		})
 
 		actionManager.deleteActionsOtherThan(touchedActionIds)
+	}
+
+	protected async updateTriggersFromLastCache(): Promise<void> {
+		if (!this.lastCache || !this.#lastShowStyleBaseId) return
+		return this.updateTriggers(this.lastCache, this.#lastShowStyleBaseId)
+	}
+
+	async updatePieceInstances(cache: PieceInstancesContentCache, showStyleBaseId: ShowStyleBaseId): Promise<void> {
+		const shouldUpdateTriggers = this.tagsService.updatePieceInstances(cache, showStyleBaseId)
+		if (shouldUpdateTriggers) {
+			await this.updateTriggersFromLastCache()
+		}
 	}
 
 	async clearTriggers(): Promise<void> {
@@ -229,32 +269,33 @@ export class StudioDeviceTriggerManager {
 
 		const actionManager = StudioActionManagers.get(studioId)
 		if (!actionManager)
-			throw new Meteor.Error(
+			throw new SofieError(
 				500,
 				`No Studio Action Manager available to handle action context in Studio "${studioId}"`
 			)
 
-		const mountedActions = await DeviceTriggerMountedActions.find({
+		const mountedActions = DeviceTriggerMountedActions.findFetch({
 			studioId,
 			showStyleBaseId,
-		}).fetchAsync()
+		})
 		for (const mountedAction of mountedActions) {
 			actionManager.deleteAction(mountedAction.actionId)
 		}
 
-		await Promise.all([
-			DeviceTriggerMountedActions.removeAsync({
-				studioId,
-				showStyleBaseId,
-			}),
-			DeviceTriggerMountedActionAdlibsPreview.removeAsync({
-				studioId,
-				showStyleBaseId,
-			}),
-		])
+		DeviceTriggerMountedActions.remove({
+			studioId,
+			showStyleBaseId,
+		})
+		DeviceTriggerMountedActionAdlibsPreview.remove({
+			studioId,
+			showStyleBaseId,
+		})
 
 		actionManager.deleteContext()
 
+		// Drop the cache too: it belongs to the observer that is being torn down, and `triggersContext` reads
+		// it to evaluate filter chains.
+		this.lastCache = undefined
 		this.#lastShowStyleBaseId = null
 		return
 	}
@@ -278,49 +319,4 @@ function convertDocument(doc: ReadonlyObjectDeep<DBTriggeredActions>): UITrigger
 
 		styleClassNames: doc.styleClassNames,
 	})
-}
-
-async function createCurrentContextFromCache(cache: ContentCache): Promise<ReactivePlaylistActionContext> {
-	const rundownPlaylist = await cache.RundownPlaylists.findOneAsync({
-		activationId: {
-			$exists: true,
-		},
-	})
-
-	if (!rundownPlaylist) throw new Error('There should be an active RundownPlaylist!')
-
-	const [currentPartInstance, nextPartInstance] = await Promise.all([
-		rundownPlaylist.currentPartInfo
-			? cache.PartInstances.findOneAsync(rundownPlaylist.currentPartInfo.partInstanceId)
-			: undefined,
-		rundownPlaylist.nextPartInfo
-			? cache.PartInstances.findOneAsync(rundownPlaylist.nextPartInfo.partInstanceId)
-			: undefined,
-	])
-
-	const currentSegmentPartIds = currentPartInstance
-		? await cache.Parts.find({
-				segmentId: currentPartInstance.part.segmentId,
-		  }).mapAsync((part) => part._id)
-		: []
-	const nextSegmentPartIds = nextPartInstance
-		? nextPartInstance.part.segmentId === currentPartInstance?.part.segmentId
-			? currentSegmentPartIds
-			: await cache.Parts.find({
-					segmentId: nextPartInstance.part.segmentId,
-			  }).mapAsync((part) => part._id)
-		: []
-
-	return {
-		currentPartInstanceId: new DummyReactiveVar(currentPartInstance?._id ?? null),
-		currentPartId: new DummyReactiveVar(currentPartInstance?.part._id ?? null),
-		nextPartId: new DummyReactiveVar(nextPartInstance?.part._id ?? null),
-		currentRundownId: new DummyReactiveVar(
-			currentPartInstance?.part.rundownId ?? nextPartInstance?.part.rundownId ?? null
-		),
-		rundownPlaylist: new DummyReactiveVar(rundownPlaylist),
-		rundownPlaylistId: new DummyReactiveVar(rundownPlaylist._id),
-		currentSegmentPartIds: new DummyReactiveVar(currentSegmentPartIds),
-		nextSegmentPartIds: new DummyReactiveVar(nextSegmentPartIds),
-	}
 }

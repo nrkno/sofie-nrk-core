@@ -1,39 +1,58 @@
 import Koa from 'koa'
 import cors from '@koa/cors'
 import KoaRouter from '@koa/router'
-import { WebApp } from 'meteor/webapp'
-import { Meteor } from 'meteor/meteor'
+import KoaMount from 'koa-mount'
 import { getRandomString } from '@sofie-automation/corelib/dist/lib'
-import _ from 'underscore'
+import { stringifyError } from '@sofie-automation/shared-lib/dist/lib/stringifyError'
+import { getRootSubpath, isInDevelopmentMode, public_dir } from '../../lib'
+import { getClientAddress } from '../../lib/clientAddress'
+import { STANDALONE_DDP_SERVER_PATH } from '../../ddp-server/config'
+import staticServe from 'koa-static'
+import { logger } from '../../logging'
+import { PackageInfo } from '../../coreSystem'
+import { profiler } from '../profiler'
+import fs from 'fs/promises'
+import type { IExtendedSettings } from '@sofie-automation/meteor-lib/dist/Settings'
+import { ENABLE_HEADER_AUTH } from '../../security/auth'
+import type { DDPClientConnection } from '../../ddp-server/types'
 
-declare module 'http' {
-	interface IncomingMessage {
-		// Meteor http routing performs this addition
-		body?: object | string
-	}
-}
+const rootRouter = new KoaRouter()
+const boundRouterPaths: string[] = []
 
-export function bindKoaRouter(koaRouter: KoaRouter, bindPath: string): void {
-	const app = new Koa()
-	// Expose the API at the url
-	WebApp.rawConnectHandlers.use(bindPath, (req, res) => {
-		const callback = Meteor.bindEnvironment(app.callback())
-		callback(req, res).catch(() => res.end())
-	})
+/**
+ * Build the koa app serving the webui and the whole HTTP API.
+ * The app is not bound to a port here; see `createHttpServer`/`listenHttpServer`.
+ */
+export function createKoaApp(): Koa {
+	const koaApp = new Koa()
 
-	app.use(async (ctx, next) => {
-		// Strange - sometimes a JSON body gets parsed by Koa before here (eg for a POST call?).
-		if (typeof ctx.req.body === 'object') {
-			ctx.disableBodyParser = true
-			if (Array.isArray(ctx.req.body)) {
-				ctx.request.body = [...ctx.req.body]
-			} else {
-				ctx.request.body = { ...ctx.req.body }
-			}
+	// Report each request as an apm transaction. First in the stack, so it spans all other middleware.
+	koaApp.use(async (ctx, next) => {
+		const transaction = profiler.startTransaction(`${ctx.method}:${ctx.url}`, 'http.incoming')
+		if (transaction) {
+			transaction.setLabel('url', ctx.url)
+			transaction.setLabel('method', ctx.method)
+
+			ctx.res.on('finish', () => {
+				// When the end of the request is sent to the client, submit the apm transaction
+				let route = ctx.originalUrl
+				if (route && route.endsWith('/')) {
+					route = route.slice(0, -1)
+				}
+
+				if (route) {
+					transaction.name = `${ctx.method}:${route}`
+					transaction.setLabel('route', route)
+				}
+
+				transaction.end()
+			})
 		}
+
 		await next()
 	})
-	app.use(
+
+	koaApp.use(
 		cors({
 			// Allow anything
 			origin(ctx) {
@@ -41,62 +60,167 @@ export function bindKoaRouter(koaRouter: KoaRouter, bindPath: string): void {
 			},
 		})
 	)
-	app.use(koaRouter.routes()).use(koaRouter.allowedMethods())
-}
 
-const REVERSE_PROXY_COUNT = process.env.HTTP_FORWARDED_COUNT ? parseInt(process.env.HTTP_FORWARDED_COUNT) : 0
-
-// X-Forwarded-For (a de-facto standard) has the following syntax by convention
-// X-Forwarded-For: 203.0.113.195, 2001:db8:85a3:8d3:1319:8a2e:370:7348
-// X-Forwarded-For: 203.0.113.195,2001:db8:85a3:8d3:1319:8a2e:370:7348,198.51.100.178
-function getClientAddrFromXForwarded(headerVal: undefined | string | string[]): string | undefined {
-	if (headerVal === undefined) return undefined
-	if (typeof headerVal !== 'string') {
-		headerVal = _.last(headerVal) as string
+	// Serve the webui through koa, when there is one to serve. In development there is not, as vite
+	// serves it instead.
+	if (public_dir) {
+		const webuiServer = staticServe(public_dir, {
+			index: false, // Performed manually
+		})
+		koaApp.use(KoaMount(getRootSubpath() || '/', webuiServer))
+		logger.info(`Serving the webui from ${public_dir}`)
+	} else {
+		logger.info(`Not serving a webui, as SOFIE_WEBUI_DIR is not set`)
 	}
-	const remoteAddresses = headerVal.split(',')
-	return remoteAddresses[remoteAddresses.length - REVERSE_PROXY_COUNT]?.trim() ?? remoteAddresses[0]?.trim()
-}
 
-// Forwarded uses the following syntax:
-// Forwarded: for=192.0.2.60;proto=http;by=203.0.113.43
-// Forwarded: for=192.0.2.43, for="[2001:db8:cafe::17]"
-function getClientAddrFromForwarded(forwardedVal: string | undefined): string | undefined {
-	if (forwardedVal === undefined) return undefined
-	const allProxies = forwardedVal.split(',')
-	const proxyInfo = allProxies[allProxies.length - REVERSE_PROXY_COUNT] ?? allProxies[0]
-	const directives = proxyInfo?.trim().split(';')
-	for (const directive of directives) {
-		let match: RegExpMatchArray | null
-		if ((match = directive.trim().match(/^for=("\[)?([\w.:])+(\]")?/))) {
-			return match[2]
+	if (isInDevelopmentMode()) {
+		// Serve the runtime config. In production, this gets baked into the html
+		rootRouter.get(getRootSubpath() + '/meteor-runtime-config.js', async (ctx) => {
+			ctx.body = getExtendedMeteorRuntimeConfig()
+		})
+	}
+
+	koaApp.use(rootRouter.routes()).use(rootRouter.allowedMethods())
+
+	koaApp.use(async (ctx, next) => {
+		if (ctx.method !== 'GET') return next()
+
+		// Without a webui there is no index.html to fall back to
+		if (!public_dir) return next()
+
+		// Ensure the path is scoped to the root subpath
+		const rootSubpath = getRootSubpath()
+		if (!ctx.path.startsWith(rootSubpath)) return next()
+
+		// Don't use the fallback for certain paths
+		if (ctx.path.startsWith(rootSubpath + '/assets/')) return next()
+
+		// Don't use the fallback for anything handled by another router
+		// This does not feel efficient, but koa doesn't appear to have any shared state between the router handlers
+		for (const bindPath of boundRouterPaths) {
+			if (ctx.path.startsWith(bindPath)) return next()
 		}
-	}
-	return undefined
+
+		// fallback to serving html
+		return serveIndexHtml(public_dir, ctx, next)
+	})
+
+	return koaApp
 }
 
+/**
+ * The config blob injected into the served html, and read by the webui off `window`.
+ * Note: this was previously generated by meteor's `webapp`, so the name is retained until the webui is
+ * updated to read it from somewhere less meteor-flavoured.
+ */
+function getExtendedMeteorRuntimeConfig() {
+	const versionExtended: string = PackageInfo.versionExtended || PackageInfo.version // package version
+
+	return `window.__meteor_runtime_config__ = (${JSON.stringify({
+		ROOT_URL: process.env.ROOT_URL || '/',
+		ROOT_URL_PATH_PREFIX: getRootSubpath(),
+		...({
+			sofieVersionExtended: versionExtended,
+			enableHeaderAuth: ENABLE_HEADER_AUTH,
+			DDP_DEFAULT_CONNECTION_URL: STANDALONE_DDP_SERVER_PATH,
+		} satisfies IExtendedSettings),
+	})})`
+}
+
+async function serveIndexHtml(webuiDir: string, ctx: Koa.ParameterizedContext, next: Koa.Next) {
+	try {
+		// Read the file
+		const indexFileBuffer = await fs.readFile(webuiDir + '/index.html', 'utf8')
+		const indexFileStr = indexFileBuffer.toString()
+
+		const rootPath = getRootSubpath()
+
+		// Perform various runtime modifications, to ensure paths have the correct absolute prefix
+		let modifiedFile = indexFileStr
+		modifiedFile = modifiedFile.replace(
+			// Replace the http load with injected js, to avoid risk of issues where this load fails and the app gets confused
+			'<script type="text/javascript" src="/meteor-runtime-config.js"></script>',
+			`<script type="text/javascript">${getExtendedMeteorRuntimeConfig()}</script>`
+		)
+		modifiedFile = modifiedFile.replaceAll('href="/', `href="${rootPath}/`)
+		modifiedFile = modifiedFile.replaceAll('href="./', `href="${rootPath}/`)
+		modifiedFile = modifiedFile.replaceAll('src="./', `src="${rootPath}/`)
+
+		ctx.body = modifiedFile
+	} catch (e: unknown) {
+		logger.error(`error in serveIndexHtml: ${stringifyError(e)}`)
+		return next()
+	}
+}
+
+export function bindKoaRouter(koaRouter: KoaRouter, bindPath: string): void {
+	const bindPathWithPrefix = getRootSubpath() + bindPath
+
+	// Track this path as having a router
+	let bindPathFull = bindPathWithPrefix
+	if (!bindPathFull.endsWith('/')) bindPathFull += '/'
+	boundRouterPaths.push(bindPathFull)
+
+	rootRouter.use(bindPathWithPrefix, koaRouter.routes()).use(bindPathWithPrefix, koaRouter.allowedMethods())
+}
+
+/**
+ * Build a `DDPClientConnection` handle scoped to the lifetime of a single HTTP request.
+ *
+ * The connection is 'closed' once the response has been sent to the client, or when the socket is
+ * torn down early. At that point the `signal` is aborted and any `onClose` callbacks are fired, so
+ * work started by the request handler can be cancelled.
+ */
 export const makeMeteorConnectionFromKoa = (
-	ctx: Koa.ParameterizedContext<
-		Koa.DefaultState,
-		Koa.DefaultContext & KoaRouter.RouterParamContext<Koa.DefaultState, Koa.DefaultContext>,
-		unknown
-	>
-): Meteor.Connection => {
+	ctx: Koa.ParameterizedContext<Koa.DefaultState, Koa.DefaultContext, unknown>
+): DDPClientConnection => {
+	const closeCallbacks: Array<() => void> = []
+	let closed = false
+
+	const abortController = new AbortController()
+
+	const fireClose = () => {
+		if (closed) return
+		closed = true
+
+		try {
+			abortController.abort()
+		} catch {
+			// Ignore errors from aborting the signal
+		}
+
+		for (const callback of closeCallbacks) {
+			try {
+				callback()
+			} catch (e) {
+				// onClose handlers must not break teardown of other handlers
+				logger.error(`Error in http connection onClose handler: ${stringifyError(e)}`)
+			}
+		}
+		closeCallbacks.length = 0
+	}
+
+	// `finish` fires once the response has been handed to the OS, `close` once the underlying socket
+	// is done (including when the client disconnects before the response was completed).
+	// Whichever comes first ends the connection, `fireClose` is idempotent.
+	ctx.res.once('finish', fireClose)
+	ctx.res.once('close', fireClose)
+
 	return {
 		id: getRandomString(),
+		signal: abortController.signal,
 		close: () => {
-			/* no-op */
+			// Not supported for http requests, the connection ends when the response has been sent
 		},
-		onClose: () => {
-			/* no-op */
+		onClose: (callback: () => void) => {
+			if (closed) {
+				// Already closed, defer-call to match the behaviour of a live connection
+				queueMicrotask(callback)
+				return
+			}
+			closeCallbacks.push(callback)
 		},
-		clientAddress:
-			// This replicates Meteor behavior which uses the HTTP_FORWARDED_COUNT to extract the "world-facing"
-			// IP address of the Client User Agent
-			getClientAddrFromForwarded(ctx.req.headers.forwarded) ||
-			getClientAddrFromXForwarded(ctx.req.headers['x-forwarded-for']) ||
-			ctx.req.socket.remoteAddress ||
-			'unknown',
-		httpHeaders: ctx.req.headers as Record<string, string>,
+		clientAddress: getClientAddress(ctx.req.headers, ctx.req.socket.remoteAddress),
+		httpHeaders: ctx.req.headers,
 	}
 }

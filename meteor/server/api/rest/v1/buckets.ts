@@ -1,25 +1,29 @@
-import { Meteor } from 'meteor/meteor'
-import { APIBucket, APIBucketComplete, APIImportAdlib, BucketsRestAPI } from '../../../../lib/api/rest/v1/buckets'
+import { z } from 'zod'
+import { APIBucket, APIBucketComplete, APIImportAdlib, BucketsRestAPI } from '../../../lib/rest/v1/buckets'
 import { BucketAdLibActions, BucketAdLibs, Buckets } from '../../../collections'
 import { APIBucketFrom } from './typeConversion'
-import { ClientAPI } from '../../../../lib/api/client'
+import { ClientAPI } from '@sofie-automation/meteor-lib/dist/api/client'
 import { BucketId, ShowStyleBaseId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { ServerClientAPI } from '../../client'
-import { getCurrentTime, protectString } from '../../../../lib/lib'
-import { check } from 'meteor/check'
-import { StudioContentWriteAccess } from '../../../security/studio'
+import { protectString } from '@sofie-automation/shared-lib/dist/lib/protectedString'
+import { getCurrentTime } from '../../../lib/lib'
+import { check, zPlainObject } from '../../../lib/check'
 import { BucketsAPI } from '../../buckets'
-import { BucketSecurity } from '../../../security/buckets'
 import { APIFactory, APIRegisterHook, ServerAPIContext } from './types'
 import { logger } from '../../../logging'
 import { UserError, UserErrorMessage } from '@sofie-automation/corelib/dist/error'
 import { IngestAdlib } from '@sofie-automation/blueprints-integration'
+import { assertConnectionHasOneOfPermissions } from '../../../security/auth'
+import { UserPermissions } from '@sofie-automation/meteor-lib/dist/userPermissions'
+import type { DDPClientConnection } from '../../../ddp-server/types'
+
+const PERMISSIONS_FOR_BUCKET_MODIFICATION: Array<keyof UserPermissions> = ['studio']
 
 export class BucketsServerAPI implements BucketsRestAPI {
 	constructor(private context: ServerAPIContext) {}
 
 	async getAllBuckets(
-		_connection: Meteor.Connection,
+		_connection: DDPClientConnection,
 		_event: string
 	): Promise<ClientAPI.ClientResponse<Array<APIBucketComplete>>> {
 		const buckets = await Buckets.findFetchAsync({}, { projection: { _id: 1, name: 1, studioId: 1 } })
@@ -27,22 +31,26 @@ export class BucketsServerAPI implements BucketsRestAPI {
 	}
 
 	async getBucket(
-		_connection: Meteor.Connection,
+		_connection: DDPClientConnection,
 		_event: string,
 		bucketId: BucketId
 	): Promise<ClientAPI.ClientResponse<APIBucketComplete>> {
 		const bucket = await Buckets.findOneAsync(bucketId, { projection: { _id: 1, name: 1, studioId: 1 } })
 		if (!bucket) {
 			return ClientAPI.responseError(
-				UserError.from(new Error(`Bucket ${bucketId} not found`), UserErrorMessage.BucketNotFound),
-				404
+				UserError.from(
+					new Error(`Bucket ${bucketId} not found`),
+					UserErrorMessage.BucketNotFound,
+					undefined,
+					404
+				)
 			)
 		}
 		return ClientAPI.responseSuccess(APIBucketFrom(bucket))
 	}
 
 	async addBucket(
-		connection: Meteor.Connection,
+		connection: DDPClientConnection,
 		event: string,
 		bucket: APIBucket
 	): Promise<ClientAPI.ClientResponse<BucketId>> {
@@ -53,14 +61,12 @@ export class BucketsServerAPI implements BucketsRestAPI {
 			'bucketsCreateNewBucket',
 			{ bucket },
 			async () => {
-				check(bucket.studioId, String)
-				check(bucket.name, String)
+				check(bucket.studioId, z.string())
+				check(bucket.name, z.string())
 
-				const access = await StudioContentWriteAccess.bucket(
-					this.context.getCredentials(),
-					protectString(bucket.studioId)
-				)
-				return BucketsAPI.createNewBucket(access, bucket.name)
+				assertConnectionHasOneOfPermissions(connection, ...PERMISSIONS_FOR_BUCKET_MODIFICATION)
+
+				return BucketsAPI.createNewBucket(protectString(bucket.studioId), bucket.name)
 			}
 		)
 		if (ClientAPI.isClientResponseSuccess(createdBucketResponse)) {
@@ -70,7 +76,7 @@ export class BucketsServerAPI implements BucketsRestAPI {
 	}
 
 	async deleteBucket(
-		connection: Meteor.Connection,
+		connection: DDPClientConnection,
 		event: string,
 		bucketId: BucketId
 	): Promise<ClientAPI.ClientResponse<void>> {
@@ -81,16 +87,17 @@ export class BucketsServerAPI implements BucketsRestAPI {
 			'bucketsRemoveBucket',
 			{ bucketId },
 			async () => {
-				check(bucketId, String)
+				check(bucketId, z.string())
 
-				const access = await BucketSecurity.allowWriteAccess(this.context.getCredentials(), bucketId)
-				return BucketsAPI.removeBucket(access)
+				assertConnectionHasOneOfPermissions(connection, ...PERMISSIONS_FOR_BUCKET_MODIFICATION)
+
+				return BucketsAPI.removeBucket(bucketId)
 			}
 		)
 	}
 
 	async emptyBucket(
-		connection: Meteor.Connection,
+		connection: DDPClientConnection,
 		event: string,
 		bucketId: BucketId
 	): Promise<ClientAPI.ClientResponse<void>> {
@@ -101,16 +108,17 @@ export class BucketsServerAPI implements BucketsRestAPI {
 			'bucketsEmptyBucket',
 			{ bucketId },
 			async () => {
-				check(bucketId, String)
+				check(bucketId, z.string())
 
-				const access = await BucketSecurity.allowWriteAccess(this.context.getCredentials(), bucketId)
-				return BucketsAPI.emptyBucket(access)
+				assertConnectionHasOneOfPermissions(connection, ...PERMISSIONS_FOR_BUCKET_MODIFICATION)
+
+				return BucketsAPI.emptyBucket(bucketId)
 			}
 		)
 	}
 
 	async deleteBucketAdLib(
-		connection: Meteor.Connection,
+		connection: DDPClientConnection,
 		event: string,
 		externalId: string
 	): Promise<ClientAPI.ClientResponse<void>> {
@@ -121,6 +129,8 @@ export class BucketsServerAPI implements BucketsRestAPI {
 			'bucketsRemoveBucketAdLib',
 			{ externalId },
 			async () => {
+				assertConnectionHasOneOfPermissions(connection, ...PERMISSIONS_FOR_BUCKET_MODIFICATION)
+
 				const bucketAdLibPiecePromise = BucketAdLibs.findOneAsync(
 					{ externalId },
 					{
@@ -138,24 +148,16 @@ export class BucketsServerAPI implements BucketsRestAPI {
 					bucketAdLibActionPromise,
 				])
 				if (bucketAdLibPiece) {
-					const access = await BucketSecurity.allowWriteAccessPiece(
-						this.context.getCredentials(),
-						bucketAdLibPiece._id
-					)
-					return BucketsAPI.removeBucketAdLib(access)
+					return BucketsAPI.removeBucketAdLib(bucketAdLibPiece._id)
 				} else if (bucketAdLibAction) {
-					const access = await BucketSecurity.allowWriteAccessAction(
-						this.context.getCredentials(),
-						bucketAdLibAction._id
-					)
-					return BucketsAPI.removeBucketAdLibAction(access)
+					return BucketsAPI.removeBucketAdLibAction(bucketAdLibAction._id)
 				}
 			}
 		)
 	}
 
 	async importAdLibToBucket(
-		connection: Meteor.Connection,
+		connection: DDPClientConnection,
 		event: string,
 		bucketId: BucketId,
 		showStyleBaseId: ShowStyleBaseId,
@@ -168,12 +170,13 @@ export class BucketsServerAPI implements BucketsRestAPI {
 			'bucketAdlibImport',
 			{ bucketId, showStyleBaseId, ingestItem },
 			async () => {
-				check(bucketId, String)
-				check(showStyleBaseId, String)
-				check(ingestItem, Object)
+				check(bucketId, z.string())
+				check(showStyleBaseId, z.string())
+				check(ingestItem, zPlainObject)
 
-				const access = await BucketSecurity.allowWriteAccess(this.context.getCredentials(), bucketId)
-				return BucketsAPI.importAdlibToBucket(access, showStyleBaseId, undefined, ingestItem)
+				assertConnectionHasOneOfPermissions(connection, ...PERMISSIONS_FOR_BUCKET_MODIFICATION)
+
+				return BucketsAPI.importAdlibToBucket(bucketId, showStyleBaseId, undefined, ingestItem)
 			}
 		)
 	}
@@ -207,7 +210,7 @@ export function registerRoutes(registerRoute: APIRegisterHook<BucketsRestAPI>): 
 		async (serverAPI, connection, event, params, _body) => {
 			logger.info(`API GET: Bucket`)
 			const bucketId = protectString(params.bucketId)
-			check(bucketId, String)
+			check(bucketId, z.string())
 			return await serverAPI.getBucket(connection, event, bucketId)
 		}
 	)
@@ -243,7 +246,7 @@ export function registerRoutes(registerRoute: APIRegisterHook<BucketsRestAPI>): 
 		async (serverAPI, connection, event, params, _body) => {
 			logger.info(`API DELETE: Empty Bucket`)
 			const bucketId = protectString(params.bucketId)
-			check(bucketId, String)
+			check(bucketId, z.string())
 			return await serverAPI.emptyBucket(connection, event, bucketId)
 		}
 	)
@@ -255,8 +258,8 @@ export function registerRoutes(registerRoute: APIRegisterHook<BucketsRestAPI>): 
 		bucketsApiFactory,
 		async (serverAPI, connection, event, params, _body) => {
 			logger.info(`API DELETE: Remove Bucket AdLib`)
-			const adLibId = protectString(params.externalId)
-			check(adLibId, String)
+			const adLibId = params.externalId
+			check(adLibId, z.string())
 			return await serverAPI.deleteBucketAdLib(connection, event, adLibId)
 		}
 	)
@@ -269,11 +272,11 @@ export function registerRoutes(registerRoute: APIRegisterHook<BucketsRestAPI>): 
 		async (serverAPI, connection, event, params, body) => {
 			logger.info(`API POST: Add AdLib to Bucket`)
 			const bucketId = protectString(params.bucketId)
-			check(bucketId, String)
-			check(body.externalId, String)
-			check(body.name, String)
-			check(body.payloadType, String)
-			check(body.showStyleBaseId, String)
+			check(bucketId, z.string())
+			check(body.externalId, z.string())
+			check(body.name, z.string())
+			check(body.payloadType, z.string())
+			check(body.showStyleBaseId, z.string())
 			const showStyleBaseId = protectString(body.showStyleBaseId)
 			return await serverAPI.importAdLibToBucket(connection, event, bucketId, showStyleBaseId, body)
 		}

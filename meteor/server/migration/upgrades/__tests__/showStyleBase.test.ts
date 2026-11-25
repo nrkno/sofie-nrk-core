@@ -2,7 +2,6 @@ import '../../../../__mocks__/_extendJest'
 import { protectString } from '@sofie-automation/corelib/dist/protectedString'
 import { runUpgradeForShowStyleBase, validateConfigForShowStyleBase } from '../showStyleBase'
 import { setupMockShowStyleBase, setupMockShowStyleBlueprint } from '../../../../__mocks__/helpers/database'
-import { testInFiber } from '../../../../__mocks__/helpers/jest'
 import {
 	BlueprintManifestType,
 	BlueprintResultApplyShowStyleConfig,
@@ -12,7 +11,7 @@ import {
 	SourceLayerType,
 	TriggerType,
 } from '@sofie-automation/blueprints-integration'
-import { clone, generateTranslation, getRandomString, normalizeArray, omit } from '../../../../lib/lib'
+import { clone, generateTranslation, getRandomString, normalizeArray, omit } from '@sofie-automation/corelib/dist/lib'
 import { literal } from '@sofie-automation/shared-lib/dist/lib/lib'
 import { BlueprintValidateConfigForStudioResult } from '@sofie-automation/corelib/dist/worker/studio'
 import { wrapTranslatableMessageFromBlueprints } from '@sofie-automation/corelib/dist/TranslatableMessage'
@@ -50,7 +49,6 @@ describe('ShowStyleBase upgrades', () => {
 				},
 
 				showStyleConfigSchema: JSONBlobStringify({}),
-				showStyleMigrations: [],
 				getShowStyleVariantId: (): string | null => {
 					return null
 				},
@@ -66,47 +64,47 @@ describe('ShowStyleBase upgrades', () => {
 	}
 
 	describe('validateConfigForShowStyleBase', () => {
-		testInFiber('Missing id', async () => {
-			await expect(validateConfigForShowStyleBase(protectString('fakeId'))).rejects.toThrowMeteor(
+		test('Missing id', async () => {
+			await expect(validateConfigForShowStyleBase(protectString('fakeId'))).rejects.toThrowSofieError(
 				404,
 				`ShowStyleBase "fakeId" not found!`
 			)
 		})
 
-		testInFiber('Missing config preset', async () => {
+		test('Missing config preset', async () => {
 			const blueprint = await setupMockShowStyleBlueprint(protectString(''))
 			const showStyleBase = await setupMockShowStyleBase(blueprint._id)
 
-			await expect(validateConfigForShowStyleBase(showStyleBase._id)).rejects.toThrowMeteor(
+			await expect(validateConfigForShowStyleBase(showStyleBase._id)).rejects.toThrowSofieError(
 				500,
 				`ShowStyleBase is missing config preset`
 			)
 		})
 
-		testInFiber('Missing blueprint', async () => {
+		test('Missing blueprint', async () => {
 			const showStyleBase = await setupMockShowStyleBase(protectString('fakeId'), {
 				blueprintConfigPresetId: 'fake-preset',
 			})
 
-			await expect(validateConfigForShowStyleBase(showStyleBase._id)).rejects.toThrowMeteor(
+			await expect(validateConfigForShowStyleBase(showStyleBase._id)).rejects.toThrowSofieError(
 				404,
 				`Blueprint "fakeId" not found!`
 			)
 		})
 
-		testInFiber('Unsupported blueprint', async () => {
+		test('Unsupported blueprint', async () => {
 			const blueprint = await setupMockShowStyleBlueprint(protectString(''))
 			const showStyleBase = await setupMockShowStyleBase(blueprint._id, {
 				blueprintConfigPresetId: 'fake-preset',
 			})
 
-			await expect(validateConfigForShowStyleBase(showStyleBase._id)).rejects.toThrowMeteor(
+			await expect(validateConfigForShowStyleBase(showStyleBase._id)).rejects.toThrowSofieError(
 				500,
 				`Blueprint does not support this config flow`
 			)
 		})
 
-		testInFiber('Success: no messages', async () => {
+		test('Success: no messages', async () => {
 			const blueprint = await setupMockShowStyleBlueprint(protectString(''))
 			const showStyleBase = await setupMockShowStyleBase(blueprint._id, {
 				blueprintConfigPresetId: 'fake-preset',
@@ -123,7 +121,7 @@ describe('ShowStyleBase upgrades', () => {
 			expect(result.messages).toHaveLength(0)
 		})
 
-		testInFiber('Success: some messages', async () => {
+		test('Success: some messages', async () => {
 			const blueprint = await setupMockShowStyleBlueprint(protectString(''))
 			const showStyleBase = await setupMockShowStyleBase(blueprint._id, {
 				blueprintConfigPresetId: 'fake-preset',
@@ -167,47 +165,47 @@ describe('ShowStyleBase upgrades', () => {
 	})
 
 	describe('runUpgradeForShowStyleBase', () => {
-		testInFiber('Missing id', async () => {
-			await expect(runUpgradeForShowStyleBase(protectString('fakeId'))).rejects.toThrowMeteor(
+		test('Missing id', async () => {
+			await expect(runUpgradeForShowStyleBase(protectString('fakeId'))).rejects.toThrowSofieError(
 				404,
 				`ShowStyleBase "fakeId" not found!`
 			)
 		})
 
-		testInFiber('Missing config preset', async () => {
+		test('Missing config preset', async () => {
 			const blueprint = await setupMockShowStyleBlueprint(protectString(''))
 			const showStyleBase = await setupMockShowStyleBase(blueprint._id)
 
-			await expect(runUpgradeForShowStyleBase(showStyleBase._id)).rejects.toThrowMeteor(
+			await expect(runUpgradeForShowStyleBase(showStyleBase._id)).rejects.toThrowSofieError(
 				500,
 				`ShowStyleBase is missing config preset`
 			)
 		})
 
-		testInFiber('Missing blueprint', async () => {
+		test('Missing blueprint', async () => {
 			const showStyleBase = await setupMockShowStyleBase(protectString('fakeId'), {
 				blueprintConfigPresetId: 'fake-preset',
 			})
 
-			await expect(runUpgradeForShowStyleBase(showStyleBase._id)).rejects.toThrowMeteor(
+			await expect(runUpgradeForShowStyleBase(showStyleBase._id)).rejects.toThrowSofieError(
 				404,
 				`Blueprint "fakeId" not found!`
 			)
 		})
 
-		testInFiber('Unsupported blueprint', async () => {
+		test('Unsupported blueprint', async () => {
 			const blueprint = await setupMockShowStyleBlueprint(protectString(''))
 			const showStyleBase = await setupMockShowStyleBase(blueprint._id, {
 				blueprintConfigPresetId: 'fake-preset',
 			})
 
-			await expect(runUpgradeForShowStyleBase(showStyleBase._id)).rejects.toThrowMeteor(
+			await expect(runUpgradeForShowStyleBase(showStyleBase._id)).rejects.toThrowSofieError(
 				500,
 				`Blueprint does not support this config flow`
 			)
 		})
 
-		testInFiber('Success', async () => {
+		test('Success', async () => {
 			const blueprint = await setupMockShowStyleBlueprint(protectString(''))
 			const showStyleBase = clone(
 				await setupMockShowStyleBase(blueprint._id, {

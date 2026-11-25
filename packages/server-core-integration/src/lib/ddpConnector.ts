@@ -1,10 +1,10 @@
-import { EventEmitter } from 'eventemitter3'
-import { DDPClient, DDPConnectorOptions } from './ddpClient'
+import { EventEmitter } from 'events'
+import { DDPClient, type DDPConnectorOptions } from './ddpClient.js'
 
 export type DDPConnectorEvents = {
 	error: [e: any]
 	failed: [error: Error]
-	message: [message: any]
+	message: [message: string]
 
 	connectionChanged: [connected: boolean]
 	connected: []
@@ -20,7 +20,7 @@ export class DDPConnector extends EventEmitter<DDPConnectorEvents> {
 	private _connectionId: string | undefined = undefined
 
 	private ddpIsOpen = false
-	private _monitorDDPConnectionInterval: any = null
+	private _monitorDDPConnectionInterval: NodeJS.Timeout | null = null
 
 	constructor(options: DDPConnectorOptions) {
 		super()
@@ -31,10 +31,10 @@ export class DDPConnector extends EventEmitter<DDPConnectorEvents> {
 		const o: DDPConnectorOptions = {
 			host: this._options.host,
 			port: this._options.port,
+			headers: this._options.headers,
 			path: this._options.path || '',
 			ssl: this._options.ssl || false,
 			tlsOpts: this._options.tlsOpts || {},
-			useSockJs: true,
 			autoReconnect: false, // we'll handle reconnections ourselves
 			autoReconnectTimer: 1000,
 			maintainCollections: true,
@@ -47,8 +47,8 @@ export class DDPConnector extends EventEmitter<DDPConnectorEvents> {
 			this.ddpClient.on('socket-close', () => {
 				this._onclientConnectionChange(false)
 			})
-			this.ddpClient.on('message', (message: any) => this._onClientMessage(message))
-			this.ddpClient.on('socket-error', (error: any) => this._onClientError(error))
+			this.ddpClient.on('message', (message) => this._onClientMessage(message))
+			this.ddpClient.on('socket-error', (error) => this._onClientError(error))
 		} else {
 			if (this.ddpClient.socket) {
 				this.ddpClient.close()
@@ -161,7 +161,7 @@ export class DDPConnector extends EventEmitter<DDPConnectorEvents> {
 		}
 		this._monitorDDPConnection()
 	}
-	private _onClientMessage(message: any) {
+	private _onClientMessage(message: string) {
 		// message
 		this.emit('message', message)
 	}

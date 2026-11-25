@@ -2,22 +2,23 @@ const path = require('path')
 
 const commonConfig = {
 	modulePaths: ['<rootDir>/node_modules/'],
-	moduleNameMapper: {},
+	moduleNameMapper: {
+		'^@sofie-automation/shared-lib/dist/(.+)\\.js$': '<rootDir>/../packages/shared-lib/src/$1',
+		'^@sofie-automation/shared-lib/dist/(.+)$': '<rootDir>/../packages/shared-lib/src/$1',
+		// Ensure libraries that would match the extension rule are still resolved
+		'bignumber.js': 'bignumber.js',
+		// Drop file extensions in imports
+		'(.+)\\.js$': '$1',
+	},
 	unmockedModulePathPatterns: ['/^imports\\/.*\\.jsx?$/', '/^node_modules/'],
 	globals: {},
-	moduleFileExtensions: ['ts', 'js'],
+	moduleFileExtensions: ['ts', 'js', 'json'],
 	transform: {
 		'^.+\\.(ts|tsx)$': [
 			'ts-jest',
 			{
 				isolatedModules: true, // Skip type check to reduce memory impact, as we are already do a yarn check-types
-				tsconfig: 'tsconfig.json',
-				babelConfig: {
-					plugins: [
-						// Fibers and await do not work well together. This transpiles await calls to something that works
-						'./__mocks__/plugins/meteor-async-await.js',
-					],
-				},
+				tsconfig: 'tsconfig.jest.json',
 				diagnostics: {
 					ignoreCodes: ['TS151001'],
 				},
@@ -33,33 +34,32 @@ const commonConfig = {
 
 module.exports = {
 	projects: [
+		// Fast unit tests (the default inner loop). Integration tests (`*.integration.test.ts`, which spin up a
+		// real MongoDB) are excluded here and live in the `integration` project below.
 		Object.assign({}, commonConfig, {
-			displayName: 'client',
-			testMatch: [
-				'<rootDir>/client/__tests__/**/*.(spec|test).(ts|js)',
-				'<rootDir>/client/**/__tests__/**/*.(spec|test).(ts|js)',
-				'!.meteor/*.*',
-			],
-			testEnvironment: 'jsdom',
-			setupFilesAfterEnv: [...commonConfig.setupFilesAfterEnv, '<rootDir>/client/__tests__/jest-setup.js'],
-		}),
-		Object.assign({}, commonConfig, {
-			displayName: 'lib',
-			testMatch: [
-				'<rootDir>/lib/__tests__/**/*.(spec|test).(ts|js)',
-				'<rootDir>/lib/**/__tests__/**/*.(spec|test).(ts|js)',
-				'!.meteor/*.*',
-			],
-			testEnvironment: 'node',
-		}),
-		Object.assign({}, commonConfig, {
-			displayName: 'server',
+			displayName: 'unit',
 			testMatch: [
 				'<rootDir>/server/__tests__/**/*.(spec|test).(ts|js)',
 				'<rootDir>/server/**/__tests__/**/*.(spec|test).(ts|js)',
 				'!.meteor/*.*',
 			],
+			testPathIgnorePatterns: ['/node_modules/', '\\.integration\\.test\\.(ts|js)$'],
 			testEnvironment: 'node',
+		}),
+		// Real-MongoDB integration tests. A single in-memory replica set is booted once for the whole project
+		// (see __mocks__/integration-global-setup.js) and reused across every file. Run on its own with
+		// `jest --selectProjects integration`; `yarn unit` runs it alongside the `unit` project.
+		Object.assign({}, commonConfig, {
+			displayName: 'integration',
+			testMatch: ['<rootDir>/server/**/*.integration.test.(ts|js)'],
+			testEnvironment: 'node',
+			globalSetup: './__mocks__/integration-global-setup.js',
+			globalTeardown: './__mocks__/integration-global-teardown.js',
+			// These tests wait on real change-stream / replica-set I/O, which is slower under CI load than the
+			// 5s jest default. The timeout is raised via `jest.setTimeout` in a setup file rather than the
+			// `testTimeout` option, because jest only reads `testTimeout` from the global config - setting it
+			// on a project is silently ignored. Tests needing longer still override inline.
+			setupFilesAfterEnv: [...commonConfig.setupFilesAfterEnv, './__mocks__/_setupIntegrationTimeout.ts'],
 		}),
 	],
 	coverageProvider: 'v8',
@@ -75,9 +75,7 @@ module.exports = {
 	collectCoverageFrom: [
 		'server/**/*.{js,ts}',
 		'lib/**/*.{js,ts}',
-		'client/**/*.{js,ts}',
 		'!**/*.{tsx}',
-		'!**/client/main.js',
 		'!.meteor/**/*.*',
 		'!**/__tests__/**',
 		'!**/__mocks__/**',

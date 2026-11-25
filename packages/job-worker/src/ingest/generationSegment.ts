@@ -3,33 +3,35 @@ import { SegmentNote, PartNote } from '@sofie-automation/corelib/dist/dataModel/
 import { DBSegment, SegmentOrphanedReason } from '@sofie-automation/corelib/dist/dataModel/Segment'
 import { literal } from '@sofie-automation/corelib/dist/lib'
 import { stringifyError } from '@sofie-automation/shared-lib/dist/lib/stringifyError'
-import { RawPartNote, SegmentUserContext } from '../blueprints/context'
-import { WatchedPackagesHelper } from '../blueprints/context/watchedPackages'
-import { postProcessAdLibActions, postProcessAdLibPieces, postProcessPieces } from '../blueprints/postProcess'
-import { logger } from '../logging'
-import { IngestModel, IngestModelReadonly, IngestReplaceSegmentType } from './model/IngestModel'
-import { LocalIngestSegment, LocalIngestRundown } from './ingestCache'
-import { getSegmentId, canSegmentBeUpdated } from './lib'
-import { JobContext, ProcessedShowStyleCompound } from '../jobs'
-import { CommitIngestData } from './lock'
+import { ShelfButtonSize } from '@sofie-automation/shared-lib/dist/core/model/StudioSettings'
+import { RawPartNote, SegmentUserContext } from '../blueprints/context/index.js'
+import { WatchedPackagesHelper } from '../blueprints/context/watchedPackages.js'
+import { postProcessAdLibActions, postProcessAdLibPieces, postProcessPieces } from '../blueprints/postProcess.js'
+import { logger } from '../logging.js'
+import { IngestModel, IngestModelReadonly, IngestReplaceSegmentType } from './model/IngestModel.js'
+import { getSegmentId, canSegmentBeUpdated } from './lib.js'
+import { JobContext, ProcessedShowStyleCompound } from '../jobs/index.js'
+import { CommitIngestData } from './lock.js'
 import {
 	BlueprintResultPart,
 	BlueprintResultSegment,
-	IngestSegment,
 	NoteSeverity,
+	SofieIngestRundown,
+	SofieIngestSegment,
 } from '@sofie-automation/blueprints-integration'
 import { wrapTranslatableMessageFromBlueprints } from '@sofie-automation/corelib/dist/TranslatableMessage'
-import { updateExpectedPackagesForPartModel } from './expectedPackages'
-import { IngestReplacePartType, IngestSegmentModel } from './model/IngestSegmentModel'
+import { updateExpectedMediaAndPlayoutItemsForPartModel } from './expectedPackages.js'
+import { IngestReplacePartType, IngestSegmentModel } from './model/IngestSegmentModel.js'
 import { ReadonlyDeep } from 'type-fest'
 import { Rundown } from '@sofie-automation/corelib/dist/dataModel/Rundown'
-import { WrappedShowStyleBlueprint } from '../blueprints/cache'
+import { WrappedShowStyleBlueprint } from '../blueprints/cache.js'
+import { translateUserEditPropertiesFromBlueprint, translateUserEditsFromBlueprint } from '../blueprints/context/lib.js'
 
 async function getWatchedPackagesHelper(
 	context: JobContext,
 	allRundownWatchedPackages0: WatchedPackagesHelper | null,
 	ingestModel: IngestModelReadonly,
-	ingestSegments: LocalIngestSegment[]
+	ingestSegments: SofieIngestSegment[]
 ): Promise<WatchedPackagesHelper> {
 	if (allRundownWatchedPackages0) {
 		return allRundownWatchedPackages0
@@ -50,7 +52,7 @@ async function getWatchedPackagesHelper(
 export async function calculateSegmentsFromIngestData(
 	context: JobContext,
 	ingestModel: IngestModel,
-	ingestSegments: LocalIngestSegment[],
+	ingestSegments: SofieIngestSegment[],
 	allRundownWatchedPackages0: WatchedPackagesHelper | null
 ): Promise<SegmentId[]> {
 	const span = context.startSpan('ingest.rundownInput.calculateSegmentsFromIngestData')
@@ -97,7 +99,7 @@ async function regenerateSegmentAndUpdateModelFull(
 	blueprint: ReadonlyDeep<WrappedShowStyleBlueprint>,
 	allRundownWatchedPackages: WatchedPackagesHelper,
 	ingestModel: IngestModel,
-	ingestSegment: LocalIngestSegment
+	ingestSegment: SofieIngestSegment
 ): Promise<SegmentId> {
 	// Ensure the parts are sorted by rank
 	ingestSegment.parts.sort((a, b) => a.rank - b.rank)
@@ -106,7 +108,7 @@ async function regenerateSegmentAndUpdateModelFull(
 	const segmentId = ingestModel.getSegmentIdFromExternalId(ingestSegment.externalId)
 	const segmentWatchedPackages = allRundownWatchedPackages.filter(
 		context,
-		(p) => 'segmentId' in p && p.segmentId === segmentId
+		(p) => 'segmentId' in p.source && p.source.segmentId === segmentId
 	)
 
 	let updatedSegmentModel = await regenerateSegmentAndUpdateModel(
@@ -151,7 +153,7 @@ async function regenerateSegmentAndUpdateModel(
 	showStyle: ReadonlyDeep<ProcessedShowStyleCompound>,
 	blueprint: ReadonlyDeep<WrappedShowStyleBlueprint>,
 	ingestModel: IngestModel,
-	ingestSegment: LocalIngestSegment,
+	ingestSegment: SofieIngestSegment,
 	watchedPackages: WatchedPackagesHelper
 ): Promise<IngestSegmentModel> {
 	const rundown = ingestModel.getRundown()
@@ -190,11 +192,10 @@ async function checkIfSegmentReferencesUnloadedPackageInfos(
 	// check if there are any updates right away?
 	for (const part of segmentModel.parts) {
 		for (const expectedPackage of part.expectedPackages) {
-			if (expectedPackage.listenToPackageInfoUpdates) {
-				const loadedPackage = segmentWatchedPackages.getPackage(expectedPackage._id)
-				if (!loadedPackage) {
+			if (expectedPackage.source.listenToPackageInfoUpdates) {
+				if (!segmentWatchedPackages.hasPackage(expectedPackage.packageId)) {
 					// The package didn't exist prior to the blueprint running
-					expectedPackageIdsToCheck.add(expectedPackage._id)
+					expectedPackageIdsToCheck.add(expectedPackage.packageId)
 				}
 			}
 		}
@@ -214,7 +215,7 @@ async function generateSegmentWithBlueprints(
 	showStyle: ReadonlyDeep<ProcessedShowStyleCompound>,
 	blueprint: ReadonlyDeep<WrappedShowStyleBlueprint>,
 	rundown: ReadonlyDeep<Rundown>,
-	ingestSegment: IngestSegment,
+	ingestSegment: SofieIngestSegment,
 	watchedPackages: WatchedPackagesHelper
 ): Promise<{
 	blueprintSegment: BlueprintResultSegment
@@ -235,6 +236,14 @@ async function generateSegmentWithBlueprints(
 
 	try {
 		const blueprintSegment = await blueprint.blueprint.getSegment(blueprintContext, ingestSegment)
+
+		const legacyShowShelf = (blueprintSegment?.segment as any)?.showShelf
+		if (legacyShowShelf !== undefined) {
+			blueprintContext.logWarning(
+				'Deprecated blueprint segment field "showShelf" used. Use "displayMinishelf" instead.'
+			)
+		}
+
 		return {
 			blueprintSegment,
 			blueprintNotes: blueprintContext.notes,
@@ -247,11 +256,10 @@ async function generateSegmentWithBlueprints(
 
 function createInternalErrorSegment(
 	blueprintId: BlueprintId,
-	ingestSegment: LocalIngestSegment
+	ingestSegment: SofieIngestSegment
 ): IngestReplaceSegmentType {
 	return {
 		externalId: ingestSegment.externalId,
-		externalModified: ingestSegment.modified,
 		_rank: ingestSegment.rank,
 		notes: [
 			{
@@ -275,7 +283,7 @@ function updateModelWithGeneratedSegment(
 	context: JobContext,
 	blueprintId: BlueprintId,
 	ingestModel: IngestModel,
-	ingestSegment: LocalIngestSegment,
+	ingestSegment: SofieIngestSegment,
 	blueprintSegment: BlueprintResultSegment,
 	blueprintNotes: RawPartNote[]
 ): IngestSegmentModel {
@@ -284,13 +292,37 @@ function updateModelWithGeneratedSegment(
 
 	const segmentNotes = extractAndWrapSegmentNotes(blueprintId, blueprintNotes, knownPartExternalIds)
 
+	const blueprintSegmentSegment = blueprintSegment.segment as any
+	const legacyShowShelf: boolean | undefined = blueprintSegmentSegment?.showShelf
+
+	// Normalize legacy blueprint output (showShelf) into the new field (displayMinishelf)
+	const sanitizedSegment = { ...(blueprintSegmentSegment ?? {}) }
+	delete sanitizedSegment.showShelf
+	if (sanitizedSegment.displayMinishelf === undefined && legacyShowShelf !== undefined) {
+		if (legacyShowShelf === true) {
+			sanitizedSegment.displayMinishelf = ShelfButtonSize.INHERIT
+		} else {
+			// showShelf === false means hidden, which is encoded by leaving displayMinishelf unset
+		}
+
+		logger.warn(
+			`Deprecated blueprint segment field "showShelf" used during ingest. ` +
+				`blueprintId=${blueprintId}, segmentExternalId=${ingestSegment.externalId}`
+		)
+	}
+
 	const segmentModel = ingestModel.replaceSegment(
 		literal<IngestReplaceSegmentType>({
-			...blueprintSegment.segment,
+			...sanitizedSegment,
 			externalId: ingestSegment.externalId,
-			externalModified: ingestSegment.modified,
 			_rank: ingestSegment.rank,
 			notes: segmentNotes,
+			userEditOperations: translateUserEditsFromBlueprint(blueprintSegment.segment.userEditOperations, [
+				blueprintId,
+			]),
+			userEditProperties: translateUserEditPropertiesFromBlueprint(blueprintSegment.segment.userEditProperties, [
+				blueprintId,
+			]),
 		})
 	)
 
@@ -371,8 +403,12 @@ function updateModelWithGeneratedPart(
 					message: wrapTranslatableMessageFromBlueprints(blueprintPart.part.invalidReason.message, [
 						blueprintId,
 					]),
-			  }
+				}
 			: undefined,
+		userEditOperations: translateUserEditsFromBlueprint(blueprintPart.part.userEditOperations, [blueprintId]),
+		userEditProperties: translateUserEditPropertiesFromBlueprint(blueprintPart.part.userEditProperties, [
+			blueprintId,
+		]),
 	})
 
 	// Update pieces
@@ -402,7 +438,7 @@ function updateModelWithGeneratedPart(
 	)
 
 	const partModel = segmentModel.replacePart(part, processedPieces, adlibPieces, adlibActions)
-	updateExpectedPackagesForPartModel(context, partModel)
+	updateExpectedMediaAndPlayoutItemsForPartModel(context, partModel)
 }
 
 /**
@@ -479,7 +515,7 @@ function preserveOrphanedSegmentPositionInRundown(
 export async function updateSegmentFromIngestData(
 	context: JobContext,
 	ingestModel: IngestModel,
-	ingestSegment: LocalIngestSegment,
+	ingestSegment: SofieIngestSegment,
 	isNewSegment: boolean
 ): Promise<CommitIngestData | null> {
 	const span = context.startSpan('ingest.rundownInput.handleUpdatedPartInner')
@@ -515,7 +551,7 @@ export async function updateSegmentFromIngestData(
 export async function regenerateSegmentsFromIngestData(
 	context: JobContext,
 	ingestModel: IngestModel,
-	ingestRundown: LocalIngestRundown,
+	ingestRundown: SofieIngestRundown,
 	segmentIds: SegmentId[]
 ): Promise<{ result: CommitIngestData | null; skippedSegments: SegmentId[] }> {
 	const span = context.startSpan('ingest.rundownInput.handleUpdatedPartInner')
@@ -527,7 +563,7 @@ export async function regenerateSegmentsFromIngestData(
 	const rundown = ingestModel.getRundown()
 
 	const skippedSegments: SegmentId[] = []
-	const ingestSegments: LocalIngestSegment[] = []
+	const ingestSegments: SofieIngestSegment[] = []
 
 	for (const segmentId of segmentIds) {
 		const segment = ingestModel.getSegment(segmentId)
@@ -573,7 +609,7 @@ export async function regenerateSegmentsFromIngestData(
 export async function calculateSegmentsAndRemovalsFromIngestData(
 	context: JobContext,
 	ingestModel: IngestModel,
-	ingestRundown: LocalIngestRundown,
+	ingestRundown: SofieIngestRundown,
 	allRundownWatchedPackages: WatchedPackagesHelper
 ): Promise<{ changedSegmentIds: SegmentId[]; removedSegmentIds: SegmentId[] }> {
 	const changedSegmentIds = await calculateSegmentsFromIngestData(
@@ -591,6 +627,8 @@ export async function calculateSegmentsAndRemovalsFromIngestData(
 		removedSegmentIds.push(oldSegment.segment._id)
 		changedSegmentIds.push(oldSegment.segment._id)
 		oldSegment.setOrphaned(SegmentOrphanedReason.DELETED)
+
+		oldSegment.removeAllParts()
 	}
 
 	return { changedSegmentIds, removedSegmentIds }

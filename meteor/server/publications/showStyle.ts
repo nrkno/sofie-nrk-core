@@ -1,124 +1,100 @@
-import { meteorPublish, AutoFillSelector } from './lib'
-import { MeteorPubSub } from '../../lib/api/pubsub'
+import { MeteorPubSub } from '@sofie-automation/meteor-lib/dist/api/pubsub'
 import { DBShowStyleBase } from '@sofie-automation/corelib/dist/dataModel/ShowStyleBase'
 import { DBShowStyleVariant } from '@sofie-automation/corelib/dist/dataModel/ShowStyleVariant'
-import { RundownLayoutBase } from '../../lib/collections/RundownLayouts'
-import { ShowStyleReadAccess } from '../security/showStyle'
-import { OrganizationReadAccess } from '../security/organization'
-import { NoSecurityReadAccess } from '../security/noSecurity'
+import { RundownLayoutBase } from '@sofie-automation/meteor-lib/dist/collections/RundownLayouts'
 import { RundownLayouts, ShowStyleBases, ShowStyleVariants, TriggeredActions } from '../collections'
 import { MongoQuery } from '@sofie-automation/corelib/dist/mongo'
-import { DBTriggeredActions } from '../../lib/collections/TriggeredActions'
+import { DBTriggeredActions } from '@sofie-automation/meteor-lib/dist/collections/TriggeredActions'
 import { CorelibPubSub } from '@sofie-automation/corelib/dist/pubsub'
 import { ShowStyleBaseId, ShowStyleVariantId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { check, Match } from '../../lib/check'
+import { check, zAnyArray } from '../lib/check'
+import { triggerWriteAccessBecauseNoCheckNecessary } from '../security/securityVerify'
+import type { PublicationRegistry } from '../publicationRegistry'
 
-meteorPublish(
-	CorelibPubSub.showStyleBases,
-	async function (showStyleBaseIds: ShowStyleBaseId[] | null, token: string | undefined) {
-		check(showStyleBaseIds, Match.Maybe(Array))
+export function registerShowStylePublications(registry: PublicationRegistry): void {
+	registry.publish(
+		CorelibPubSub.showStyleBases,
+		async (_context, showStyleBaseIds: ShowStyleBaseId[] | null, _token: string | undefined) => {
+			check(showStyleBaseIds, zAnyArray.nullish())
 
-		// If values were provided, they must have values
-		if (showStyleBaseIds && showStyleBaseIds.length === 0) return null
+			triggerWriteAccessBecauseNoCheckNecessary()
 
-		const { cred, selector } = await AutoFillSelector.organizationId<DBShowStyleBase>(this.userId, {}, token)
+			// If values were provided, they must have values
+			if (showStyleBaseIds && showStyleBaseIds.length === 0) return null
 
-		// Add the requested filter
-		if (showStyleBaseIds) selector._id = { $in: showStyleBaseIds }
+			// Add the requested filter
+			const selector: MongoQuery<DBShowStyleBase> = {}
+			if (showStyleBaseIds) selector._id = { $in: showStyleBaseIds }
 
-		if (
-			!cred ||
-			NoSecurityReadAccess.any() ||
-			(selector.organizationId &&
-				(await OrganizationReadAccess.organizationContent(selector.organizationId, cred))) ||
-			(selector._id && (await ShowStyleReadAccess.showStyleBase(selector.id, cred)))
-		) {
 			return ShowStyleBases.findWithCursor(selector)
 		}
-		return null
-	}
-)
+	)
 
-meteorPublish(
-	CorelibPubSub.showStyleVariants,
-	async function (
-		showStyleBaseIds: ShowStyleBaseId[] | null,
-		showStyleVariantIds: ShowStyleVariantId[] | null,
-		token: string | undefined
-	) {
-		check(showStyleBaseIds, Match.Maybe(Array))
-		check(showStyleVariantIds, Match.Maybe(Array))
+	registry.publish(
+		CorelibPubSub.showStyleVariants,
+		async (
+			_context,
+			showStyleBaseIds: ShowStyleBaseId[] | null,
+			showStyleVariantIds: ShowStyleVariantId[] | null,
+			_token: string | undefined
+		) => {
+			check(showStyleBaseIds, zAnyArray.nullish())
+			check(showStyleVariantIds, zAnyArray.nullish())
 
-		// If values were provided, they must have values
-		if (showStyleBaseIds && showStyleBaseIds.length === 0) return null
-		if (showStyleVariantIds && showStyleVariantIds.length === 0) return null
+			triggerWriteAccessBecauseNoCheckNecessary()
 
-		const { cred, selector } = await AutoFillSelector.showStyleBaseId<DBShowStyleVariant>(this.userId, {}, token)
+			// If values were provided, they must have values
+			if (showStyleBaseIds && showStyleBaseIds.length === 0) return null
+			if (showStyleVariantIds && showStyleVariantIds.length === 0) return null
 
-		// Add the requested filter
-		if (showStyleBaseIds) selector.showStyleBaseId = { $in: showStyleBaseIds }
-		if (showStyleVariantIds) selector._id = { $in: showStyleVariantIds }
+			// Add the requested filter
+			const selector: MongoQuery<DBShowStyleVariant> = {}
+			if (showStyleBaseIds) selector.showStyleBaseId = { $in: showStyleBaseIds }
+			if (showStyleVariantIds) selector._id = { $in: showStyleVariantIds }
 
-		if (
-			!cred ||
-			NoSecurityReadAccess.any() ||
-			(selector.showStyleBaseId && (await ShowStyleReadAccess.showStyleBaseContent(selector, cred))) ||
-			(selector._id && (await ShowStyleReadAccess.showStyleVariant(selector._id, cred)))
-		) {
 			return ShowStyleVariants.findWithCursor(selector)
 		}
-		return null
-	}
-)
+	)
 
-meteorPublish(
-	MeteorPubSub.rundownLayouts,
-	async function (showStyleBaseIds: ShowStyleBaseId[] | null, token: string | undefined) {
-		check(showStyleBaseIds, Match.Maybe(Array))
+	registry.publish(
+		MeteorPubSub.rundownLayouts,
+		async (_context, showStyleBaseIds: ShowStyleBaseId[] | null, _token: string | undefined) => {
+			check(showStyleBaseIds, zAnyArray.nullish())
 
-		// If values were provided, they must have values
-		if (showStyleBaseIds && showStyleBaseIds.length === 0) return null
+			triggerWriteAccessBecauseNoCheckNecessary()
 
-		const selector0: MongoQuery<RundownLayoutBase> = {}
-		if (showStyleBaseIds) selector0.showStyleBaseId = { $in: showStyleBaseIds }
+			// If values were provided, they must have values
+			if (showStyleBaseIds && showStyleBaseIds.length === 0) return null
 
-		const { cred, selector } = await AutoFillSelector.showStyleBaseId(this.userId, selector0, token)
+			const selector: MongoQuery<RundownLayoutBase> = {}
+			if (showStyleBaseIds) selector.showStyleBaseId = { $in: showStyleBaseIds }
 
-		if (!cred || (await ShowStyleReadAccess.showStyleBaseContent(selector, cred))) {
 			return RundownLayouts.findWithCursor(selector)
 		}
-		return null
-	}
-)
+	)
 
-meteorPublish(
-	MeteorPubSub.triggeredActions,
-	async function (showStyleBaseIds: ShowStyleBaseId[] | null, token: string | undefined) {
-		check(showStyleBaseIds, Match.Maybe(Array))
+	registry.publish(
+		MeteorPubSub.triggeredActions,
+		async (_context, showStyleBaseIds: ShowStyleBaseId[] | null, _token: string | undefined) => {
+			check(showStyleBaseIds, zAnyArray.nullish())
 
-		const selector0: MongoQuery<DBTriggeredActions> =
-			showStyleBaseIds && showStyleBaseIds.length > 0
-				? {
-						$or: [
-							{
-								showStyleBaseId: null,
-							},
-							{
-								showStyleBaseId: { $in: showStyleBaseIds },
-							},
-						],
-				  }
-				: { showStyleBaseId: null }
+			triggerWriteAccessBecauseNoCheckNecessary()
 
-		const { cred, selector } = await AutoFillSelector.showStyleBaseId(this.userId, selector0, token)
+			const selector: MongoQuery<DBTriggeredActions> =
+				showStyleBaseIds && showStyleBaseIds.length > 0
+					? {
+							$or: [
+								{
+									showStyleBaseId: null,
+								},
+								{
+									showStyleBaseId: { $in: showStyleBaseIds },
+								},
+							],
+						}
+					: { showStyleBaseId: null }
 
-		if (
-			!cred ||
-			NoSecurityReadAccess.any() ||
-			(selector.showStyleBaseId && (await ShowStyleReadAccess.showStyleBaseContent(selector, cred)))
-		) {
 			return TriggeredActions.findWithCursor(selector)
 		}
-		return null
-	}
-)
+	)
+}

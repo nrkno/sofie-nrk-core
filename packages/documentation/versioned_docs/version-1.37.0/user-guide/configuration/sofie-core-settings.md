@@ -1,6 +1,7 @@
 ---
 sidebar_position: 1
 ---
+
 # Sofie Core: System Configuration
 
 _Sofie&nbsp;Core_ is configured at it's most basic level using a settings file and environment variables.
@@ -17,16 +18,6 @@ _Sofie&nbsp;Core_ is configured at it's most basic level using a settings file a
 		</tr>
 	</thead>
 	<tbody>
-		<tr>
-			<td>
-				<code>METEOR_SETTINGS</code>
-			</td>
-			<td>Contents of settings file (see below)</td>
-			<td></td>
-			<td>
-				<code>$(cat settings.json)</code>
-			</td>
-		</tr>
 		<tr>
 			<td>
 				<code>NTP_SERVERS</code>
@@ -83,8 +74,8 @@ The settings file is an optional JSON file that contains some configuration sett
 
 To use a settings file:
 
-* During development: `meteor --settings settings.json`
-* During prod: environment variable \(see above\)
+- During development: `meteor --settings settings.json`
+- During prod: environment variable \(see above\)
 
 The structure of the file allows for public and private fields. At the moment, Sofie only uses public fields. Below is an example settings file:
 
@@ -112,10 +103,6 @@ There are various settings you can set for an installation. See the list below:
 | `allowRundownResetOnAir`       | Should the user be allowed to reset Rundowns when they are On Air                                                    | `false`       |
 | `defaultDisplayDuration`       | The fallback duration of a Part, when it's expectedDuration is 0. \_\_In milliseconds                                | `3000`        |
 
-
 :::info
 The exact definition for the settings can be found [in the code here](https://github.com/nrkno/sofie-core/blob/master/meteor/lib/Settings.ts#L12).
 :::
-
-
-

@@ -6,14 +6,14 @@ import {
 } from '@sofie-automation/blueprints-integration'
 import { JSONBlob } from '@sofie-automation/shared-lib/dist/lib/JSONBlob'
 import { JSONSchema } from '@sofie-automation/shared-lib/dist/lib/JSONSchemaTypes'
-import { ProtectedString } from '../protectedString'
-import { BlueprintId, OrganizationId } from './Ids'
+import { BlueprintId } from './Ids.js'
+import type { PackageStatusMessage } from '@sofie-automation/shared-lib/dist/packageStatusMessages'
 
-export type BlueprintHash = ProtectedString<'BlueprintHash'>
+/** Content hash (or placeholder) for a blueprint code bundle — plain string, like blueprintVersion */
+export type BlueprintHash = string
 
 export interface Blueprint {
 	_id: BlueprintId
-	organizationId: OrganizationId | null
 	name: string
 	/** String containing the Code for the blueprint */
 	code: string
@@ -38,12 +38,6 @@ export interface Blueprint {
 	showStyleConfigPresets?: Record<string, IShowStyleConfigPreset>
 
 	databaseVersion: {
-		showStyle: {
-			[showStyleBaseId: string]: string
-		}
-		studio: {
-			[studioId: string]: string
-		}
 		system: string | undefined
 	}
 
@@ -53,18 +47,28 @@ export interface Blueprint {
 	/** Whether version checks should be disabled for this version */
 	disableVersionChecks?: boolean
 
-	/** Hash for the blueprint, changed each time it is changed */
+	/**
+	 * Hash of the blueprint `code` string. Changes whenever the uploaded bundle content changes.
+	 * Used to detect that rundowns/baselines need regenerating after a blueprint deploy.
+	 */
 	blueprintHash: BlueprintHash
 
 	/** Whether the blueprint this wraps has a `fixUpConfig` function defined */
 	hasFixUpFunction: boolean
+
+	/**
+	 * The blueprint provided alternate package status messages, if any were provided
+	 * Any undefined/unset values will use the system default messages.
+	 * Any empty strings will suppress the message from being shown.
+	 */
+	packageStatusMessages?: Partial<Record<PackageStatusMessage, string | undefined>>
 }
 
 /** Describes the last state a Blueprint document was in when applying config changes */
 export interface LastBlueprintConfig {
 	blueprintId: BlueprintId
 	blueprintHash: BlueprintHash
-	blueprintConfigPresetId: string
+	blueprintConfigPresetId: string | undefined
 
 	config: IBlueprintConfig
 }

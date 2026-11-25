@@ -1,20 +1,21 @@
+import { z } from 'zod'
 import { BlueprintId } from '@sofie-automation/corelib/dist/dataModel/Ids'
-import { check } from '../../../../lib/check'
-import { protectString, unprotectString } from '../../../../lib/lib'
+import { check } from '../../../lib/check'
+import { protectString, unprotectString } from '@sofie-automation/corelib/dist/protectedString'
 import { logger } from '../../../logging'
 import { APIFactory, APIRegisterHook, ServerAPIContext } from './types'
-import { APIBlueprint } from '../../../../lib/api/rest/v1'
-import { BlueprintsRestAPI } from '../../../../lib/api/rest/v1'
-import { Meteor } from 'meteor/meteor'
-import { ClientAPI } from '../../../../lib/api/client'
+import { APIBlueprint } from '../../../lib/rest/v1'
+import { BlueprintsRestAPI } from '../../../lib/rest/v1'
+import { ClientAPI } from '@sofie-automation/meteor-lib/dist/api/client'
 import { Blueprints } from '../../../collections'
 import { Blueprint } from '@sofie-automation/corelib/dist/dataModel/Blueprint'
 import { UserError, UserErrorMessage } from '@sofie-automation/corelib/dist/error'
 import { APIBlueprintFrom } from './typeConversion'
+import type { DDPClientConnection } from '../../../ddp-server/types'
 
 class BlueprintsServerAPI implements BlueprintsRestAPI {
 	async getAllBlueprints(
-		_connection: Meteor.Connection,
+		_connection: DDPClientConnection,
 		_event: string
 	): Promise<ClientAPI.ClientResponse<Array<{ id: string }>>> {
 		const blueprints = (await Blueprints.findFetchAsync({}, { projection: { _id: 1 } })) as Array<
@@ -25,15 +26,19 @@ class BlueprintsServerAPI implements BlueprintsRestAPI {
 	}
 
 	async getBlueprint(
-		_connection: Meteor.Connection,
+		_connection: DDPClientConnection,
 		_event: string,
 		blueprintId: BlueprintId
 	): Promise<ClientAPI.ClientResponse<APIBlueprint>> {
 		const blueprint = await Blueprints.findOneAsync(blueprintId)
 		if (!blueprint) {
 			return ClientAPI.responseError(
-				UserError.from(new Error(`Blueprint ${blueprintId} not found`), UserErrorMessage.BlueprintNotFound),
-				404
+				UserError.from(
+					new Error(`Blueprint ${blueprintId} not found`),
+					UserErrorMessage.BlueprintNotFound,
+					undefined,
+					404
+				)
 			)
 		}
 
@@ -72,7 +77,7 @@ export function registerRoutes(registerRoute: APIRegisterHook<BlueprintsRestAPI>
 			const blueprintId = protectString<BlueprintId>(params.blueprintId)
 			logger.info(`API GET: blueprint ${blueprintId}`)
 
-			check(blueprintId, String)
+			check(blueprintId, z.string())
 			return await serverAPI.getBlueprint(connection, event, blueprintId)
 		}
 	)

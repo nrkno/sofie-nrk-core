@@ -1,9 +1,8 @@
 import { ProtectedString } from '@sofie-automation/corelib/dist/protectedString'
-import { AnyBulkWriteOperation } from 'mongodb'
-import { ICollection, MongoQuery } from './collections'
-import _ = require('underscore')
+import { ICollection, MongoBulkWriteOperation, MongoQuery } from './collections.js'
+import _ from 'underscore'
 import { deleteAllUndefinedProperties, normalizeArrayToMap } from '@sofie-automation/corelib/dist/lib'
-import { JobContext } from '../jobs'
+import { JobContext } from '../jobs/index.js'
 
 /**
  * Object describe a collection write event
@@ -123,7 +122,7 @@ async function savePreparedChanges<TDoc extends { _id: ProtectedString<any> }>(
 		newObjIds.add(id)
 	}
 
-	const updates: AnyBulkWriteOperation<TDoc>[] = []
+	const updates: MongoBulkWriteOperation<TDoc>[] = []
 	const removedDocs: TDoc['_id'][] = []
 
 	_.each(preparedChanges.changed || [], (oUpdate) => {

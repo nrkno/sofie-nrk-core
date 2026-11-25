@@ -1,43 +1,43 @@
-import * as _ from 'underscore'
-import { getCurrentTime, sleep, Time } from '../../lib/lib'
-import { registerClassToMeteorMethods } from '../methods'
-import { MethodContextAPI, MethodContext } from '../../lib/api/methods'
+import { z } from 'zod'
+import _ from 'underscore'
+import type { Time } from '@sofie-automation/shared-lib/dist/lib/lib'
+import { sleep, getCurrentTime } from '../lib/lib'
+import { MethodContextAPI, MethodContext } from './methodContext'
 import {
-	SystemAPIMethods,
 	CollectionCleanupResult,
 	SystemAPI,
 	BenchmarkResult,
 	SystemBenchmarkResults,
-} from '../../lib/api/system'
+} from '@sofie-automation/meteor-lib/dist/api/system'
 import { CollectionIndexes, getTargetRegisteredIndexes } from '../collections/indices'
-import { Meteor } from 'meteor/meteor'
 import { logger } from '../logging'
-import { SystemWriteAccess } from '../security/system'
-import { check } from '../../lib/check'
-import { IndexSpecifier } from '../../lib/collections/lib'
+import { check } from '../lib/check'
+import { IndexSpecifier } from '@sofie-automation/meteor-lib/dist/collections/lib'
 import { getBundle as getTranslationBundleInner } from './translationsBundles'
-import { TranslationsBundle } from '../../lib/collections/TranslationsBundles'
-import { OrganizationContentWriteAccess } from '../security/organization'
-import { ClientAPI } from '../../lib/api/client'
+import { TranslationsBundle } from '@sofie-automation/meteor-lib/dist/collections/TranslationsBundles'
+import { ClientAPI } from '@sofie-automation/meteor-lib/dist/api/client'
 import { cleanupOldDataInner } from './cleanup'
 import { IndexSpecification } from 'mongodb'
 import { nightlyCronjobInner } from '../cronjobs'
 import { TranslationsBundleId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { createAsyncOnlyMongoCollection, AsyncOnlyMongoCollection } from '../collections/collection'
 import { generateToken } from './singleUseTokens'
-import { triggerWriteAccessBecauseNoCheckNecessary } from '../security/lib/securityVerify'
+import { triggerWriteAccessBecauseNoCheckNecessary } from '../security/securityVerify'
 import { stringifyError } from '@sofie-automation/shared-lib/dist/lib/stringifyError'
+import { assertConnectionHasOneOfPermissions } from '../security/auth'
+import { UserPermissions } from '@sofie-automation/meteor-lib/dist/userPermissions'
+import { SofieError } from '@sofie-automation/corelib/dist/error'
+
+const PERMISSIONS_FOR_SYSTEM_CLEANUP: Array<keyof UserPermissions> = ['configure']
 
 async function setupIndexes(removeOldIndexes = false): Promise<Array<IndexSpecification>> {
 	// Note: This function should NOT run on Meteor.startup, due to getCollectionIndexes failing if run before indexes have been created.
 	const registeredIndexes = getTargetRegisteredIndexes()
-	if (!Meteor.isServer) throw new Meteor.Error(500, `setupIndexes() can only be run server-side`)
 
 	const removeIndexes: IndexSpecification[] = []
 	await Promise.all(
 		Object.entries<CollectionIndexes<any>>(registeredIndexes).map(async ([collectionName, targetInfo]) => {
-			const rawCollection = targetInfo.collection.rawCollection()
-			const existingIndexes = (await rawCollection.indexes()) as any[]
+			const existingIndexes = await targetInfo.collection.getIndexes()
 
 			const targetIndexes: IndexSpecifier<any>[] = [...targetInfo.indexes, { _id: 1 }]
 
@@ -54,7 +54,7 @@ async function setupIndexes(removeOldIndexes = false): Promise<Array<IndexSpecif
 						// The existing index does not exist in our specified list of indexes, and should be removed.
 						if (removeOldIndexes) {
 							logger.info(`Removing index: ${JSON.stringify(existingIndex.key)}`)
-							rawCollection.dropIndex(existingIndex.name).catch((e) => {
+							targetInfo.collection.dropIndex(existingIndex.name).catch((e) => {
 								logger.warn(
 									`Failed to drop index: ${JSON.stringify(existingIndex.key)}: ${stringifyError(e)}`
 								)
@@ -66,35 +66,29 @@ async function setupIndexes(removeOldIndexes = false): Promise<Array<IndexSpecif
 
 			// Ensure new indexes (add if not existing):
 			for (const index of targetInfo.indexes) {
-				targetInfo.collection._ensureIndex(index)
+				targetInfo.collection.createIndex(index)
 			}
 		})
 	)
 	return removeIndexes
 }
-function ensureIndexes(): void {
+export function createIndexes(): void {
 	const indexes = getTargetRegisteredIndexes()
-	if (!Meteor.isServer) throw new Meteor.Error(500, `setupIndexes() can only be run server-side`)
 
 	// Ensure new indexes:
 	_.each(indexes, (i) => {
 		_.each(i.indexes, (index) => {
-			i.collection._ensureIndex(index)
+			i.collection.createIndex(index)
 		})
 	})
 }
-
-Meteor.startup(() => {
-	// Ensure indexes are created on startup:
-	ensureIndexes()
-})
 
 async function cleanupIndexes(
 	context: MethodContext,
 	actuallyRemoveOldIndexes: boolean
 ): Promise<Array<IndexSpecification>> {
-	check(actuallyRemoveOldIndexes, Boolean)
-	await SystemWriteAccess.coreSystem(context)
+	check(actuallyRemoveOldIndexes, z.boolean())
+	assertConnectionHasOneOfPermissions(context.connection, ...PERMISSIONS_FOR_SYSTEM_CLEANUP)
 
 	return setupIndexes(actuallyRemoveOldIndexes)
 }
@@ -102,13 +96,14 @@ async function cleanupOldData(
 	context: MethodContext,
 	actuallyRemoveOldData: boolean
 ): Promise<string | CollectionCleanupResult> {
-	check(actuallyRemoveOldData, Boolean)
-	await SystemWriteAccess.coreSystem(context)
+	check(actuallyRemoveOldData, z.boolean())
+
+	assertConnectionHasOneOfPermissions(context.connection, ...PERMISSIONS_FOR_SYSTEM_CLEANUP)
 
 	return cleanupOldDataInner(actuallyRemoveOldData)
 }
 async function runCronjob(context: MethodContext): Promise<void> {
-	await SystemWriteAccess.coreSystem(context)
+	assertConnectionHasOneOfPermissions(context.connection, ...PERMISSIONS_FOR_SYSTEM_CLEANUP)
 
 	return nightlyCronjobInner()
 }
@@ -118,7 +113,7 @@ let mongoTest: AsyncOnlyMongoCollection<any> | undefined = undefined
 async function doSystemBenchmarkInner() {
 	if (!mongoTest) {
 		mongoTest = createAsyncOnlyMongoCollection<any>('benchmark-test' as any, false)
-		mongoTest._ensureIndex({
+		mongoTest.createIndex({
 			indexedProp: 1,
 		})
 	}
@@ -292,7 +287,7 @@ async function doSystemBenchmarkInner() {
 	return result
 }
 async function doSystemBenchmark(context: MethodContext, runCount = 1): Promise<SystemBenchmarkResults> {
-	await SystemWriteAccess.coreSystem(context)
+	assertConnectionHasOneOfPermissions(context.connection, 'developer')
 
 	if (runCount < 1) throw new Error(`runCount must be >= 1`)
 
@@ -360,10 +355,11 @@ CPU JSON stringifying:       ${avg.cpuStringifying} ms (${comparison.cpuStringif
 	}
 }
 
-async function getTranslationBundle(context: MethodContext, bundleId: TranslationsBundleId) {
-	check(bundleId, String)
+async function getTranslationBundle(_context: MethodContext, bundleId: TranslationsBundleId) {
+	check(bundleId, z.string())
 
-	await OrganizationContentWriteAccess.translationBundle(context)
+	triggerWriteAccessBecauseNoCheckNecessary()
+
 	return ClientAPI.responseSuccess(await getTranslationBundleInner(bundleId))
 }
 
@@ -376,7 +372,7 @@ async function generateSingleUseToken() {
 	const eventTime = getCurrentTime()
 
 	if (lastTokenTimestamp !== undefined && eventTime <= lastTokenTimestamp + TOKEN_ISSUE_TIME_LIMIT) {
-		throw new Meteor.Error(503, `Tokens can only be issued every ${TOKEN_ISSUE_TIME_LIMIT / 1000}s.`)
+		throw new SofieError(503, `Tokens can only be issued every ${TOKEN_ISSUE_TIME_LIMIT / 1000}s.`)
 	}
 
 	lastTokenTimestamp = eventTime
@@ -384,17 +380,17 @@ async function generateSingleUseToken() {
 	return ClientAPI.responseSuccess(newToken)
 }
 
-class SystemAPIClass extends MethodContextAPI implements SystemAPI {
-	async cleanupIndexes(actuallyRemoveOldIndexes: boolean) {
+export class SystemAPIClass extends MethodContextAPI implements SystemAPI {
+	async cleanupIndexes(actuallyRemoveOldIndexes: boolean): Promise<any> {
 		return cleanupIndexes(this, actuallyRemoveOldIndexes)
 	}
-	async cleanupOldData(actuallyRemoveOldData: boolean) {
+	async cleanupOldData(actuallyRemoveOldData: boolean): Promise<CollectionCleanupResult | string> {
 		return cleanupOldData(this, actuallyRemoveOldData)
 	}
-	async runCronjob() {
+	async runCronjob(): Promise<void> {
 		return runCronjob(this)
 	}
-	async doSystemBenchmark(runCount = 1) {
+	async doSystemBenchmark(runCount = 1): Promise<SystemBenchmarkResults> {
 		return doSystemBenchmark(this, runCount)
 	}
 	async getTranslationBundle(bundleId: TranslationsBundleId): Promise<ClientAPI.ClientResponse<TranslationsBundle>> {
@@ -404,4 +400,3 @@ class SystemAPIClass extends MethodContextAPI implements SystemAPI {
 		return generateSingleUseToken()
 	}
 }
-registerClassToMeteorMethods(SystemAPIMethods, SystemAPIClass, false)

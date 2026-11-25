@@ -1,12 +1,12 @@
-import { Meteor } from 'meteor/meteor'
-import { protectString } from '../../../lib/lib'
-import { checkAccessAndGetPeripheralDevice } from '../ingest/lib'
-import { MethodContext } from '../../../lib/api/methods'
+import { protectString } from '@sofie-automation/corelib/dist/protectedString'
+import { checkAccessAndGetPeripheralDevice } from '../../security/check'
+import { MethodContext } from '../methodContext'
 import { MediaObject } from '@sofie-automation/shared-lib/dist/core/model/MediaObjects'
 import { MediaObjId, PeripheralDeviceId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { MediaObjectRevision } from '@sofie-automation/shared-lib/dist/peripheralDevice/mediaManager'
 import { MediaObjects } from '../../collections'
 import { getStudioIdFromDevice } from '../studio/lib'
+import { SofieError } from '@sofie-automation/corelib/dist/error'
 
 export namespace MediaScannerIntegration {
 	export async function getMediaObjectRevisions(
@@ -26,7 +26,7 @@ export namespace MediaScannerIntegration {
 					collectionId: collectionId,
 				},
 				{
-					fields: {
+					projection: {
 						_id: 1,
 						objId: 1,
 						_rev: 1,
@@ -41,7 +41,7 @@ export namespace MediaScannerIntegration {
 				}
 			})
 		} else {
-			throw new Meteor.Error(400, 'getMediaObjectRevisions: Device "' + peripheralDevice._id + '" has no studio')
+			throw new SofieError(400, 'getMediaObjectRevisions: Device "' + peripheralDevice._id + '" has no studio')
 		}
 	}
 	export async function updateMediaObject(
@@ -55,26 +55,26 @@ export namespace MediaScannerIntegration {
 		// logger.debug('updateMediaObject')
 		const peripheralDevice = await checkAccessAndGetPeripheralDevice(deviceId, deviceToken, context)
 		const studioId = await getStudioIdFromDevice(peripheralDevice)
+		if (!studioId)
+			throw new SofieError(400, 'updateMediaObject: Device "' + peripheralDevice._id + '" has no studio')
 
 		const _id: MediaObjId = protectString(collectionId + '_' + objId)
 		if (doc === null) {
 			await MediaObjects.removeAsync(_id)
 		} else if (doc) {
 			if (doc.mediaId !== doc.mediaId.toUpperCase())
-				throw new Meteor.Error(400, 'mediaId must only use uppercase characters')
+				throw new SofieError(400, 'mediaId must only use uppercase characters')
 
-			const doc2 = {
+			// logger.debug(doc2)
+			await MediaObjects.replaceAsync({
 				...doc,
 				studioId: studioId,
 				collectionId: collectionId,
 				objId: objId,
 				_id: _id,
-			}
-
-			// logger.debug(doc2)
-			await MediaObjects.upsertAsync(_id, { $set: doc2 })
+			})
 		} else {
-			throw new Meteor.Error(400, 'missing doc argument')
+			throw new SofieError(400, 'missing doc argument')
 		}
 	}
 	export async function clearMediaObjectCollection(

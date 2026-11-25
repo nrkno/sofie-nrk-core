@@ -1,0 +1,122 @@
+import { RundownId, RundownPlaylistActivationId, StudioId } from '@sofie-automation/corelib/dist/dataModel/Ids'
+import { logger } from '../../logging'
+import {
+	ContentCache,
+	partFieldSpecifier,
+	partInstanceFieldSpecifier,
+	rundownPlaylistFieldSpecifier,
+	segmentFieldSpecifier,
+	StudioFields,
+	studioFieldSpecifier,
+	StudioSettingsDoc,
+} from './reactiveContentCache'
+import { PartInstances, Parts, RundownPlaylists, Segments, Studios } from '../../collections'
+import { waitForAllObserversReady } from '../lib/lib'
+import { DBStudio } from '@sofie-automation/corelib/dist/dataModel/Studio'
+import { applyAndValidateOverrides } from '@sofie-automation/corelib/dist/settings/objectWithOverrides'
+import type { LiveQueryHandleSync } from '../../lib/lib'
+
+function convertStudioSettingsDoc(doc: Pick<DBStudio, StudioFields>): StudioSettingsDoc {
+	return {
+		_id: doc._id,
+		settings: applyAndValidateOverrides(doc.settingsWithOverrides).obj,
+	}
+}
+
+export class RundownContentObserver {
+	readonly #cache: ContentCache
+	readonly #observers: LiveQueryHandleSync[]
+
+	private constructor(cache: ContentCache, observers: LiveQueryHandleSync[]) {
+		this.#cache = cache
+
+		this.#observers = observers
+	}
+
+	static async create(
+		studioId: StudioId,
+		playlistActivationId: RundownPlaylistActivationId,
+		rundownIds: RundownId[],
+		cache: ContentCache
+	): Promise<RundownContentObserver> {
+		logger.silly(`Creating RundownContentObserver for rundowns "${rundownIds.join(',')}"`)
+
+		const observers = await waitForAllObserversReady([
+			Studios.observe(
+				{
+					_id: studioId,
+				},
+				{
+					added: (doc) => {
+						const newDoc = convertStudioSettingsDoc(doc)
+						cache.StudioSettings.replace(newDoc)
+					},
+					changed: (doc) => {
+						const newDoc = convertStudioSettingsDoc(doc)
+						cache.StudioSettings.replace(newDoc)
+					},
+					removed: (doc) => {
+						cache.StudioSettings.remove(doc._id)
+					},
+				},
+				{
+					projection: studioFieldSpecifier,
+				}
+			),
+			RundownPlaylists.observeChanges(
+				{
+					activationId: playlistActivationId,
+				},
+				cache.RundownPlaylists.link(),
+				{
+					projection: rundownPlaylistFieldSpecifier,
+				}
+			),
+			Segments.observeChanges(
+				{
+					rundownId: {
+						$in: rundownIds,
+					},
+				},
+				cache.Segments.link(),
+				{
+					projection: segmentFieldSpecifier,
+				}
+			),
+			Parts.observeChanges(
+				{
+					rundownId: {
+						$in: rundownIds,
+					},
+				},
+				cache.Parts.link(),
+				{
+					projection: partFieldSpecifier,
+				}
+			),
+			PartInstances.observeChanges(
+				{
+					rundownId: {
+						$in: rundownIds,
+					},
+					playlistActivationId,
+					reset: { $ne: true },
+				},
+				cache.PartInstances.link(),
+				{
+					projection: partInstanceFieldSpecifier,
+				}
+			),
+		])
+
+		return new RundownContentObserver(cache, observers)
+	}
+
+	public get cache(): ContentCache {
+		return this.#cache
+	}
+
+	public dispose = (): void => {
+		this.#observers.forEach((observer) => observer.stop())
+	}
+}

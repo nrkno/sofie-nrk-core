@@ -1,0 +1,248 @@
+/* SASS starting point. Import styles from here on: */
+
+/* body {
+	user-select: none;
+}
+
+input {
+	user-select: auto;
+} */
+
+@use 'fonts';
+
+@use 'defaultColors';
+
+@import 'bootstrap';
+
+@import 'itemTypeColors';
+
+@import 'colorScheme';
+@import '_variables';
+@import '_colorScheme';
+@import 'checkerboard';
+
+@import '_header';
+
+@import 'fromOrigo';
+
+@import 'afterBroadcastForm';
+@import 'collapseJSON';
+@import 'colorPicker';
+@import 'contextMenu';
+@import 'datePicker';
+@import 'externalMessagesStatus';
+@import 'iconPicker';
+@import 'modalDialog';
+@import 'multiSelect';
+@import 'notifications';
+@import 'propertiesPanel';
+@import 'overflowingContainer';
+@import 'pieceStatusIcon';
+@import 'prompter';
+@import 'tTimerDisplay';
+@import 'rundownStatusBar';
+@import 'rundownList';
+@import 'rundownSystemStatus';
+@import 'settings';
+@import 'splitDropdown';
+@import 'statusbar';
+@import 'studioScreenSaver';
+@import 'supportAndSwitchboardPanel';
+@import 'systemStatus';
+@import 'testtools';
+@import 'tooltips';
+@import 'utils';
+@import 'elementSelected';
+
+@import 'countdown/overlay';
+@import 'countdown/presenter';
+@import 'countdown/director';
+@import 'counterComponents';
+
+@import 'customizations/nrk/shelf/taPanel';
+
+@import 'shelf/adLibPanel';
+@import 'shelf/adLibRegionPanel';
+@import 'shelf/colored-box-panel';
+@import 'shelf/dashboard-rundownView';
+@import 'shelf/dashboard-streamdeck';
+@import 'shelf/dashboard';
+@import 'shelf/endTimerPanel';
+@import 'shelf/externalFramePanel';
+@import 'shelf/inspector';
+@import 'shelf/miniRundownPanel';
+@import 'shelf/nextInfoPanel';
+@import 'shelf/partCountdownPanel';
+@import 'shelf/partNamePanel';
+@import 'shelf/pieceCountdownPanel';
+@import 'shelf/playlistNamePanel';
+@import 'shelf/segmentNamePanel';
+@import 'shelf/segmentTimingPanel';
+@import 'shelf/shelf';
+@import 'shelf/startTimerPanel';
+@import 'shelf/studioNamePanel';
+@import 'shelf/textLabelPanel';
+@import 'shelf/timeOfDayPanel';
+
+@import '../lib/forms/SchemaFormTable/ObjectTable';
+@import '../lib/forms/SchemaFormOneOfButtons/OneOfButtons';
+@import '../lib/Components/PromiseButton';
+@import '../lib/VideoPreviewPlayer';
+@import '../ui/ClipTrimPanel/ClipTrimPanel';
+@import '../ui/ClipTrimPanel/TimecodeEncoder';
+@import '../ui/ClipTrimPanel/VideoEditMonitor';
+@import '../ui/SegmentStoryboard/StoryboardPartThumbnail/StoryboardPartThumbnail';
+@import '../ui/SegmentStoryboard/SegmentStoryboard';
+@import '../ui/SegmentStoryboard/StoryboardPartSecondaryPieces/StoryboardPartSecondaryPieces';
+@import '../ui/Settings/components/triggeredActions/TriggeredActionsEditor';
+@import '../ui/Settings/Forms';
+@import '../ui/SegmentTimeline/SegmentTimeline';
+@import '../ui/Status/media-status/MediaStatusListItem';
+@import '../ui/Status/media-status/MediaStatusList';
+@import '../ui/Status/media-status/MediaStatusListHeader';
+@import '../ui/Status/package-status/package-status';
+@import '../ui/SegmentList/LinePartPieceIndicator/LinePartPieceIndicator';
+@import '../ui/SegmentList/LinePartPieceIndicator/PieceIndicatorMenu';
+@import '../ui/SegmentList/SegmentList';
+@import '../ui/SegmentList/LinePartMainPiece/LinePartMainPiece';
+@import '../ui/SegmentList/LinePartTransitionPiece/LinePartTransitionPiece';
+@import '../ui/SegmentList/LinePartSecondaryPiece/LinePartSecondaryPiece';
+@import '../ui/PieceIcons/IconColors';
+@import '../ui/PieceIcons/PieceIcons';
+@import '../ui/ClockView/ClockViewPieceIcons/ClockViewPieceIcons';
+@import '../ui/ClockView/CameraScreen/CameraScreen';
+@import '../ui/RundownView/MediaStatusPopUp/MediaStatusPopUpItem';
+@import '../ui/RundownView/MediaStatusPopUp/MediaStatusPopUp';
+@import '../ui/RundownView/MediaStatusPopUp/MediaStatusPopUpHeader';
+@import '../ui/RundownView/MediaStatusPopUp/MediaStatusPopUpSegmentRule';
+@import '../ui/SegmentAdlibTesting/SegmentAdlibTesting';
+
+@import 'rundownView';
+
+body {
+	overscroll-behavior: none;
+	touch-action: pan-x pan-y;
+
+	letter-spacing: 0.5px;
+}
+
+// By default an a-tag has underlined text - and Link components are rendered as a-tags
+// So the default behaviour set to none, and then we can override it in the components that need it:
+a {
+	text-decoration: none;
+}
+
+:fullscreen ::-webkit-scrollbar {
+	background: #252627;
+}
+
+:fullscreen ::-webkit-scrollbar-thumb {
+	background: #555;
+	border: 3px solid #252627;
+	border-radius: 10px;
+}
+
+.scroll-sink {
+	overscroll-behavior: none;
+}
+
+// /* Don't show visited status, since people will browse around the app a lot */
+// a:visited {
+// 	color: $ui-button-primary;
+// }
+
+// .header {
+// 	position: fixed;
+// 	top: 0;
+// 	left: 0;
+// 	right: 0;
+// 	z-index: 500;
+// 	user-select: none;
+
+// 	// position: relative;
+// 	// z-index: 500;
+// }
+
+// #render-target {
+// 	font-weight: 300;
+
+// 	.checkbox {
+// 		vertical-align: top;
+
+// 		&.mod {
+// 			vertical-align: middle;
+// 		}
+// 	}
+
+// 	.btn,
+// 	.btn-tight {
+// 		font-weight: 300;
+// 	}
+
+// 	input {
+// 		&::-webkit-input-placeholder,
+// 		&::placeholder {
+// 			color: #bbb;
+// 		}
+// 	}
+
+// 	.scroll-x {
+// 		overflow-x: auto;
+// 	}
+// }
+
+// .btn > svg.svg-inline--fa + span {
+// 	margin-left: 0.5em;
+// }
+
+.switch-button {
+	width: 42px !important;
+	height: 21px !important;
+
+	&.sb-nocolor.sb-on {
+		.sb-content {
+			.sb-label {
+				background-color: #737373;
+			}
+		}
+	}
+
+	.sb-content {
+		width: 42px;
+		height: 21px;
+		> .sb-label {
+			width: 42px;
+			height: 21px;
+		}
+		.sb-switch {
+			width: 19px;
+			height: 19px;
+		}
+	}
+
+	&:active .sb-label {
+		opacity: 0.8;
+	}
+
+	&.sb-on {
+		.sb-switch {
+			transform: matrix(1, 0, 0, 1, 21, 0);
+		}
+	}
+}
+
+.form-switch.switch-lg {
+	.form-check-input {
+		width: 3em;
+		height: 1.5em;
+	}
+}
+.form-switch.switch-nocolor {
+	.form-check-input,
+	.form-check-input:checked {
+		--bs-form-switch-bg: #{escape-svg($form-switch-checked-bg-image)};
+
+		background-color: #737373;
+		border-color: #737373;
+	}
+}

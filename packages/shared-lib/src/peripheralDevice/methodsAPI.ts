@@ -1,16 +1,14 @@
-import {
+import type {
 	ExpectedPackageId,
 	ExpectedPackageWorkStatusId,
-	MediaWorkFlowId,
-	MediaWorkFlowStepId,
 	PeripheralDeviceCommandId,
 	PeripheralDeviceId,
 	TimelineHash,
-} from '../core/model/Ids'
-import { PeripheralDeviceForDevice } from '../core/model/peripheralDevice'
-import { IngestPlaylist, IngestRundown, IngestPart, IngestSegment } from './ingest'
-import { MediaObjectRevision, MediaWorkFlowRevision, MediaWorkFlowStepRevision } from './mediaManager'
-import {
+} from '../core/model/Ids.js'
+import type { PeripheralDeviceForDevice } from '../core/model/peripheralDevice.js'
+import type { IngestPlaylist, IngestRundown, IngestPart, IngestSegment } from './ingest.js'
+import type { MediaObjectRevision } from './mediaManager.js'
+import type {
 	IMOSRunningOrder,
 	IMOSRunningOrderBase,
 	IMOSRunningOrderStatus,
@@ -23,20 +21,19 @@ import {
 	IMOSROAction,
 	IMOSROReadyToAir,
 	IMOSROFullStory,
+	IMOSString128,
 } from '@mos-connection/model'
-import { IMOSString128 } from '@mos-connection/model'
-import { ExpectedPackageStatusAPI } from '../package-manager/package'
-import {
+import type { ExpectedPackageStatusAPI } from '../package-manager/package.js'
+import type {
 	PeripheralDeviceInitOptions,
 	PeripheralDeviceStatusObject,
 	TimelineTriggerTimeResult,
 	DiffTimeResult,
 	TimeDiff,
 	PlayoutChangedResults,
-} from './peripheralDeviceAPI'
-import { MediaObject } from '../core/model/MediaObjects'
-import { MediaWorkFlow } from '../core/model/MediaWorkFlows'
-import { MediaWorkFlowStep } from '../core/model/MediaWorkFlowSteps'
+} from './peripheralDeviceAPI.js'
+import type { PeripheralDeviceExternalEvent } from './externalEvents.js'
+import type { MediaObject } from '../core/model/MediaObjects.js'
 
 export type UpdateExpectedPackageWorkStatusesChanges =
 	| {
@@ -100,6 +97,11 @@ export interface NewPeripheralDeviceAPI {
 	ping(deviceId: PeripheralDeviceId, deviceToken: string): Promise<void>
 	getPeripheralDevice(deviceId: PeripheralDeviceId, deviceToken: string): Promise<PeripheralDeviceForDevice>
 	playoutPlaybackChanged(deviceId: PeripheralDeviceId, deviceToken: string, r: PlayoutChangedResults): Promise<void>
+	reportExternalEvents(
+		deviceId: PeripheralDeviceId,
+		deviceToken: string,
+		events: PeripheralDeviceExternalEvent[]
+	): Promise<void>
 	pingWithCommand(
 		deviceId: PeripheralDeviceId,
 		deviceToken: string,
@@ -277,30 +279,17 @@ export interface NewPeripheralDeviceAPI {
 	): Promise<void>
 	clearMediaObjectCollection(deviceId: PeripheralDeviceId, deviceToken: string, collectionId: string): Promise<void>
 
-	getMediaWorkFlowRevisions(deviceId: PeripheralDeviceId, deviceToken: string): Promise<MediaWorkFlowRevision[]>
-	getMediaWorkFlowStepRevisions(
-		deviceId: PeripheralDeviceId,
-		deviceToken: string
-	): Promise<MediaWorkFlowStepRevision[]>
-	updateMediaWorkFlow(
-		deviceId: PeripheralDeviceId,
-		deviceToken: string,
-		workFlowId: MediaWorkFlowId,
-		obj: MediaWorkFlow | null
-	): Promise<void>
-	updateMediaWorkFlowStep(
-		deviceId: PeripheralDeviceId,
-		deviceToken: string,
-		docId: MediaWorkFlowStepId,
-		obj: MediaWorkFlowStep | null
-	): Promise<void>
-
 	updateExpectedPackageWorkStatuses(
 		deviceId: PeripheralDeviceId,
 		deviceToken: string,
 		changes: UpdateExpectedPackageWorkStatusesChanges[]
 	): Promise<void>
 	removeAllExpectedPackageWorkStatusOfDevice(deviceId: PeripheralDeviceId, deviceToken: string): Promise<void>
+	removeAllExpectedPackageWorkStatusOfDeviceNotInList(
+		deviceId: PeripheralDeviceId,
+		deviceToken: string,
+		expectedWorkStatusIds: ExpectedPackageWorkStatusId[]
+	): Promise<void>
 
 	updatePackageContainerPackageStatuses(
 		deviceId: PeripheralDeviceId,
@@ -308,6 +297,17 @@ export interface NewPeripheralDeviceAPI {
 		changes: UpdatePackageContainerPackageStatusesChanges[]
 	): Promise<void>
 	removeAllPackageContainerPackageStatusesOfDevice(deviceId: PeripheralDeviceId, deviceToken: string): Promise<void>
+	/**
+	 *
+	 * @param deviceId The ID of the peripheral device
+	 * @param deviceToken The authentication token of the peripheral device
+	 * @param packageContainerPackageIdPairs An array of [containerId, packageId] pairs that should not be removed
+	 */
+	removeAllPackageContainerPackageStatusesOfDeviceNotInList(
+		deviceId: PeripheralDeviceId,
+		deviceToken: string,
+		packageContainerPackageIdPairs: { containerId: string; packageId: string }[]
+	): Promise<void>
 
 	updatePackageContainerStatuses(
 		deviceId: PeripheralDeviceId,
@@ -315,6 +315,11 @@ export interface NewPeripheralDeviceAPI {
 		changes: UpdatePackageContainerStatusesChanges[]
 	): Promise<void>
 	removeAllPackageContainerStatusesOfDevice(deviceId: PeripheralDeviceId, deviceToken: string): Promise<void>
+	removeAllPackageContainerStatusesOfDeviceNotInList(
+		deviceId: PeripheralDeviceId,
+		deviceToken: string,
+		packageContainerIds: string[]
+	): Promise<void>
 
 	fetchPackageInfoMetadata(
 		deviceId: PeripheralDeviceId,
@@ -389,6 +394,8 @@ export enum PeripheralDeviceAPIMethods {
 
 	'playoutPlaybackChanged' = 'peripheralDevice.playout.playbackChanged',
 
+	'reportExternalEvents' = 'peripheralDevice.playout.reportExternalEvents',
+
 	'getDebugStates' = 'peripheralDevice.playout.getDebugStates',
 
 	// 'reportCommandError' = 'peripheralDevice.playout.reportCommandError',
@@ -434,19 +441,17 @@ export enum PeripheralDeviceAPIMethods {
 	'updateMediaObject' = 'peripheralDevice.mediaScanner.updateMediaObject',
 	'clearMediaObjectCollection' = 'peripheralDevice.mediaScanner.clearMediaObjectCollection',
 
-	'getMediaWorkFlowRevisions' = 'peripheralDevice.mediaManager.getMediaWorkFlowRevisions',
-	'updateMediaWorkFlow' = 'peripheralDevice.mediaManager.updateMediaWorkFlow',
-	'getMediaWorkFlowStepRevisions' = 'peripheralDevice.mediaManager.getMediaWorkFlowStepRevisions',
-	'updateMediaWorkFlowStep' = 'peripheralDevice.mediaManager.updateMediaWorkFlowStep',
-
 	'updateExpectedPackageWorkStatuses' = 'peripheralDevice.packageManager.updateExpectedPackageWorkStatuses',
 	'removeAllExpectedPackageWorkStatusOfDevice' = 'peripheralDevice.packageManager.removeAllExpectedPackageWorkStatusOfDevice',
+	'removeAllExpectedPackageWorkStatusOfDeviceNotInList' = 'peripheralDevice.packageManager.removeAllExpectedPackageWorkStatusOfDeviceNotInList',
 
 	'updatePackageContainerPackageStatuses' = 'peripheralDevice.packageManager.updatePackageContainerPackageStatuses',
 	'removeAllPackageContainerPackageStatusesOfDevice' = 'peripheralDevice.packageManager.removeAllPackageContainerPackageStatusesOfDevice',
+	'removeAllPackageContainerPackageStatusesOfDeviceNotInList' = 'peripheralDevice.packageManager.removeAllPackageContainerPackageStatusesOfDeviceNotInList',
 
 	'updatePackageContainerStatuses' = 'peripheralDevice.packageManager.updatePackageContainerStatuses',
 	'removeAllPackageContainerStatusesOfDevice' = 'peripheralDevice.packageManager.removeAllPackageContainerStatusesOfDevice',
+	'removeAllPackageContainerStatusesOfDeviceNotInList' = 'peripheralDevice.packageManager.removeAllPackageContainerStatusesOfDeviceNotInList',
 
 	'fetchPackageInfoMetadata' = 'peripheralDevice.packageManager.fetchPackageInfoMetadata',
 	'updatePackageInfo' = 'peripheralDevice.packageManager.updatePackageInfo',

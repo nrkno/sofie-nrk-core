@@ -1,21 +1,17 @@
-import { check } from '../../../lib/check'
-import { Meteor } from 'meteor/meteor'
-import { MethodContext } from '../../../lib/api/methods'
-import { checkAccessAndGetPeripheralDevice } from '../ingest/lib'
+import { z } from 'zod'
+import { check, zAnyArray, zPlainObject } from '../../lib/check'
+import { MethodContext } from '../methodContext'
+import { checkAccessAndGetPeripheralDevice } from '../../security/check'
 import { ExpectedPackageStatusAPI, PackageInfo } from '@sofie-automation/blueprints-integration'
 import { ExpectedPackageWorkStatus } from '@sofie-automation/corelib/dist/dataModel/ExpectedPackageWorkStatuses'
-import { assertNever, getCurrentTime, literal, protectString } from '../../../lib/lib'
-import {
-	getPackageContainerPackageId,
-	PackageContainerPackageStatusDB,
-} from '@sofie-automation/corelib/dist/dataModel/PackageContainerPackageStatus'
+import { assertNever } from '@sofie-automation/corelib/dist/lib'
+import { protectString } from '@sofie-automation/corelib/dist/protectedString'
+import { getCurrentTime } from '../../lib/lib'
+import { getPackageContainerPackageId } from '@sofie-automation/corelib/dist/dataModel/PackageContainerPackageStatus'
 import { getPackageInfoId, PackageInfoDB } from '@sofie-automation/corelib/dist/dataModel/PackageInfos'
-import type { AnyBulkWriteOperation } from 'mongodb'
+import type { MongoBulkWriteOperation } from '@sofie-automation/corelib/dist/mongo'
 import { onUpdatedPackageInfo } from '../ingest/packageInfo'
-import {
-	getPackageContainerId,
-	PackageContainerStatusDB,
-} from '@sofie-automation/corelib/dist/dataModel/PackageContainerStatus'
+import { getPackageContainerId } from '@sofie-automation/corelib/dist/dataModel/PackageContainerStatus'
 import {
 	ExpectedPackageId,
 	ExpectedPackageWorkStatusId,
@@ -31,6 +27,9 @@ import {
 	PackageInfos,
 } from '../../collections'
 import { logger } from '../../logging'
+import _ from 'underscore'
+import { ExpectedPackageDB } from '@sofie-automation/corelib/dist/dataModel/ExpectedPackages'
+import { SofieError } from '@sofie-automation/corelib/dist/error'
 
 export namespace PackageManagerIntegration {
 	export async function updateExpectedPackageWorkStatuses(
@@ -57,16 +56,16 @@ export namespace PackageManagerIntegration {
 		type FromPackage = Omit<ExpectedPackageStatusAPI.WorkBaseInfoFromPackage, 'id'> & { id: ExpectedPackageId }
 
 		const peripheralDevice = await checkAccessAndGetPeripheralDevice(deviceId, deviceToken, context)
-		if (!peripheralDevice.studioId)
-			throw new Meteor.Error(400, 'Device "' + peripheralDevice._id + '" has no studio')
+		if (!peripheralDevice.studioAndConfigId)
+			throw new SofieError(400, 'Device "' + peripheralDevice._id + '" has no studio')
 
-		const bulkChanges: AnyBulkWriteOperation<ExpectedPackageWorkStatus>[] = []
+		const bulkChanges: MongoBulkWriteOperation<ExpectedPackageWorkStatus>[] = []
 		const removedIds: ExpectedPackageWorkStatusId[] = []
 
 		const ps: Promise<void>[] = []
 		for (const change of changes) {
-			check(change.id, String)
-			check(change, Object)
+			check(change.id, z.string())
+			check(change, zPlainObject)
 
 			if (change.type === 'delete') {
 				removedIds.push(change.id)
@@ -92,15 +91,23 @@ export namespace PackageManagerIntegration {
 					})
 				} else if (change.type === 'insert') {
 					// For inserts, we need to look up the ExpectedPackage in order to put it in the right studio:
-					check(workStatus.fromPackages, Array)
+					check(workStatus.fromPackages, zAnyArray)
 					const fromPackageIds = workStatus.fromPackages.map((p) => p.id)
 					if (fromPackageIds.length) {
 						ps.push(
-							ExpectedPackages.findOneAsync({
-								_id: { $in: fromPackageIds },
-							}).then((expPackage) => {
+							ExpectedPackages.findOneAsync(
+								{
+									_id: { $in: fromPackageIds },
+								},
+								{
+									projection: {
+										_id: 1,
+										studioId: 1,
+									},
+								}
+							).then((expPackage: Pick<ExpectedPackageDB, '_id' | 'studioId'> | undefined) => {
 								if (!expPackage)
-									throw new Meteor.Error(404, `ExpectedPackages "${fromPackageIds}" not found`)
+									throw new SofieError(404, `ExpectedPackages "${fromPackageIds}" not found`)
 
 								const doc: ExpectedPackageWorkStatus = {
 									...workStatus,
@@ -149,11 +156,35 @@ export namespace PackageManagerIntegration {
 		const peripheralDevice = await checkAccessAndGetPeripheralDevice(deviceId, deviceToken, context)
 
 		await ExpectedPackageWorkStatuses.removeAsync({
-			$or: [
+			$or: _.compact([
 				{ deviceId: peripheralDevice._id },
 				// Since we only have one PM in a studio, we can remove everything in the studio:
-				{ studioId: peripheralDevice.studioId },
-			],
+				peripheralDevice.studioAndConfigId ? { studioId: peripheralDevice.studioAndConfigId.studioId } : null,
+			]),
+		})
+	}
+
+	export async function removeAllExpectedPackageWorkStatusOfDeviceNotInList(
+		context: MethodContext,
+		deviceId: PeripheralDeviceId,
+		deviceToken: string,
+		expectedWorkStatusIds: ExpectedPackageWorkStatusId[]
+	): Promise<void> {
+		const peripheralDevice = await checkAccessAndGetPeripheralDevice(deviceId, deviceToken, context)
+
+		check(expectedWorkStatusIds, z.array(z.string()))
+
+		await ExpectedPackageWorkStatuses.removeAsync({
+			$or: _.compact([
+				{
+					deviceId: peripheralDevice._id,
+					_id: { $nin: expectedWorkStatusIds },
+				},
+				// Since we only have one PM in a studio, we can remove everything in the studio that has a different deviceId:
+				peripheralDevice.studioAndConfigId
+					? { deviceId: { $ne: peripheralDevice._id }, studioId: peripheralDevice.studioAndConfigId.studioId }
+					: null,
+			]),
 		})
 	}
 
@@ -176,19 +207,19 @@ export namespace PackageManagerIntegration {
 		)[]
 	): Promise<void> {
 		const peripheralDevice = await checkAccessAndGetPeripheralDevice(deviceId, deviceToken, context)
-		if (!peripheralDevice.studioId)
-			throw new Meteor.Error(400, 'Device "' + peripheralDevice._id + '" has no studio')
+		if (!peripheralDevice.studioAndConfigId)
+			throw new SofieError(400, 'Device "' + peripheralDevice._id + '" has no studio')
 
-		const studioId = peripheralDevice.studioId
+		const studioId = peripheralDevice.studioAndConfigId.studioId
 
 		const removedIds: PackageContainerPackageId[] = []
 		const ps: Promise<unknown>[] = []
 		for (const change of changes) {
-			check(change.containerId, String)
-			check(change.packageId, String)
+			check(change.containerId, z.string())
+			check(change.packageId, z.string())
 
 			const id = getPackageContainerPackageId(
-				peripheralDevice.studioId,
+				peripheralDevice.studioAndConfigId.studioId,
 				change.containerId,
 				protectString(change.packageId)
 			)
@@ -208,16 +239,14 @@ export namespace PackageManagerIntegration {
 							// The PackageContainerStatus doesn't exist
 							// Create it on the fly:
 
-							await PackageContainerPackageStatuses.upsertAsync(id, {
-								$set: literal<PackageContainerPackageStatusDB>({
-									_id: id,
-									studioId: studioId,
-									containerId: change.containerId,
-									deviceId: peripheralDevice._id,
-									packageId: protectString<ExpectedPackageId>(change.packageId),
-									status: change.status,
-									modified: getCurrentTime(),
-								}),
+							await PackageContainerPackageStatuses.replaceAsync({
+								_id: id,
+								studioId: studioId,
+								containerId: change.containerId,
+								deviceId: peripheralDevice._id,
+								packageId: protectString<ExpectedPackageId>(change.packageId),
+								status: change.status,
+								modified: getCurrentTime(),
 							})
 						}
 					})
@@ -244,11 +273,43 @@ export namespace PackageManagerIntegration {
 		const peripheralDevice = await checkAccessAndGetPeripheralDevice(deviceId, deviceToken, context)
 
 		await PackageContainerPackageStatuses.removeAsync({
-			$or: [
+			$or: _.compact([
 				{ deviceId: peripheralDevice._id },
 				// Since we only have one PM in a studio, we can remove everything in the studio:
-				{ studioId: peripheralDevice.studioId },
-			],
+				peripheralDevice.studioAndConfigId ? { studioId: peripheralDevice.studioAndConfigId.studioId } : null,
+			]),
+		})
+	}
+	export async function removeAllPackageContainerPackageStatusesOfDeviceNotInList(
+		context: MethodContext,
+		deviceId: PeripheralDeviceId,
+		deviceToken: string,
+		packageContainerPackageIdPairs: { containerId: string; packageId: string }[] // [containerId, packageId]
+	): Promise<void> {
+		const peripheralDevice = await checkAccessAndGetPeripheralDevice(deviceId, deviceToken, context)
+
+		check(packageContainerPackageIdPairs, z.array(z.object({ containerId: z.string(), packageId: z.string() })))
+
+		await PackageContainerPackageStatuses.removeAsync({
+			$or: _.compact([
+				{
+					$and: _.compact([
+						{ deviceId: peripheralDevice._id },
+						packageContainerPackageIdPairs.length > 0
+							? {
+									$nor: packageContainerPackageIdPairs.map(({ containerId, packageId }) => ({
+										containerId: protectString(containerId),
+										packageId: protectString(packageId),
+									})),
+								}
+							: undefined,
+					]),
+				},
+				// Since we only have one PM in a studio, we can remove everything in the studio that has a different deviceId:
+				peripheralDevice.studioAndConfigId
+					? { deviceId: { $ne: peripheralDevice._id }, studioId: peripheralDevice.studioAndConfigId.studioId }
+					: null,
+			]),
 		})
 	}
 
@@ -269,17 +330,17 @@ export namespace PackageManagerIntegration {
 		)[]
 	): Promise<void> {
 		const peripheralDevice = await checkAccessAndGetPeripheralDevice(deviceId, deviceToken, context)
-		if (!peripheralDevice.studioId)
-			throw new Meteor.Error(400, 'Device "' + peripheralDevice._id + '" has no studio')
+		if (!peripheralDevice.studioAndConfigId)
+			throw new SofieError(400, 'Device "' + peripheralDevice._id + '" has no studio')
 
-		const studioId = peripheralDevice.studioId
+		const studioId = peripheralDevice.studioAndConfigId.studioId
 
 		const removedIds: PackageContainerId[] = []
 		const ps: Promise<unknown>[] = []
 		for (const change of changes) {
-			check(change.containerId, String)
+			check(change.containerId, z.string())
 
-			const id = getPackageContainerId(peripheralDevice.studioId, change.containerId)
+			const id = getPackageContainerId(peripheralDevice.studioAndConfigId.studioId, change.containerId)
 
 			if (change.type === 'delete') {
 				removedIds.push(id)
@@ -296,15 +357,13 @@ export namespace PackageManagerIntegration {
 							// The PackageContainerStatus doesn't exist
 							// Create it on the fly:
 
-							await PackageContainerStatuses.upsertAsync(id, {
-								$set: literal<PackageContainerStatusDB>({
-									_id: id,
-									studioId: studioId,
-									containerId: change.containerId,
-									deviceId: peripheralDevice._id,
-									status: change.status,
-									modified: getCurrentTime(),
-								}),
+							await PackageContainerStatuses.replaceAsync({
+								_id: id,
+								studioId: studioId,
+								containerId: change.containerId,
+								deviceId: peripheralDevice._id,
+								status: change.status,
+								modified: getCurrentTime(),
 							})
 						}
 					})
@@ -331,11 +390,34 @@ export namespace PackageManagerIntegration {
 		const peripheralDevice = await checkAccessAndGetPeripheralDevice(deviceId, deviceToken, context)
 
 		await PackageContainerStatuses.removeAsync({
-			$or: [
+			$or: _.compact([
 				{ deviceId: peripheralDevice._id },
 				// Since we only have one PM in a studio, we can remove everything in the studio:
-				{ studioId: peripheralDevice.studioId },
-			],
+				peripheralDevice.studioAndConfigId ? { studioId: peripheralDevice.studioAndConfigId.studioId } : null,
+			]),
+		})
+	}
+	export async function removeAllPackageContainerStatusesOfDeviceNotInList(
+		context: MethodContext,
+		deviceId: PeripheralDeviceId,
+		deviceToken: string,
+		packageContainerIds: string[]
+	): Promise<void> {
+		const peripheralDevice = await checkAccessAndGetPeripheralDevice(deviceId, deviceToken, context)
+
+		check(packageContainerIds, z.array(z.string()))
+
+		await PackageContainerStatuses.removeAsync({
+			$or: _.compact([
+				{
+					deviceId: peripheralDevice._id,
+					containerId: { $nin: packageContainerIds },
+				},
+				// Since we only have one PM in a studio, we can remove everything in the studio that has a different deviceId:
+				peripheralDevice.studioAndConfigId
+					? { deviceId: { $ne: peripheralDevice._id }, studioId: peripheralDevice.studioAndConfigId.studioId }
+					: null,
+			]),
 		})
 	}
 
@@ -349,10 +431,10 @@ export namespace PackageManagerIntegration {
 		Array<{ packageId: ExpectedPackageId; expectedContentVersionHash: string; actualContentVersionHash: string }>
 	> {
 		const peripheralDevice = await checkAccessAndGetPeripheralDevice(deviceId, deviceToken, context)
-		check(packageIds, [String])
-		check(type, String)
-		if (!peripheralDevice.studioId)
-			throw new Meteor.Error(400, 'Device "' + peripheralDevice._id + '" has no studio')
+		check(packageIds, z.array(z.string()))
+		check(type, z.string())
+		if (!peripheralDevice.studioAndConfigId)
+			throw new SofieError(400, 'Device "' + peripheralDevice._id + '" has no studio')
 
 		const ids = packageIds.map((packageId) => getPackageInfoId(packageId, type))
 		const packageInfos = await PackageInfos.findFetchAsync(
@@ -361,7 +443,7 @@ export namespace PackageManagerIntegration {
 				$or: [{ removeTime: null }, { removeTime: { $exists: false } }],
 			},
 			{
-				fields: {
+				projection: {
 					payload: 0,
 				},
 			}
@@ -383,10 +465,10 @@ export namespace PackageManagerIntegration {
 		payload: unknown
 	): Promise<void> {
 		const peripheralDevice = await checkAccessAndGetPeripheralDevice(deviceId, deviceToken, context)
-		check(packageId, String)
-		check(type, String)
-		if (!peripheralDevice.studioId)
-			throw new Meteor.Error(400, 'Device "' + peripheralDevice._id + '" has no studio')
+		check(packageId, z.string())
+		check(type, z.string())
+		if (!peripheralDevice.studioAndConfigId)
+			throw new SofieError(400, 'Device "' + peripheralDevice._id + '" has no studio')
 
 		const id = getPackageInfoId(packageId, type)
 
@@ -397,19 +479,14 @@ export namespace PackageManagerIntegration {
 			expectedContentVersionHash: expectedContentVersionHash,
 			actualContentVersionHash: actualContentVersionHash,
 
-			studioId: peripheralDevice.studioId,
+			studioId: peripheralDevice.studioAndConfigId.studioId,
 
 			deviceId: peripheralDevice._id,
 
 			type: type,
 			payload: payload,
 		}
-		await PackageInfos.upsertAsync(id, {
-			$set: doc,
-			$unset: {
-				removeTime: 1,
-			},
-		})
+		await PackageInfos.replaceAsync(doc)
 
 		await onUpdatedPackageInfo(packageId, doc)
 	}
@@ -422,10 +499,10 @@ export namespace PackageManagerIntegration {
 		removeDelay?: number
 	): Promise<void> {
 		const peripheralDevice = await checkAccessAndGetPeripheralDevice(deviceId, deviceToken, context)
-		check(packageId, String)
-		check(type, String)
-		if (!peripheralDevice.studioId)
-			throw new Meteor.Error(400, 'Device "' + peripheralDevice._id + '" has no studio')
+		check(packageId, z.string())
+		check(type, z.string())
+		if (!peripheralDevice.studioAndConfigId)
+			throw new SofieError(400, 'Device "' + peripheralDevice._id + '" has no studio')
 
 		const id = getPackageInfoId(packageId, type)
 

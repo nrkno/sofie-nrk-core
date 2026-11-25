@@ -1,4 +1,3 @@
-import { Meteor } from 'meteor/meteor'
 import { RundownId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { logger } from '../../logging'
 import {
@@ -9,16 +8,22 @@ import {
 	segmentFieldSpecifier,
 } from './reactiveContentCache'
 import { PartInstances, Parts, Rundowns, Segments } from '../../collections'
+import { waitForAllObserversReady } from '../lib/lib'
+import type { LiveQueryHandleSync } from '../../lib/lib'
 
 export class RundownContentObserver {
-	#observers: Meteor.LiveQueryHandle[] = []
-	#cache: ContentCache
+	readonly #observers: LiveQueryHandleSync[]
+	readonly #cache: ContentCache
 
-	constructor(rundownIds: RundownId[], cache: ContentCache) {
-		logger.silly(`Creating RundownContentObserver for rundowns "${rundownIds.join(',')}"`)
+	private constructor(cache: ContentCache, observers: LiveQueryHandleSync[]) {
 		this.#cache = cache
+		this.#observers = observers
+	}
 
-		this.#observers = [
+	static async create(rundownIds: RundownId[], cache: ContentCache): Promise<RundownContentObserver> {
+		logger.silly(`Creating RundownContentObserver for rundowns "${rundownIds.join(',')}"`)
+
+		const observers = await waitForAllObserversReady([
 			Rundowns.observeChanges(
 				{
 					_id: {
@@ -53,11 +58,17 @@ export class RundownContentObserver {
 				}
 			),
 			PartInstances.observeChanges(
-				{ rundownId: { $in: rundownIds }, reset: { $ne: true }, orphaned: 'deleted' },
-				cache.DeletedPartInstances.link(),
-				{ fields: partInstanceFieldSpecifier }
+				{
+					rundownId: { $in: rundownIds },
+					reset: { $ne: true },
+					$or: [{ invalidReason: { $exists: true } }, { orphaned: 'deleted' }],
+				},
+				cache.PartInstances.link(),
+				{ projection: partInstanceFieldSpecifier }
 			),
-		]
+		])
+
+		return new RundownContentObserver(cache, observers)
 	}
 
 	public get cache(): ContentCache {

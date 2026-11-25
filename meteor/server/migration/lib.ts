@@ -1,12 +1,13 @@
-import * as _ from 'underscore'
-import { MigrationStepCore } from '@sofie-automation/blueprints-integration'
-import { objectPathGet, ProtectedString } from '../../lib/lib'
-import { Meteor } from 'meteor/meteor'
+import _ from 'underscore'
+import { MigrationStepCore } from '@sofie-automation/meteor-lib/dist/migrations'
+import { objectPathGet } from '@sofie-automation/corelib/dist/lib'
+import { ProtectedString } from '@sofie-automation/corelib/dist/protectedString'
 import { logger } from '../logging'
 import { CollectionName } from '@sofie-automation/corelib/dist/dataModel/Collections'
 import { AsyncOnlyMongoCollection } from '../collections/collection'
 import { Collections } from '../collections/lib'
 import { MongoQuery } from '@sofie-automation/corelib/dist/mongo'
+import { SofieError } from '@sofie-automation/corelib/dist/error'
 
 /**
  * Returns a migration step that ensures the provided property is set in the collection
@@ -20,7 +21,7 @@ export function ensureCollectionProperty<T = any>(
 	dependOnResultFrom?: string
 ): Omit<MigrationStepCore, 'version'> {
 	const collection = Collections.get(collectionName)
-	if (!collection) throw new Meteor.Error(404, `Collection ${collectionName} not found`)
+	if (!collection) throw new SofieError(404, `Collection ${collectionName} not found`)
 
 	return {
 		id: `${collectionName}.${property}`,
@@ -61,7 +62,7 @@ export function removeCollectionProperty<T = any>(
 	dependOnResultFrom?: string
 ): Omit<MigrationStepCore, 'version'> {
 	const collection = Collections.get(collectionName)
-	if (!collection) throw new Meteor.Error(404, `Collection ${collectionName} not found`)
+	if (!collection) throw new SofieError(404, `Collection ${collectionName} not found`)
 
 	return {
 		id: `${collectionName}.${property}`,
@@ -173,7 +174,7 @@ export function renamePropertiesInCollection<DBInterface extends { _id: Protecte
 					}
 				}
 
-				await collection.updateAsync(doc._id, doc)
+				await collection.replaceAsync(doc)
 			}
 		},
 	}
