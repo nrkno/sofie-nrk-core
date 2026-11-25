@@ -1,3 +1,4 @@
+import { UserError, UserErrorMessage } from '@sofie-automation/corelib/dist/error'
 import {
 	IActionExecutionContext,
 	IDataStoreActionExecutionContext,
@@ -17,6 +18,8 @@ import {
 	StudioRouteSet,
 	IBlueprintSegmentDB,
 	QueuePartTarget,
+	IBlueprintBrandingInfo,
+	BrandingChangeTarget,
 } from '@sofie-automation/blueprints-integration'
 import { PartInstanceId, PeripheralDeviceId } from '@sofie-automation/corelib/dist/dataModel/Ids'
 import { ReadonlyDeep } from 'type-fest'
@@ -29,7 +32,11 @@ import { JobContext, ProcessedShowStyleCompound } from '../../jobs/index.js'
 import { selectNewPartWithOffsets } from '../../playout/moveNextPart.js'
 import { ProcessedShowStyleConfig } from '../config.js'
 import { DatastorePersistenceMode } from '@sofie-automation/shared-lib/dist/core/model/TimelineDatastore'
-import { removeTimelineDatastoreValue, setTimelineDatastoreValue } from '../../playout/datastore.js'
+import {
+	assertValidTimelineDatastoreValue,
+	removeTimelineDatastoreValue,
+	setTimelineDatastoreValue,
+} from '../../playout/datastore.js'
 import { executePeripheralDeviceAction, listPlayoutDevices } from '../../peripheralDevice.js'
 import {
 	ActionPartChange,
@@ -39,7 +46,7 @@ import {
 import { BlueprintQuickLookInfo } from '@sofie-automation/blueprints-integration/dist/context/quickLoopInfo'
 import { setNextPartFromPart } from '../../playout/setNext.js'
 import { getOrderedPartsAfterPlayhead } from '../../playout/lookahead/util.js'
-import { convertPartToBlueprints, emitIngestOperation } from './lib.js'
+import { convertPartToBlueprints, emitIngestOperation, resolveSelectedBranding } from './lib.js'
 import { IPlaylistTTimer } from '@sofie-automation/blueprints-integration/dist/context/tTimersContext'
 import { TTimersService } from './services/TTimersService.js'
 import type { RundownTTimerIndex } from '@sofie-automation/corelib/dist/dataModel/RundownPlaylist/TTimers'
@@ -271,6 +278,40 @@ export class ActionExecutionContext extends ShowStyleUserContext implements IAct
 		return this._context.studio.routeSets as Record<string, StudioRouteSet>
 	}
 
+	getCurrentBranding(): ReadonlyDeep<IBlueprintBrandingInfo> | null {
+		return resolveSelectedBranding(
+			this.showStyleCompound,
+			this._playoutModel.currentPartInstance?.partInstance.brandingId
+		)
+	}
+
+	getNextBranding(): ReadonlyDeep<IBlueprintBrandingInfo> | null {
+		return resolveSelectedBranding(
+			this.showStyleCompound,
+			this._playoutModel.nextPartInstance?.partInstance.brandingId
+		)
+	}
+
+	async setBranding(target: BrandingChangeTarget, brandingId: string | null): Promise<void> {
+		// These are mistakes in the blueprint or its config, not a fault in the server
+		if (target !== 'current' && target !== 'next' && target !== 'both') {
+			const message = `Branding target "${target}" is not valid`
+			throw UserError.from(new Error(message), UserErrorMessage.ValidationFailed, { message }, 400)
+		}
+		if (
+			brandingId !== null &&
+			(typeof brandingId !== 'string' || !Object.hasOwn(this.showStyleCompound.branding, brandingId))
+		) {
+			const message = `Branding "${brandingId}" does not exist in the ShowStyle`
+			throw UserError.from(new Error(message), UserErrorMessage.ValidationFailed, { message }, 400)
+		}
+
+		this._playoutModel.setBranding(target, brandingId)
+
+		// The Branding may be used when generating the timeline
+		this.forceRegenerateTimeline = true
+	}
+
 	async switchRouteSet(routeSetId: string, state: boolean | 'toggle'): Promise<void> {
 		const affectsTimeline = this._playoutModel.switchRouteSet(routeSetId, state)
 		this.forceRegenerateTimeline = this.forceRegenerateTimeline || affectsTimeline
@@ -294,6 +335,9 @@ export class ActionExecutionContext extends ShowStyleUserContext implements IAct
 	}
 
 	async setTimelineDatastoreValue(key: string, value: unknown, mode: DatastorePersistenceMode): Promise<void> {
+		// Check now, so that the blueprint gets the error instead of it being thrown after the save
+		assertValidTimelineDatastoreValue(key, value)
+
 		this._playoutModel.deferAfterSave(async () => {
 			await setTimelineDatastoreValue(this._context, key, value, mode)
 		})
