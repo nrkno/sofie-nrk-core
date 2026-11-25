@@ -27,6 +27,7 @@ import { IBlueprintDirectPlayType, IBlueprintPieceType } from '@sofie-automation
 import { ReadonlyDeep } from 'type-fest'
 import { WatchedPackagesHelper } from '../blueprints/context/watchedPackages.js'
 import { innerFindLastPieceOnLayer, innerStartOrQueueAdLibPiece, innerStopPieces } from './adlibUtils.js'
+import { isValidForBranding } from '@sofie-automation/corelib/dist/playout/branding'
 import _ from 'underscore'
 import { executeActionInner } from './adlibAction.js'
 import { PlayoutPieceInstanceModel } from './model/PlayoutPieceInstanceModel.js'
@@ -146,8 +147,7 @@ async function pieceTakeNowAsAdlib(
 	currentPartInstance: PlayoutPartInstanceModel,
 	pieceToCopy: PieceInstancePiece,
 	pieceInstanceToCopy:
-		| { partInstance: PlayoutPartInstanceModel; pieceInstance: PlayoutPieceInstanceModel }
-		| undefined
+		{ partInstance: PlayoutPartInstanceModel; pieceInstance: PlayoutPieceInstanceModel } | undefined
 ): Promise<void> {
 	const genericAdlibPiece = convertAdLibToGenericPiece(pieceToCopy, false)
 	/*const newPieceInstance = */ currentPartInstance.insertAdlibbedPiece(genericAdlibPiece, pieceToCopy._id)
@@ -274,6 +274,21 @@ export async function handleAdLibPieceStart(context: JobContext, data: AdlibPiec
 					new Error(`Cannot take floated AdLib Piece "${data.adLibPieceId}"!`),
 					UserErrorMessage.AdlibUnplayable
 				)
+
+			// A bucket AdLib is never limited to a Branding
+			if ('onlyValidForBranding' in adLibPiece) {
+				// A queued AdLib is played in a new PartInstance, which inherits the Branding
+				const brandingId = data.queue
+					? playoutModel.getBrandingForNewPartInstance()
+					: partInstance.partInstance.brandingId
+				if (!isValidForBranding(adLibPiece, brandingId))
+					throw UserError.from(
+						new Error(`AdLib Piece "${data.adLibPieceId}" is not used with the selected Branding!`),
+						UserErrorMessage.AdlibNotValidForBranding,
+						undefined,
+						412
+					)
+			}
 
 			await innerStartOrQueueAdLibPiece(context, playoutModel, !!data.queue, partInstance, adLibPiece)
 		}
@@ -423,7 +438,12 @@ export async function handleDisableNextPiece(context: JobContext, data: DisableN
 					nowInPart = getCurrentTime() - partInstance.partInstance.timings?.plannedStartedPlayback
 				}
 
+				const brandingId = partInstance.partInstance.brandingId
+
 				const filteredPieces = partInstance.pieceInstances.filter((piece) => {
+					// A Piece hidden by the Branding is not playing, so there is nothing to disable
+					if (!isValidForBranding(piece.pieceInstance.piece, brandingId)) return false
+
 					const sourceLayer = allowedSourceLayers[piece.pieceInstance.piece.sourceLayerId]
 					if (
 						sourceLayer?.allowDisable &&

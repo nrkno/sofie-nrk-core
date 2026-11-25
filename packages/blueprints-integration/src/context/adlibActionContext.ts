@@ -6,13 +6,16 @@ import { IExecuteTSRActionsContext, ITriggerIngestChangeContext } from './execut
 import { IRouteSetMethods } from './routeSetContext.js'
 import { ITTimersContext } from './tTimersContext.js'
 import type { IPlayoutActionContext } from './playoutActionContext.js'
+import type { IBrandingMutateMethods } from './brandingContext.js'
 
 /** Actions */
 export interface IDataStoreMethods {
 	/**
 	 * Setting a value in the datastore allows us to overwrite parts of a timeline content object with that value
 	 * @param key Key to use when referencing from the timeline object
-	 * @param value Value to overwrite the timeline object's content with
+	 * @param value Value to overwrite the timeline object's content with.
+	 * If it is an object or array, none of its field names (at any depth) may contain `.` or null bytes, or start with `$`.
+	 * Such values are rejected, as they can't be published to the UI.
 	 * @param mode In temporary mode the value may be removed when the key is no longer on the timeline
 	 */
 	setTimelineDatastoreValue(key: string, value: any, mode: DatastorePersistenceMode): Promise<void>
@@ -31,7 +34,8 @@ export interface IActionExecutionContext
 		ITriggerIngestChangeContext,
 		IRouteSetMethods,
 		ITTimersContext,
-		IPlayoutActionContext {
+		IPlayoutActionContext,
+		IBrandingMutateMethods {
 	/** Fetch the showstyle config for the specified part */
 	// getNextShowStyleConfig(): Readonly<{ [key: string]: ConfigItemValue }>
 	/** Misc actions */

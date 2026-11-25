@@ -77,10 +77,7 @@ interface QuickLoopPlaylistMarker {
 }
 
 export type QuickLoopMarker =
-	| QuickLoopPartMarker
-	| QuickLoopSegmentMarker
-	| QuickLoopRundownMarker
-	| QuickLoopPlaylistMarker
+	QuickLoopPartMarker | QuickLoopSegmentMarker | QuickLoopRundownMarker | QuickLoopPlaylistMarker
 
 export interface QuickLoopProps {
 	/** The Start marker */
@@ -128,6 +125,13 @@ export interface DBRundownPlaylist {
 	privateData?: unknown
 	/** Arbitraty data relevant for other systems and exposed to them via APIs */
 	publicData?: unknown
+
+	/**
+	 * The Branding to use for the first PartInstance to be created.
+	 * Every PartInstance is stamped with a Branding when it is created, so this is only used until then.
+	 * `null` means no Branding is to be used.
+	 */
+	defaultBrandingId: string | null
 
 	/** the id of the Live Part - if empty, no part in this rundown is live */
 	currentPartInfo: SelectedPartInstance | null
