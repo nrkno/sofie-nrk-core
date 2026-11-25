@@ -17,8 +17,6 @@ on:
 permissions:
   contents: write
 
-permissions:
-  contents: write
 
 jobs:
   prune-tags:

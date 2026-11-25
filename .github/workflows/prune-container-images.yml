@@ -6,9 +6,6 @@ on:
     - cron: "12 14 * * *"
 
 permissions:
-  packages: write
-
-permissions:
   contents: read
   packages: write
   
